@@ -1,5 +1,5 @@
 from __future__ import annotations
-import json, random, sqlite3, statistics, time
+import json, random, sqlite3, statistics, time, copy
 from pathlib import Path
 from flask import Flask, request, jsonify, send_from_directory
 
@@ -27,6 +27,8 @@ DEFAULT={
  'categories':{
   'double':{'enabled':True,'pct':20,'min':1,'max':10,'display':'both'},
   'addition':{'enabled':True,'pct':20,'aMin':1,'aMax':50,'bMin':1,'bMax':20,'maxResult':100},
+  'subtraction':{'enabled':False,'pct':0,'aMin':1,'aMax':100,'bMin':1,'bMax':50,'nonNegative':True},
+  'decimal':{'enabled':False,'pct':0,'min':0,'max':20,'operation':'both','decimals':1},
   'multiplication':{'enabled':True,'pct':20,'tables':[2,3,4],'factorMin':1,'factorMax':10},
   'division':{'enabled':True,'pct':15,'tables':[2,3,4],'quotientMin':1,'quotientMax':10},
   'complement10':{'enabled':True,'pct':10},
@@ -34,7 +36,15 @@ DEFAULT={
  }}
 
 def get_cfg(pid):
-    c=db(); r=c.execute('SELECT data FROM configs WHERE profile_id=?',(pid,)).fetchone(); c.close(); return json.loads(r['data']) if r else DEFAULT
+    c=db(); r=c.execute('SELECT data FROM configs WHERE profile_id=?',(pid,)).fetchone(); c.close()
+    cfg=copy.deepcopy(DEFAULT)
+    if not r: return cfg
+    saved=json.loads(r['data'])
+    cfg.update({k:v for k,v in saved.items() if k!='categories'})
+    for kind, values in saved.get('categories',{}).items():
+        if kind in cfg['categories'] and isinstance(values,dict): cfg['categories'][kind].update(values)
+        else: cfg['categories'][kind]=values
+    return cfg
 
 def allocate(n,cats):
     vals=[]; used=0
@@ -54,6 +64,23 @@ def gen(kind,cfg):
             a=random.randint(cfg['aMin'],cfg['aMax']); b=random.randint(cfg['bMin'],cfg['bMax'])
             if not cfg.get('maxResult') or a+b<=cfg['maxResult']: break
         return {'a':a,'b':b},f'{a} + {b} = __',a+b
+    if kind=='subtraction':
+        for _ in range(100):
+            a=random.randint(cfg['aMin'],cfg['aMax']); b=random.randint(cfg['bMin'],cfg['bMax'])
+            if not cfg.get('nonNegative',True) or a>=b: break
+        if cfg.get('nonNegative',True) and a<b: a,b=max(a,b),min(a,b)
+        return {'a':a,'b':b},f'{a} − {b} = __',a-b
+    if kind=='decimal':
+        decimals=max(1,min(2,int(cfg.get('decimals',1)))); scale=10**decimals
+        lo=int(round(float(cfg.get('min',0))*scale)); hi=int(round(float(cfg.get('max',20))*scale))
+        if hi<lo: lo,hi=hi,lo
+        a=random.randint(lo,hi); b=random.randint(lo,hi); op=cfg.get('operation','both')
+        op=random.choice(['addition','subtraction']) if op=='both' else op
+        if op=='subtraction' and a<b: a,b=b,a
+        av=a/scale; bv=b/scale; expected=(a+b if op=='addition' else a-b)/scale
+        fmt=lambda x: (f'{x:.{decimals}f}'.rstrip('0').rstrip('.')).replace('.',',')
+        symbol='+' if op=='addition' else '−'
+        return {'a':av,'b':bv,'op':op,'decimals':decimals},f'{fmt(av)} {symbol} {fmt(bv)} = __',expected
     if kind=='multiplication':
         a=random.choice(cfg['tables']); b=random.randint(cfg['factorMin'],cfg['factorMax']); return {'a':a,'b':b},f'{a} × {b} = __',a*b
     if kind=='division':
@@ -101,7 +128,8 @@ def start(pid):
     # représentent le même fait numérique et ne peuvent donc pas coexister.
     def operation_key(kind, payload):
         if kind == 'double': return (kind, payload.get('n'))
-        if kind in ('addition', 'multiplication', 'tens'): return (kind, payload.get('a'), payload.get('b'))
+        if kind in ('addition', 'subtraction', 'multiplication', 'tens'): return (kind, payload.get('a'), payload.get('b'))
+        if kind == 'decimal': return (kind, payload.get('a'), payload.get('b'), payload.get('op'))
         if kind == 'division': return (kind, payload.get('dividend'), payload.get('divisor'))
         if kind == 'complement10': return (kind, payload.get('a'))
         return (kind, json.dumps(payload, sort_keys=True))
@@ -165,7 +193,11 @@ def session_stats(sid):
     if not s: c.close(); return {'error':'Séance inconnue'},404
     qs=[dict(x) for x in c.execute("SELECT id,position,kind,display,expected,given_answer,status,response_ms,source,attempts,had_error FROM questions WHERE session_id=? AND status!='UNANSWERED' ORDER BY position",(sid,))]
     correct=[q for q in qs if q['status']=='CORRECT']; times=[q['response_ms'] for q in correct if q['response_ms'] is not None]
-    result={'id':s['id'],'date':s['started_at'],'activeMs':s['active_ms'],'attempted':len(qs),'correct':len(correct),'incorrect':len(qs)-len(correct),'accuracy':round(100*len(correct)/len(qs),1) if qs else 0,'medianMs':int(statistics.median(times)) if times else None,'questions':qs}
+    kinds=[]
+    for kind in dict.fromkeys(q['kind'] for q in qs):
+        kqs=[q for q in qs if q['kind']==kind]; kc=sum(1 for q in kqs if q['status']=='CORRECT')
+        kinds.append({'kind':kind,'attempted':len(kqs),'correct':kc,'incorrect':len(kqs)-kc,'accuracy':round(100*kc/len(kqs),1) if kqs else 0})
+    result={'id':s['id'],'date':s['started_at'],'activeMs':s['active_ms'],'attempted':len(qs),'correct':len(correct),'incorrect':len(qs)-len(correct),'accuracy':round(100*len(correct)/len(qs),1) if qs else 0,'medianMs':int(statistics.median(times)) if times else None,'categories':kinds,'questions':qs}
     c.close(); return result
 
 if __name__=='__main__': init_db(); app.run(host='127.0.0.1',port=5050,debug=True)
