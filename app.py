@@ -26,10 +26,10 @@ DEFAULT={
  'duration':300,'count':50,
  'categories':{
   'double':{'enabled':True,'pct':15,'min':1,'max':10,'display':'both'},
-  'addition':{'enabled':True,'pct':20,'aMin':1,'aMax':50,'bMin':1,'bMax':20,'maxResult':100},
-  'subtraction':{'enabled':True,'pct':15,'aMin':1,'aMax':100,'bMin':1,'bMax':50,'nonNegative':True},
+  'addition':{'enabled':True,'pct':20,'aMin':1,'aMax':10,'bMin':1,'bMax':10,'maxResult':100},
+  'subtraction':{'enabled':True,'pct':15,'aMin':1,'aMax':10,'bMin':1,'bMax':10,'nonNegative':True},
   'decimal':{'enabled':False,'pct':0,'min':0,'max':20,'operation':'both','decimals':1},
-  'multiplication':{'enabled':True,'pct':15,'tables':[2,3,4],'factorMin':1,'factorMax':10},
+  'multiplication':{'enabled':True,'pct':15,'tables':[2,3],'factorMin':1,'factorMax':10},
   'division':{'enabled':True,'pct':10,'tables':[2,3,4],'quotientMin':1,'quotientMax':10},
   'complement10':{'enabled':True,'pct':10},
   'tens':{'enabled':True,'pct':15,'startMin':10,'startMax':99,'mode':'10','multiples':[10,20,30,40,50,60,70,80,90],'maxResult':100}
