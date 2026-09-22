@@ -25,7 +25,7 @@ def init_db():
 DEFAULT={
  'duration':300,'count':50,
  'categories':{
-  'double':{'enabled':True,'pct':20,'min':1,'max':20,'display':'both'},
+  'double':{'enabled':True,'pct':20,'min':1,'max':10,'display':'both'},
   'addition':{'enabled':True,'pct':20,'aMin':1,'aMax':50,'bMin':1,'bMax':20,'maxResult':100},
   'multiplication':{'enabled':True,'pct':20,'tables':[2,3,4],'factorMin':1,'factorMax':10},
   'division':{'enabled':True,'pct':15,'tables':[2,3,4],'quotientMin':1,'quotientMax':10},
@@ -88,7 +88,7 @@ def create_profile():
 def config(pid): return jsonify(get_cfg(pid))
 @app.put('/api/config/<int:pid>')
 def save_config(pid):
-    data=request.json; cats=data.get('categories',{}); total=sum(v.get('pct',0) for v in cats.values() if v.get('enabled'))
+    data=request.json; data['duration']=max(60,min(3600,int(data.get('duration',300)))); data['count']=max(1,min(500,int(data.get('count',50)))); cats=data.get('categories',{}); total=sum(v.get('pct',0) for v in cats.values() if v.get('enabled'))
     if total!=100: return {'error':f'Le total doit être 100 % (actuellement {total} %).'},400
     if cats.get('multiplication',{}).get('enabled') and not cats['multiplication'].get('tables'): return {'error':'Choisis au moins une table de multiplication.'},400
     if cats.get('division',{}).get('enabled') and not cats['division'].get('tables'): return {'error':'Choisis au moins une table de division.'},400
