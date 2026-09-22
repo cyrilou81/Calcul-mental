@@ -111,6 +111,21 @@ def create_profile():
     try:
         c=db(); cur=c.execute('INSERT INTO profiles(name) VALUES(?)',(name,)); pid=cur.lastrowid; c.execute('INSERT INTO configs(profile_id,data) VALUES(?,?)',(pid,json.dumps(DEFAULT))); c.commit(); c.close(); return {'id':pid,'name':name}
     except sqlite3.IntegrityError: return {'error':'Ce profil existe déjà'},409
+@app.delete('/api/profiles/<int:pid>')
+def delete_profile(pid):
+    c=db()
+    p=c.execute('SELECT id,name FROM profiles WHERE id=?',(pid,)).fetchone()
+    if not p:
+        c.close(); return {'error':'Profil introuvable'},404
+    session_ids=[r['id'] for r in c.execute('SELECT id FROM sessions WHERE profile_id=?',(pid,)).fetchall()]
+    if session_ids:
+        marks=','.join('?' for _ in session_ids)
+        c.execute(f'DELETE FROM questions WHERE session_id IN ({marks})',session_ids)
+    c.execute('DELETE FROM sessions WHERE profile_id=?',(pid,))
+    c.execute('DELETE FROM configs WHERE profile_id=?',(pid,))
+    c.execute('DELETE FROM profiles WHERE id=?',(pid,))
+    c.commit(); c.close()
+    return {'ok':True}
 @app.get('/api/config/<int:pid>')
 def config(pid): return jsonify(get_cfg(pid))
 @app.put('/api/config/<int:pid>')
