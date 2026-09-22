@@ -37,7 +37,9 @@ DEFAULT={
   'multiplication':{'enabled':True,'pct':15,'tables':[2,3],'factorMin':1,'factorMax':10},
   'division':{'enabled':True,'pct':10,'tables':[2,3,4],'quotientMin':1,'quotientMax':10},
   'complement10':{'enabled':True,'pct':10},
-  'tens':{'enabled':True,'pct':15,'startMin':10,'startMax':99,'mode':'10','multiples':[10,20,30,40,50,60,70,80,90],'maxResult':100}
+  'tens':{'enabled':True,'pct':15,'startMin':10,'startMax':99,'mode':'10','multiples':[10,20,30,40,50,60,70,80,90],'maxResult':100},
+  'tens_sub':{'enabled':False,'pct':0,'startMin':20,'startMax':100,'mode':'10','multiples':[10,20,30,40,50,60,70,80,90],'nonNegative':True},
+  'decimal_sub':{'enabled':False,'pct':0,'min':0,'max':20,'decimals':1,'withBorrow':True}
  }}
 
 def get_cfg(pid):
@@ -120,6 +122,31 @@ def gen(kind,cfg):
             b=random.choice(choices)
             if not cfg.get('maxResult') or a+b<=cfg['maxResult']: break
         return {'a':a,'b':b},f'{a} + {b} = __',a+b
+    if kind=='tens_sub':
+        choices=[10] if cfg.get('mode')=='10' else cfg.get('multiples',[10])
+        candidates=[(x,y) for x in range(int(cfg['startMin']),int(cfg['startMax'])+1) for y in choices if (not cfg.get('nonNegative',True) or x>=y)]
+        if not candidates: raise ValueError("Aucune soustraction de dizaines possible avec ces réglages")
+        x,y=random.choice(candidates)
+        return {'a':x,'b':y},f'{x} − {y} = __',x-y
+    if kind=='decimal_sub':
+        decimals=max(1,min(2,int(cfg.get('decimals',1)))); scale=10**decimals
+        lo=int(round(float(cfg.get('min',0))*scale)); hi=int(round(float(cfg.get('max',20))*scale))
+        if hi<lo: lo,hi=hi,lo
+        def no_borrow_scaled(x,y):
+            while x or y:
+                if (x % 10) < (y % 10): return False
+                x//=10; y//=10
+            return True
+        candidates=[]
+        for _ in range(1600):
+            x=random.randint(lo,hi); y=random.randint(lo,x)
+            if cfg.get('withBorrow',True) or no_borrow_scaled(x,y):
+                candidates.append((x,y))
+                if len(candidates)>=80: break
+        if not candidates: raise ValueError("Aucune soustraction de décimaux possible avec ces réglages")
+        x,y=random.choice(candidates); xv=x/scale; yv=y/scale
+        fmt=lambda v: (f'{v:.{decimals}f}'.rstrip('0').rstrip('.')).replace('.',',')
+        return {'a':xv,'b':yv,'op':'subtraction','decimals':decimals},f'{fmt(xv)} − {fmt(yv)} = __',(x-y)/scale
 
 def previous_errors(pid):
     c=db(); s=c.execute('SELECT id FROM sessions WHERE profile_id=? ORDER BY id DESC LIMIT 1',(pid,)).fetchone()
@@ -227,8 +254,8 @@ def start(pid):
     # représentent le même fait numérique et ne peuvent donc pas coexister.
     def operation_key(kind, payload):
         if kind == 'double': return (kind, payload.get('n'))
-        if kind in ('addition', 'subtraction', 'multiplication', 'tens'): return (kind, payload.get('a'), payload.get('b'))
-        if kind == 'decimal': return (kind, payload.get('a'), payload.get('b'), payload.get('op'))
+        if kind in ('addition', 'subtraction', 'multiplication', 'tens', 'tens_sub'): return (kind, payload.get('a'), payload.get('b'))
+        if kind in ('decimal','decimal_sub'): return (kind, payload.get('a'), payload.get('b'), payload.get('op'))
         if kind == 'division': return (kind, payload.get('dividend'), payload.get('divisor'))
         if kind == 'complement10': return (kind, payload.get('a'))
         return (kind, json.dumps(payload, sort_keys=True))
@@ -289,12 +316,17 @@ def finish(sid):
 def stats(pid):
     if (e:=require_auth()): return e
     if not owns_profile(pid): return {'error':'Profil introuvable'},404
-    c=db(); ss=[dict(x) for x in c.execute('SELECT id,started_at,active_ms FROM sessions WHERE profile_id=? ORDER BY id DESC LIMIT 30',(pid,))]
+    c=db(); ss=[dict(x) for x in c.execute('SELECT id,started_at,active_ms FROM sessions WHERE profile_id=? ORDER BY id DESC',(pid,))]
     out=[]
     for s in ss:
-        qs=[dict(x) for x in c.execute('SELECT * FROM questions WHERE session_id=?',(s['id'],))]
-        attempted=[q for q in qs if q['status']!='UNANSWERED']; correct=[q for q in attempted if q['status']=='CORRECT']; times=[q['response_ms'] for q in correct if q['response_ms'] is not None]
-        out.append({'id':s['id'],'date':s['started_at'],'activeMs':s['active_ms'],'attempted':len(attempted),'correct':len(correct),'incorrect':len(attempted)-len(correct),'accuracy':round(100*len(correct)/len(attempted),1) if attempted else 0,'medianMs':int(statistics.median(times)) if times else None})
+        qs=[dict(x) for x in c.execute("SELECT * FROM questions WHERE session_id=? AND status!='UNANSWERED'",(s['id'],))]
+        correct=[q for q in qs if q['status']=='CORRECT']
+        times=[q['response_ms'] for q in qs if q['response_ms'] is not None]
+        cats=[]
+        for kind in dict.fromkeys(q['kind'] for q in qs):
+            kqs=[q for q in qs if q['kind']==kind]; kc=sum(1 for q in kqs if q['status']=='CORRECT')
+            cats.append({'kind':kind,'attempted':len(kqs),'correct':kc,'accuracy':round(100*kc/len(kqs),1) if kqs else 0})
+        out.append({'id':s['id'],'date':s['started_at'],'activeMs':s['active_ms'],'attempted':len(qs),'correct':len(correct),'incorrect':len(qs)-len(correct),'accuracy':round(100*len(correct)/len(qs),1) if qs else 0,'medianMs':int(statistics.median(times)) if times else None,'avgMs':int(sum(times)/len(times)) if times else None,'categories':cats})
     c.close(); return {'sessions':out}
 
 @app.get('/api/session/<int:sid>/stats')
