@@ -1,17 +1,20 @@
 from __future__ import annotations
-import json, random, sqlite3, statistics, time, copy
+import json, random, sqlite3, statistics, time, copy, os, re
 from pathlib import Path
-from flask import Flask, request, jsonify, send_from_directory
+from flask import Flask, request, jsonify, send_from_directory, session
+from werkzeug.security import generate_password_hash, check_password_hash
 
 ROOT=Path(__file__).parent
-DB=ROOT/'calcul_mental.db'
+DB=Path(os.environ.get('DB_PATH', str(ROOT/'calcul_mental.db')))
 app=Flask(__name__, static_folder='static', static_url_path='')
+app.secret_key=os.environ.get('SECRET_KEY','dev-only-change-me')
 
 def db():
     c=sqlite3.connect(DB); c.row_factory=sqlite3.Row; return c
 
 def init_db():
     c=db(); c.executescript('''
+    CREATE TABLE IF NOT EXISTS accounts(id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT NOT NULL UNIQUE COLLATE NOCASE, password_hash TEXT NOT NULL, created_at TEXT DEFAULT CURRENT_TIMESTAMP);
     CREATE TABLE IF NOT EXISTS profiles(id INTEGER PRIMARY KEY AUTOINCREMENT,name TEXT NOT NULL UNIQUE,created_at TEXT DEFAULT CURRENT_TIMESTAMP);
     CREATE TABLE IF NOT EXISTS configs(profile_id INTEGER PRIMARY KEY, data TEXT NOT NULL, FOREIGN KEY(profile_id) REFERENCES profiles(id));
     CREATE TABLE IF NOT EXISTS sessions(id INTEGER PRIMARY KEY AUTOINCREMENT,profile_id INTEGER NOT NULL,started_at TEXT DEFAULT CURRENT_TIMESTAMP,active_ms INTEGER NOT NULL DEFAULT 0, FOREIGN KEY(profile_id) REFERENCES profiles(id));
@@ -20,6 +23,8 @@ def init_db():
     cols={r['name'] for r in c.execute('PRAGMA table_info(questions)')}
     if 'attempts' not in cols: c.execute('ALTER TABLE questions ADD COLUMN attempts INTEGER NOT NULL DEFAULT 0')
     if 'had_error' not in cols: c.execute('ALTER TABLE questions ADD COLUMN had_error INTEGER NOT NULL DEFAULT 0')
+    pcols={r['name'] for r in c.execute('PRAGMA table_info(profiles)')}
+    if 'account_id' not in pcols: c.execute('ALTER TABLE profiles ADD COLUMN account_id INTEGER NOT NULL DEFAULT 1')
     c.commit(); c.close()
 
 DEFAULT={
@@ -99,22 +104,72 @@ def previous_errors(pid):
     if not s: c.close(); return []
     rows=c.execute("SELECT id,kind,payload,display,expected FROM questions WHERE session_id=? AND status='INCORRECT' ORDER BY position",(s['id'],)).fetchall(); c.close(); return [dict(x) for x in rows]
 
+def authenticated(): return isinstance(session.get('account_id'), int)
+def current_account_id(): return session.get('account_id')
+def require_auth():
+    if not authenticated(): return ({'error':'Connexion requise'},401)
+    return None
+def owns_profile(pid):
+    aid=current_account_id()
+    c=db(); r=c.execute('SELECT id FROM profiles WHERE id=? AND account_id=?',(pid,aid)).fetchone(); c.close(); return bool(r)
+
+def password_error(password):
+    if len(password)<12: return 'Le mot de passe doit contenir au moins 12 caractères.'
+    if not re.search(r'[a-z]',password) or not re.search(r'[A-Z]',password) or not re.search(r'\d',password) or not re.search(r'[^A-Za-z0-9]',password):
+        return 'Utilise au moins une minuscule, une majuscule, un chiffre et un caractère spécial.'
+    return None
+
 @app.get('/')
 def index(): return send_from_directory(ROOT/'static','index.html')
+@app.get('/api/auth/status')
+def auth_status():
+    if not authenticated(): return {'authenticated':False}
+    c=db(); a=c.execute('SELECT username FROM accounts WHERE id=?',(current_account_id(),)).fetchone(); c.close()
+    if not a: session.clear(); return {'authenticated':False}
+    return {'authenticated':True,'username':a['username']}
+@app.post('/api/auth/register')
+def auth_register():
+    data=request.json or {}; username=(data.get('username') or '').strip(); password=str(data.get('password') or '')
+    if len(username)<3 or len(username)>40: return {'error':'L’identifiant doit contenir entre 3 et 40 caractères.'},400
+    if not re.fullmatch(r'[A-Za-z0-9._-]+',username): return {'error':'Identifiant : lettres, chiffres, point, tiret et underscore uniquement.'},400
+    if (err:=password_error(password)): return {'error':err},400
+    c=db()
+    try:
+        count=c.execute('SELECT COUNT(*) n FROM accounts').fetchone()['n']
+        # Le premier compte créé récupère les profils historiques de la base V28 et antérieures.
+        if count==0:
+            c.execute('INSERT INTO accounts(id,username,password_hash) VALUES(1,?,?)',(username,generate_password_hash(password))); aid=1
+        else:
+            cur=c.execute('INSERT INTO accounts(username,password_hash) VALUES(?,?)',(username,generate_password_hash(password))); aid=cur.lastrowid
+        c.commit()
+    except sqlite3.IntegrityError:
+        c.close(); return {'error':'Cet identifiant existe déjà.'},409
+    c.close(); session.clear(); session['account_id']=aid; return {'ok':True,'username':username}
+@app.post('/api/auth/login')
+def auth_login():
+    data=request.json or {}; username=(data.get('username') or '').strip(); password=str(data.get('password') or '')
+    c=db(); a=c.execute('SELECT id,username,password_hash FROM accounts WHERE username=? COLLATE NOCASE',(username,)).fetchone(); c.close()
+    if not a or not check_password_hash(a['password_hash'],password): return {'error':'Identifiant ou mot de passe incorrect.'},401
+    session.clear(); session['account_id']=a['id']; return {'ok':True,'username':a['username']}
+@app.post('/api/auth/logout')
+def auth_logout(): session.clear(); return {'ok':True}
 @app.get('/api/profiles')
 def profiles():
-    c=db(); rows=[dict(x) for x in c.execute('SELECT * FROM profiles ORDER BY name')]; c.close(); return jsonify(rows)
+    if (e:=require_auth()): return e
+    c=db(); rows=[dict(x) for x in c.execute('SELECT id,name,created_at FROM profiles WHERE account_id=? ORDER BY name',(current_account_id(),))]; c.close(); return jsonify(rows)
 @app.post('/api/profiles')
 def create_profile():
+    if (e:=require_auth()): return e
     name=(request.json.get('name') or '').strip()
     if not name: return {'error':'Nom requis'},400
     try:
-        c=db(); cur=c.execute('INSERT INTO profiles(name) VALUES(?)',(name,)); pid=cur.lastrowid; c.execute('INSERT INTO configs(profile_id,data) VALUES(?,?)',(pid,json.dumps(DEFAULT))); c.commit(); c.close(); return {'id':pid,'name':name}
+        c=db(); cur=c.execute('INSERT INTO profiles(name,account_id) VALUES(?,?)',(name,current_account_id())); pid=cur.lastrowid; c.execute('INSERT INTO configs(profile_id,data) VALUES(?,?)',(pid,json.dumps(DEFAULT))); c.commit(); c.close(); return {'id':pid,'name':name}
     except sqlite3.IntegrityError: return {'error':'Ce profil existe déjà'},409
 @app.delete('/api/profiles/<int:pid>')
 def delete_profile(pid):
+    if (e:=require_auth()): return e
     c=db()
-    p=c.execute('SELECT id,name FROM profiles WHERE id=?',(pid,)).fetchone()
+    p=c.execute('SELECT id,name FROM profiles WHERE id=? AND account_id=?',(pid,current_account_id())).fetchone()
     if not p:
         c.close(); return {'error':'Profil introuvable'},404
     session_ids=[r['id'] for r in c.execute('SELECT id FROM sessions WHERE profile_id=?',(pid,)).fetchall()]
@@ -127,9 +182,14 @@ def delete_profile(pid):
     c.commit(); c.close()
     return {'ok':True}
 @app.get('/api/config/<int:pid>')
-def config(pid): return jsonify(get_cfg(pid))
+def config(pid):
+    if (e:=require_auth()): return e
+    if not owns_profile(pid): return {'error':'Profil introuvable'},404
+    return jsonify(get_cfg(pid))
 @app.put('/api/config/<int:pid>')
 def save_config(pid):
+    if (e:=require_auth()): return e
+    if not owns_profile(pid): return {'error':'Profil introuvable'},404
     data=request.json; data['duration']=max(60,min(3600,int(data.get('duration',300)))); data['count']=max(1,min(500,int(data.get('count',50)))); cats=data.get('categories',{}); total=sum(v.get('pct',0) for v in cats.values() if v.get('enabled'))
     if total!=100: return {'error':f'Le total doit être 100 % (actuellement {total} %).'},400
     if cats.get('multiplication',{}).get('enabled') and not cats['multiplication'].get('tables'): return {'error':'Choisis au moins une table de multiplication.'},400
@@ -137,6 +197,8 @@ def save_config(pid):
     c=db(); c.execute('INSERT INTO configs(profile_id,data) VALUES(?,?) ON CONFLICT(profile_id) DO UPDATE SET data=excluded.data',(pid,json.dumps(data))); c.commit(); c.close(); return {'ok':True}
 @app.post('/api/session/start/<int:pid>')
 def start(pid):
+    if (e:=require_auth()): return e
+    if not owns_profile(pid): return {'error':'Profil introuvable'},404
     cfg=get_cfg(pid); count=cfg.get('count',50); retries=previous_errors(pid)[:count]; remaining=count-len(retries); alloc=allocate(remaining,cfg['categories']) if remaining else {}
     # Une même opération ne doit apparaître qu'une seule fois dans une séance.
     # La clé ignore le mode d'affichage des doubles : « Double de 8 » et « 8 + 8 »
@@ -176,6 +238,9 @@ def start(pid):
     c.commit(); rows=[dict(x) for x in c.execute('SELECT id,position,kind,display,source FROM questions WHERE session_id=? ORDER BY position',(sid,))]; c.close(); return {'sessionId':sid,'duration':cfg.get('duration',300),'questions':rows}
 @app.post('/api/session/<int:sid>/answer')
 def answer(sid):
+    if (e:=require_auth()): return e
+    c0=db(); own=c0.execute('SELECT 1 FROM sessions s JOIN profiles p ON p.id=s.profile_id WHERE s.id=? AND p.account_id=?',(sid,current_account_id())).fetchone(); c0.close()
+    if not own: return {'error':'Séance inconnue'},404
     qid=int(request.json['questionId']); given=float(request.json['answer']); ms=max(0,int(request.json.get('responseMs',0)))
     c=db(); q=c.execute('SELECT expected FROM questions WHERE id=? AND session_id=?',(qid,sid)).fetchone()
     if not q: c.close(); return {'error':'Question inconnue'},404
@@ -187,13 +252,21 @@ def answer(sid):
     c.execute('UPDATE questions SET given_answer=?,status=?,response_ms=?,attempts=?,had_error=? WHERE id=?',(given,status,ms,attempts,1 if had_error else 0,qid)); c.commit(); c.close(); return {'correct':ok,'expected':oldq['expected'],'attempts':attempts,'remaining':max(0,3-attempts)}
 @app.delete('/api/session/<int:sid>')
 def cancel_session(sid):
+    if (e:=require_auth()): return e
+    c0=db(); own=c0.execute('SELECT 1 FROM sessions s JOIN profiles p ON p.id=s.profile_id WHERE s.id=? AND p.account_id=?',(sid,current_account_id())).fetchone(); c0.close()
+    if not own: return {'error':'Séance inconnue'},404
     c=db(); c.execute('DELETE FROM questions WHERE session_id=?',(sid,)); c.execute('DELETE FROM sessions WHERE id=?',(sid,)); c.commit(); c.close(); return {'ok':True}
 
 @app.post('/api/session/<int:sid>/finish')
 def finish(sid):
+    if (e:=require_auth()): return e
+    c0=db(); own=c0.execute('SELECT 1 FROM sessions s JOIN profiles p ON p.id=s.profile_id WHERE s.id=? AND p.account_id=?',(sid,current_account_id())).fetchone(); c0.close()
+    if not own: return {'error':'Séance inconnue'},404
     ms=max(0,int(request.json.get('activeMs',0))); c=db(); c.execute('UPDATE sessions SET active_ms=? WHERE id=?',(ms,sid)); c.commit(); c.close(); return {'ok':True}
 @app.get('/api/stats/<int:pid>')
 def stats(pid):
+    if (e:=require_auth()): return e
+    if not owns_profile(pid): return {'error':'Profil introuvable'},404
     c=db(); ss=[dict(x) for x in c.execute('SELECT id,started_at,active_ms FROM sessions WHERE profile_id=? ORDER BY id DESC LIMIT 30',(pid,))]
     out=[]
     for s in ss:
@@ -204,8 +277,10 @@ def stats(pid):
 
 @app.get('/api/session/<int:sid>/stats')
 def session_stats(sid):
+    if (e:=require_auth()): return e
     c=db(); s=c.execute('SELECT id,profile_id,started_at,active_ms FROM sessions WHERE id=?',(sid,)).fetchone()
     if not s: c.close(); return {'error':'Séance inconnue'},404
+    if not owns_profile(s['profile_id']): c.close(); return {'error':'Séance inconnue'},404
     qs=[dict(x) for x in c.execute("SELECT id,position,kind,display,expected,given_answer,status,response_ms,source,attempts,had_error FROM questions WHERE session_id=? AND status!='UNANSWERED' ORDER BY position",(sid,))]
     correct=[q for q in qs if q['status']=='CORRECT']; times=[q['response_ms'] for q in correct if q['response_ms'] is not None]
     kinds=[]
@@ -215,4 +290,5 @@ def session_stats(sid):
     result={'id':s['id'],'date':s['started_at'],'activeMs':s['active_ms'],'attempted':len(qs),'correct':len(correct),'incorrect':len(qs)-len(correct),'accuracy':round(100*len(correct)/len(qs),1) if qs else 0,'medianMs':int(statistics.median(times)) if times else None,'categories':kinds,'questions':qs}
     c.close(); return result
 
-if __name__=='__main__': init_db(); app.run(host='127.0.0.1',port=5050,debug=True)
+init_db()
+if __name__=='__main__': app.run(host='127.0.0.1',port=5050,debug=True)
