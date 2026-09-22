@@ -23,6 +23,7 @@ def init_db():
     cols={r['name'] for r in c.execute('PRAGMA table_info(questions)')}
     if 'attempts' not in cols: c.execute('ALTER TABLE questions ADD COLUMN attempts INTEGER NOT NULL DEFAULT 0')
     if 'had_error' not in cols: c.execute('ALTER TABLE questions ADD COLUMN had_error INTEGER NOT NULL DEFAULT 0')
+    if 'first_wrong_answer' not in cols: c.execute('ALTER TABLE questions ADD COLUMN first_wrong_answer REAL')
     pcols={r['name'] for r in c.execute('PRAGMA table_info(profiles)')}
     if 'account_id' not in pcols: c.execute('ALTER TABLE profiles ADD COLUMN account_id INTEGER NOT NULL DEFAULT 1')
     c.commit(); c.close()
@@ -293,12 +294,15 @@ def answer(sid):
     qid=int(request.json['questionId']); given=float(request.json['answer']); ms=max(0,int(request.json.get('responseMs',0)))
     c=db(); q=c.execute('SELECT expected FROM questions WHERE id=? AND session_id=?',(qid,sid)).fetchone()
     if not q: c.close(); return {'error':'Question inconnue'},404
-    oldq=c.execute('SELECT expected,attempts,had_error FROM questions WHERE id=? AND session_id=?',(qid,sid)).fetchone()
+    oldq=c.execute('SELECT expected,attempts,had_error,first_wrong_answer FROM questions WHERE id=? AND session_id=?',(qid,sid)).fetchone()
     attempts=(oldq['attempts'] or 0)+1
     ok=abs(given-float(oldq['expected'])) < 1e-9; had_error=bool(oldq['had_error']) or not ok
+    # On mémorise définitivement la PREMIÈRE réponse fausse pour les statistiques.
+    first_wrong=oldq['first_wrong_answer']
+    if not ok and first_wrong is None: first_wrong=given
     # Une question reste statistiquement en erreur dès le premier essai faux, même si elle est corrigée ensuite.
     status=('INCORRECT' if had_error else 'CORRECT') if ok or attempts>=3 else 'UNANSWERED'
-    c.execute('UPDATE questions SET given_answer=?,status=?,response_ms=?,attempts=?,had_error=? WHERE id=?',(given,status,ms,attempts,1 if had_error else 0,qid)); c.commit(); c.close(); return {'correct':ok,'expected':oldq['expected'],'attempts':attempts,'remaining':max(0,3-attempts)}
+    c.execute('UPDATE questions SET given_answer=?,first_wrong_answer=?,status=?,response_ms=?,attempts=?,had_error=? WHERE id=?',(given,first_wrong,status,ms,attempts,1 if had_error else 0,qid)); c.commit(); c.close(); return {'correct':ok,'expected':oldq['expected'],'attempts':attempts,'remaining':max(0,3-attempts)}
 @app.delete('/api/session/<int:sid>')
 def cancel_session(sid):
     if (e:=require_auth()): return e
@@ -335,7 +339,7 @@ def session_stats(sid):
     c=db(); s=c.execute('SELECT id,profile_id,started_at,active_ms FROM sessions WHERE id=?',(sid,)).fetchone()
     if not s: c.close(); return {'error':'Séance inconnue'},404
     if not owns_profile(s['profile_id']): c.close(); return {'error':'Séance inconnue'},404
-    qs=[dict(x) for x in c.execute("SELECT id,position,kind,display,expected,given_answer,status,response_ms,source,attempts,had_error FROM questions WHERE session_id=? AND status!='UNANSWERED' ORDER BY position",(sid,))]
+    qs=[dict(x) for x in c.execute("SELECT id,position,kind,display,expected,given_answer,first_wrong_answer,status,response_ms,source,attempts,had_error FROM questions WHERE session_id=? AND status!='UNANSWERED' ORDER BY position",(sid,))]
     correct=[q for q in qs if q['status']=='CORRECT']; times=[q['response_ms'] for q in correct if q['response_ms'] is not None]
     kinds=[]
     for kind in dict.fromkeys(q['kind'] for q in qs):
