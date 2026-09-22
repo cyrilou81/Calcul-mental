@@ -15,8 +15,12 @@ def init_db():
     CREATE TABLE IF NOT EXISTS profiles(id INTEGER PRIMARY KEY AUTOINCREMENT,name TEXT NOT NULL UNIQUE,created_at TEXT DEFAULT CURRENT_TIMESTAMP);
     CREATE TABLE IF NOT EXISTS configs(profile_id INTEGER PRIMARY KEY, data TEXT NOT NULL, FOREIGN KEY(profile_id) REFERENCES profiles(id));
     CREATE TABLE IF NOT EXISTS sessions(id INTEGER PRIMARY KEY AUTOINCREMENT,profile_id INTEGER NOT NULL,started_at TEXT DEFAULT CURRENT_TIMESTAMP,active_ms INTEGER NOT NULL DEFAULT 0, FOREIGN KEY(profile_id) REFERENCES profiles(id));
-    CREATE TABLE IF NOT EXISTS questions(id INTEGER PRIMARY KEY AUTOINCREMENT,session_id INTEGER NOT NULL,position INTEGER NOT NULL,kind TEXT NOT NULL,payload TEXT NOT NULL,display TEXT NOT NULL,expected INTEGER NOT NULL,given_answer INTEGER,status TEXT NOT NULL,response_ms INTEGER,source TEXT NOT NULL,retry_from INTEGER, FOREIGN KEY(session_id) REFERENCES sessions(id));
-    '''); c.commit(); c.close()
+    CREATE TABLE IF NOT EXISTS questions(id INTEGER PRIMARY KEY AUTOINCREMENT,session_id INTEGER NOT NULL,position INTEGER NOT NULL,kind TEXT NOT NULL,payload TEXT NOT NULL,display TEXT NOT NULL,expected INTEGER NOT NULL,given_answer INTEGER,status TEXT NOT NULL,response_ms INTEGER,source TEXT NOT NULL,retry_from INTEGER,attempts INTEGER NOT NULL DEFAULT 0,had_error INTEGER NOT NULL DEFAULT 0, FOREIGN KEY(session_id) REFERENCES sessions(id));
+    ''')
+    cols={r['name'] for r in c.execute('PRAGMA table_info(questions)')}
+    if 'attempts' not in cols: c.execute('ALTER TABLE questions ADD COLUMN attempts INTEGER NOT NULL DEFAULT 0')
+    if 'had_error' not in cols: c.execute('ALTER TABLE questions ADD COLUMN had_error INTEGER NOT NULL DEFAULT 0')
+    c.commit(); c.close()
 
 DEFAULT={
  'duration':300,'count':50,
@@ -106,14 +110,19 @@ def answer(sid):
     qid=int(request.json['questionId']); given=int(request.json['answer']); ms=max(0,int(request.json.get('responseMs',0)))
     c=db(); q=c.execute('SELECT expected FROM questions WHERE id=? AND session_id=?',(qid,sid)).fetchone()
     if not q: c.close(); return {'error':'Question inconnue'},404
-    ok=given==q['expected']; c.execute('UPDATE questions SET given_answer=?,status=?,response_ms=? WHERE id=?',(given,'CORRECT' if ok else 'INCORRECT',ms,qid)); c.commit(); c.close(); return {'correct':ok,'expected':q['expected']}
-@app.post('/api/session/<int:sid>/finish')
-def finish(sid):
-    ms=max(0,int(request.json.get('activeMs',0))); c=db(); c.execute('UPDATE sessions SET active_ms=? WHERE id=?',(ms,sid)); c.commit(); c.close(); return {'ok':True}
-@app.post('/api/session/<int:sid>/cancel')
+    oldq=c.execute('SELECT expected,attempts,had_error FROM questions WHERE id=? AND session_id=?',(qid,sid)).fetchone()
+    attempts=(oldq['attempts'] or 0)+1
+    ok=given==oldq['expected']; had_error=bool(oldq['had_error']) or not ok
+    # Une question reste statistiquement en erreur dès le premier essai faux, même si elle est corrigée ensuite.
+    status=('INCORRECT' if had_error else 'CORRECT') if ok or attempts>=3 else 'UNANSWERED'
+    c.execute('UPDATE questions SET given_answer=?,status=?,response_ms=?,attempts=?,had_error=? WHERE id=?',(given,status,ms,attempts,1 if had_error else 0,qid)); c.commit(); c.close(); return {'correct':ok,'expected':oldq['expected'],'attempts':attempts,'remaining':max(0,3-attempts)}
+@app.delete('/api/session/<int:sid>')
 def cancel_session(sid):
     c=db(); c.execute('DELETE FROM questions WHERE session_id=?',(sid,)); c.execute('DELETE FROM sessions WHERE id=?',(sid,)); c.commit(); c.close(); return {'ok':True}
 
+@app.post('/api/session/<int:sid>/finish')
+def finish(sid):
+    ms=max(0,int(request.json.get('activeMs',0))); c=db(); c.execute('UPDATE sessions SET active_ms=? WHERE id=?',(ms,sid)); c.commit(); c.close(); return {'ok':True}
 @app.get('/api/stats/<int:pid>')
 def stats(pid):
     c=db(); ss=[dict(x) for x in c.execute('SELECT id,started_at,active_ms FROM sessions WHERE profile_id=? ORDER BY id DESC LIMIT 30',(pid,))]
