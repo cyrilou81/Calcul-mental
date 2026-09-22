@@ -22,6 +22,30 @@ button.primary,.home .side button{background:linear-gradient(#38b5ff,#168fd9);bo
 #config,#stats{background:rgba(255,255,255,.84)}
 input,select{background:#fffdf7;border:2px solid #9bd8f5}
 .bravo-dog{object-fit:contain!important;background:transparent!important;border:0!important;box-shadow:none!important;max-height:38vh!important}
+
+/* V26 — paysage verdoyant commun à toute l’application */
+html,body{background:#8edcff!important}
+body{position:relative;background:
+  radial-gradient(ellipse at 12% 18%,rgba(255,255,255,.92) 0 5%,transparent 5.4%),
+  radial-gradient(ellipse at 19% 16%,rgba(255,255,255,.92) 0 4.5%,transparent 4.9%),
+  radial-gradient(ellipse at 82% 13%,rgba(255,255,255,.9) 0 5%,transparent 5.4%),
+  linear-gradient(180deg,#82d8ff 0%,#c9efff 54%,#bce87f 54%,#78ca4f 100%)!important}
+body:before{content:"";position:fixed;z-index:-1;left:0;right:0;bottom:0;height:39vh;pointer-events:none;background:
+  radial-gradient(ellipse at 5% 100%,#2e9e45 0 14%,transparent 14.5%),
+  radial-gradient(ellipse at 18% 103%,#43ad4f 0 17%,transparent 17.5%),
+  radial-gradient(ellipse at 34% 105%,#2f9b43 0 15%,transparent 15.5%),
+  radial-gradient(ellipse at 52% 105%,#45ad4d 0 19%,transparent 19.5%),
+  radial-gradient(ellipse at 70% 105%,#2d9941 0 15%,transparent 15.5%),
+  radial-gradient(ellipse at 88% 102%,#43aa4c 0 18%,transparent 18.5%),
+  radial-gradient(ellipse at 100% 100%,#2f9b43 0 15%,transparent 15.5%),
+  linear-gradient(180deg,transparent 0 45%,rgba(93,188,67,.25) 46% 100%)}
+body:after{content:"🌼   🌿      🌼       🌿     🌼        🌿       🌼";position:fixed;z-index:-1;left:0;right:0;bottom:2vh;font-size:clamp(20px,2.5vw,34px);letter-spacing:2.5vw;white-space:nowrap;opacity:.9;pointer-events:none}
+.app{max-width:1180px}
+.app>section:not(#welcome):not(#celebration){background:rgba(255,255,255,.84);border:3px solid rgba(255,255,255,.78);border-radius:30px;box-shadow:0 18px 55px rgba(25,111,157,.18);backdrop-filter:blur(8px)}
+#home{padding:clamp(18px,3vh,32px)}
+#config,#stats{padding:clamp(18px,3vh,32px)}
+.exercise{background:rgba(255,255,255,.86)!important;border:3px solid rgba(255,255,255,.82)!important}
+.card,.trend-wrap,.stat,.cat-stat{background:rgba(255,255,255,.9)}
 </style></head><body><div class="app">
 <section id="welcome" class="card welcome-playful"><div class="brain-badge">🧠</div><h1>Calcul mental</h1><p class="welcome-sub">Choisis ton profil :</p><div id="profiles" class="profiles"></div><form id="newProfile"><input id="profileName" placeholder="Prénom" required><button class="primary">＋ Nouveau profil</button></form><div class="delete-wrap"><button id="deleteProfileBtn">🗑 Supprimer profil</button></div><div id="welcomeErr" class="error"></div></section>
 <section id="home" class="hidden"><div class="top"><h2 id="hello"></h2></div><div class="home"><div class="home-main"><button id="start" class="primary start">Commencer</button><p id="sessionSummary">50 questions · 5 minutes</p></div><div class="side"><button id="logout">Changer de profil</button><button id="configBtn">Configurations</button><button id="statsBtn">Stats</button></div></div></section>
