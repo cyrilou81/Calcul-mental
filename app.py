@@ -154,15 +154,18 @@ def stats(pid):
     c=db(); ss=[dict(x) for x in c.execute('SELECT id,started_at,active_ms FROM sessions WHERE profile_id=? ORDER BY id DESC LIMIT 30',(pid,))]
     out=[]
     for s in ss:
-        qs=[dict(x) for x in c.execute('SELECT * FROM questions WHERE session_id=?',(s['id'],))]; attempted=[q for q in qs if q['status']!='UNANSWERED']; correct=[q for q in qs if q['status']=='CORRECT']; times=[q['response_ms'] for q in correct if q['response_ms'] is not None]
-        out.append({'id':s['id'],'date':s['started_at'],'attempted':len(attempted),'correct':len(correct),'incorrect':len(attempted)-len(correct),'accuracy':round(100*len(correct)/len(attempted),1) if attempted else 0,'medianMs':int(statistics.median(times)) if times else None})
-    kinds={}
-    rows=c.execute("SELECT kind,status,response_ms,source FROM questions q JOIN sessions s ON s.id=q.session_id WHERE s.profile_id=? AND status!='UNANSWERED'",(pid,)).fetchall()
-    for r in rows:
-        d=kinds.setdefault(r['kind'],{'attempted':0,'correct':0,'times':[],'retryAttempted':0,'retryCorrect':0}); d['attempted']+=1
-        if r['status']=='CORRECT': d['correct']+=1; d['times'].append(r['response_ms'])
-        if r['source']=='RETRY': d['retryAttempted']+=1; d['retryCorrect']+=1 if r['status']=='CORRECT' else 0
-    for d in kinds.values(): d['accuracy']=round(100*d['correct']/d['attempted'],1); d['medianMs']=int(statistics.median([x for x in d.pop('times') if x is not None])) if d['correct'] else None
-    c.close(); return {'sessions':out,'byKind':kinds}
+        qs=[dict(x) for x in c.execute('SELECT * FROM questions WHERE session_id=?',(s['id'],))]
+        attempted=[q for q in qs if q['status']!='UNANSWERED']; correct=[q for q in attempted if q['status']=='CORRECT']; times=[q['response_ms'] for q in correct if q['response_ms'] is not None]
+        out.append({'id':s['id'],'date':s['started_at'],'activeMs':s['active_ms'],'attempted':len(attempted),'correct':len(correct),'incorrect':len(attempted)-len(correct),'accuracy':round(100*len(correct)/len(attempted),1) if attempted else 0,'medianMs':int(statistics.median(times)) if times else None})
+    c.close(); return {'sessions':out}
+
+@app.get('/api/session/<int:sid>/stats')
+def session_stats(sid):
+    c=db(); s=c.execute('SELECT id,profile_id,started_at,active_ms FROM sessions WHERE id=?',(sid,)).fetchone()
+    if not s: c.close(); return {'error':'Séance inconnue'},404
+    qs=[dict(x) for x in c.execute("SELECT id,position,kind,display,expected,given_answer,status,response_ms,source,attempts,had_error FROM questions WHERE session_id=? AND status!='UNANSWERED' ORDER BY position",(sid,))]
+    correct=[q for q in qs if q['status']=='CORRECT']; times=[q['response_ms'] for q in correct if q['response_ms'] is not None]
+    result={'id':s['id'],'date':s['started_at'],'activeMs':s['active_ms'],'attempted':len(qs),'correct':len(correct),'incorrect':len(qs)-len(correct),'accuracy':round(100*len(correct)/len(qs),1) if qs else 0,'medianMs':int(statistics.median(times)) if times else None,'questions':qs}
+    c.close(); return result
 
 if __name__=='__main__': init_db(); app.run(host='127.0.0.1',port=5050,debug=True)
