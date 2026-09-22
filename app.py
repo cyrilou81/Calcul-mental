@@ -1,5 +1,5 @@
 from __future__ import annotations
-import json, random, sqlite3, statistics, time, copy, os, re
+import json, random, sqlite3, statistics, time, copy, os, os, re
 from pathlib import Path
 from flask import Flask, request, jsonify, send_from_directory, session
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -31,9 +31,9 @@ DEFAULT={
  'duration':300,'count':50,
  'categories':{
   'double':{'enabled':True,'pct':15,'min':1,'max':10,'display':'both'},
-  'addition':{'enabled':True,'pct':20,'aMin':1,'aMax':10,'bMin':1,'bMax':10,'maxResult':100},
+  'addition':{'enabled':True,'pct':20,'aMin':1,'aMax':10,'bMin':1,'bMax':10,'maxResult':100,'withCarry':True},
   'subtraction':{'enabled':True,'pct':15,'aMin':1,'aMax':10,'bMin':1,'bMax':10,'nonNegative':True},
-  'decimal':{'enabled':False,'pct':0,'min':0,'max':20,'operation':'both','decimals':1},
+  'decimal':{'enabled':False,'pct':0,'min':0,'max':20,'decimals':1,'withCarry':True},
   'multiplication':{'enabled':True,'pct':15,'tables':[2,3],'factorMin':1,'factorMax':10},
   'division':{'enabled':True,'pct':10,'tables':[2,3,4],'quotientMin':1,'quotientMax':10},
   'complement10':{'enabled':True,'pct':10},
@@ -65,9 +65,19 @@ def gen(kind,cfg):
         n=random.randint(cfg['min'],cfg['max']); mode=cfg.get('display','both'); mode=random.choice(['word','sum']) if mode=='both' else mode
         return {'n':n,'mode':mode}, (f'Double de {n} = __' if mode=='word' else f'{n} + {n} = __'), n*2
     if kind=='addition':
-        for _ in range(100):
-            a=random.randint(cfg['aMin'],cfg['aMax']); b=random.randint(cfg['bMin'],cfg['bMax'])
-            if not cfg.get('maxResult') or a+b<=cfg['maxResult']: break
+        # "Sans retenue" = aucune colonne décimale ne produit une somme >= 10.
+        def no_carry(x,y):
+            while x or y:
+                if (x % 10) + (y % 10) >= 10: return False
+                x//=10; y//=10
+            return True
+        candidates=[]
+        for x in range(int(cfg['aMin']),int(cfg['aMax'])+1):
+            for y in range(int(cfg['bMin']),int(cfg['bMax'])+1):
+                if cfg.get('maxResult') and x+y>cfg['maxResult']: continue
+                if cfg.get('withCarry',True) or no_carry(x,y): candidates.append((x,y))
+        if not candidates: raise ValueError("Aucune addition possible avec ces réglages sans retenue")
+        a,b=random.choice(candidates)
         return {'a':a,'b':b},f'{a} + {b} = __',a+b
     if kind=='subtraction':
         for _ in range(100):
@@ -76,16 +86,28 @@ def gen(kind,cfg):
         if cfg.get('nonNegative',True) and a<b: a,b=max(a,b),min(a,b)
         return {'a':a,'b':b},f'{a} − {b} = __',a-b
     if kind=='decimal':
+        # Addition de décimaux uniquement. Sans retenue, chaque colonne de chiffres
+        # (partie décimale et partie entière) doit rester strictement inférieure à 10.
         decimals=max(1,min(2,int(cfg.get('decimals',1)))); scale=10**decimals
         lo=int(round(float(cfg.get('min',0))*scale)); hi=int(round(float(cfg.get('max',20))*scale))
         if hi<lo: lo,hi=hi,lo
-        a=random.randint(lo,hi); b=random.randint(lo,hi); op=cfg.get('operation','both')
-        op=random.choice(['addition','subtraction']) if op=='both' else op
-        if op=='subtraction' and a<b: a,b=b,a
-        av=a/scale; bv=b/scale; expected=(a+b if op=='addition' else a-b)/scale
+        def no_carry_scaled(x,y):
+            while x or y:
+                if (x % 10) + (y % 10) >= 10: return False
+                x//=10; y//=10
+            return True
+        candidates=[]
+        # Random sampling avoids building an enormous Cartesian product for wide ranges.
+        for _ in range(1200):
+            x=random.randint(lo,hi); y=random.randint(lo,hi)
+            if cfg.get('withCarry',True) or no_carry_scaled(x,y):
+                candidates.append((x,y))
+                if len(candidates)>=80: break
+        if not candidates: raise ValueError("Aucune addition de décimaux possible avec ces réglages sans retenue")
+        a,b=random.choice(candidates)
+        av=a/scale; bv=b/scale; expected=(a+b)/scale
         fmt=lambda x: (f'{x:.{decimals}f}'.rstrip('0').rstrip('.')).replace('.',',')
-        symbol='+' if op=='addition' else '−'
-        return {'a':av,'b':bv,'op':op,'decimals':decimals},f'{fmt(av)} {symbol} {fmt(bv)} = __',expected
+        return {'a':av,'b':bv,'op':'addition','decimals':decimals},f'{fmt(av)} + {fmt(bv)} = __',expected
     if kind=='multiplication':
         a=random.choice(cfg['tables']); b=random.randint(cfg['factorMin'],cfg['factorMax']); return {'a':a,'b':b},f'{a} × {b} = __',a*b
     if kind=='division':

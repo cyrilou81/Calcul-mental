@@ -23,12 +23,47 @@ button.primary,.home .side button{background:linear-gradient(#38b5ff,#168fd9);bo
 input,select{background:#fffdf7;border:2px solid #9bd8f5}
 .bravo-dog{object-fit:contain!important;background:transparent!important;border:0!important;box-shadow:none!important;max-height:38vh!important}
 
-#auth{display:flex;align-items:center;justify-content:center;text-align:center}
-.auth-box{width:min(520px,94vw);padding:42px 34px;background:rgba(255,255,255,.91);border:3px solid rgba(255,255,255,.9);border-radius:30px;box-shadow:0 18px 55px rgba(41,132,181,.18)}
-.auth-box h1{font-size:clamp(42px,7vw,66px);margin:6px 0;color:#082d73}.auth-box p{font-size:19px;font-weight:700}.auth-form{display:flex;flex-direction:column;gap:14px;margin-top:25px}.auth-form input{font-size:22px;padding:16px 18px;text-align:center;letter-spacing:2px}.auth-form button{font-size:21px;padding:15px;background:linear-gradient(#18bf61,#079846);color:white;box-shadow:0 4px 0 #087d3d}.auth-lock{font-size:58px}
+#auth{
+  display:flex;align-items:center;justify-content:center;text-align:center;
+  position:relative;min-height:100vh;overflow:hidden;
+  background-image:linear-gradient(rgba(255,255,255,.03),rgba(255,255,255,.03)),url('/login-landscape.png');
+  background-size:cover;background-position:center center;
+}
+#auth::after{content:"";position:absolute;inset:0;background:linear-gradient(to bottom,rgba(0,91,170,.02),rgba(23,100,30,.06));pointer-events:none}
+.auth-scene{position:relative;z-index:1;width:min(610px,94vw);display:flex;flex-direction:column;align-items:center}
+.auth-brand{margin-bottom:26px;text-shadow:0 2px 8px rgba(255,255,255,.65)}
+.auth-brand h1{font-size:clamp(48px,6vw,76px);line-height:.95;margin:0;color:#092f73;font-weight:900}
+.auth-brand p{font-size:clamp(17px,2vw,23px);margin:12px 0 0;color:#153d68;font-weight:800}
+.auth-box{width:min(500px,92vw);padding:30px 34px;background:rgba(255,255,255,.94);border:2px solid rgba(255,255,255,.95);border-radius:28px;box-shadow:0 20px 55px rgba(13,65,89,.25);backdrop-filter:blur(4px)}
+.auth-box h2{font-size:36px;margin:0 0 8px;color:#082d73}.auth-box p{font-size:17px;font-weight:650;margin:0 0 18px;color:#38506c}
+.auth-form{display:flex;flex-direction:column;gap:13px;margin-top:8px}
+.auth-form input{font-size:18px;padding:15px 17px;text-align:left;letter-spacing:0;border-radius:14px;border:2px solid #d8e3ef}
+.auth-form button{font-size:20px;padding:15px;background:linear-gradient(#4396ed,#2678d4);color:white;box-shadow:0 4px 0 #1d62b2;border-radius:14px}
+#toggleAuth{margin-top:15px;background:transparent;border:0;box-shadow:none;color:#1673d2;text-decoration:underline;font-weight:800}
 #accountLogout{margin-top:14px;background:#fff3d1;color:#805d00;border:2px solid #ffd36a}
+@media(max-height:760px){.auth-brand{margin-bottom:12px}.auth-brand h1{font-size:44px}.auth-brand p{margin-top:5px}.auth-box{padding:22px 28px}.auth-box h2{font-size:30px}}
+@media(max-width:600px){#auth{background-position:center}.auth-brand h1{font-size:46px}.auth-box{padding:26px 20px}}
 </style></head><body><div class="app">
-<section id="auth"><div class="auth-box"><div class="auth-lock">🔐</div><h1>Calcul mental</h1><p id="authSubtitle">Connecte-toi à ton compte.</p><form id="authForm" class="auth-form"><input id="authUsername" name="username" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="Identifiant" required><input id="authPassword" name="password" type="password" autocomplete="current-password" placeholder="Mot de passe" required><button id="authSubmit" type="submit">Se connecter</button></form><button id="toggleAuth" type="button">Créer un compte</button><div id="authHint" style="font-size:13px;margin-top:10px"></div><div id="authErr" class="error"></div></div></section>
+<section id="auth">
+  <div class="auth-scene">
+    <div class="auth-brand">
+      <h1>Calcul Mental</h1>
+      <p>De petits calculs pour de grands progrès !</p>
+    </div>
+    <div class="auth-box">
+      <h2>Bienvenue !</h2>
+      <p id="authSubtitle">Connecte-toi pour accéder à tes profils.</p>
+      <form id="authForm" class="auth-form">
+        <input id="authUsername" name="username" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="Identifiant" required>
+        <input id="authPassword" name="password" type="password" autocomplete="current-password" placeholder="Mot de passe" required>
+        <button id="authSubmit" type="submit">Se connecter →</button>
+      </form>
+      <button id="toggleAuth" type="button">Créer un compte</button>
+      <div id="authHint" style="font-size:13px;margin-top:10px"></div>
+      <div id="authErr" class="error"></div>
+    </div>
+  </div>
+</section>
 <section id="welcome" class="card welcome-playful hidden"><div class="brain-badge">🧠</div><h1>Calcul mental</h1><p class="welcome-sub">Choisis ton profil :</p><p id="accountName" style="margin:-8px 0 12px;font-weight:700;color:#356b86"></p><div id="profiles" class="profiles"></div><form id="newProfile"><input id="profileName" placeholder="Prénom" required><button class="primary">＋ Nouveau profil</button></form><div class="delete-wrap"><button id="deleteProfileBtn">🗑 Supprimer profil</button></div><div id="welcomeErr" class="error"></div><button id="accountLogout">Se déconnecter</button></section>
 <section id="home" class="hidden"><div class="top"><h2 id="hello"></h2></div><div class="home"><div class="home-main"><button id="start" class="primary start">Commencer</button><p id="sessionSummary">50 questions · 5 minutes</p></div><div class="side"><button id="logout">Changer de profil</button><button id="configBtn">Configurations</button><button id="statsBtn">Stats</button></div></div></section>
 <section id="config" class="hidden card"><div class="top"><h2>Configuration</h2><div style="display:flex;gap:10px"><button class="back">Retour</button><button id="saveConfig" class="primary">Enregistrer</button></div></div><div class="session-settings"><label>Temps (minutes) <input id="durationMinutes" type="number" min="1" max="60" step="1"></label><label>Nombre de questions <input id="questionCount" type="number" min="1" max="500" step="1"></label></div><div id="configRows"></div><p><strong>Total actif : <span id="totalPct">0</span> %</strong></p><div style="display:flex;gap:10px;flex-wrap:wrap"><button id="allocateConfig">Affecter</button></div><div id="configErr" class="error"></div></section>
@@ -52,13 +87,13 @@ function updateSessionSummary(){if(!cfg)return;let mins=Math.max(1,Math.round((c
 async function login(p){profile=p;cfg=await api('/api/config/'+p.id);$('#hello').textContent='Bonjour '+p.name;updateSessionSummary();show('home')}
 $('#newProfile').onsubmit=async e=>{e.preventDefault();try{let p=await api('/api/profiles',{method:'POST',body:JSON.stringify({name:$('#profileName').value})});$('#profileName').value='';await loadProfiles();login(p)}catch(x){$('#welcomeErr').textContent=x.message}};
 $('#logout').onclick=()=>{profile=null;show('welcome');loadProfiles()}; document.querySelectorAll('.back').forEach(b=>b.onclick=()=>show('home'));
-const names={double:'Doubles',addition:'Additions',subtraction:'Soustractions',decimal:'Calculs décimaux',multiplication:'Multiplications',division:'Divisions',complement10:'Compléments à 10',tens:'Ajout de dizaines'};
+const names={double:'Doubles',addition:'Additions',subtraction:'Soustractions',decimal:'Additions de décimaux',multiplication:'Multiplications',division:'Divisions',complement10:'Compléments à 10',tens:'Ajout de dizaines'};
 function num(k,label){return `<label>${label} <input type="number" data-field="${k}"></label>`}
 function renderConfig(){$('#durationMinutes').value=Math.max(1,Math.round((cfg.duration||300)/60));$('#questionCount').value=cfg.count||50;let root=$('#configRows');root.innerHTML='';['addition','subtraction','double','complement10','multiplication','tens','division','decimal'].filter(k=>cfg.categories[k]).forEach(k=>{let v=cfg.categories[k];let d=document.createElement('div');d.className='config-row';let extra='';
 if(k==='double')extra=`${num('min','de')}${num('max','à')} <label>Affichage <select data-field="display"><option value="both">Les deux</option><option value="word">Double de X</option><option value="sum">X + X</option></select></label>`;
-if(k==='addition')extra=`${num('aMin','1er de')}${num('aMax','à')}${num('bMin','2e de')}${num('bMax','à')}${num('maxResult','résultat max')}`;
+if(k==='addition')extra=`${num('aMin','1er de')}${num('aMax','à')}${num('bMin','2e de')}${num('bMax','à')}${num('maxResult','résultat max')}<label><input type="checkbox" data-field="withCarry" ${v.withCarry!==false?'checked':''}> avec retenue</label>`;
 if(k==='subtraction')extra=`${num('aMin','1er de')}${num('aMax','à')}${num('bMin','2e de')}${num('bMax','à')}<label><input type="checkbox" data-field="nonNegative" ${v.nonNegative!==false?'checked':''}> résultat positif</label>`;
-if(k==='decimal')extra=`${num('min','de',0,0.1)}${num('max','à',20,0.1)}<label>Opération <select data-field="operation"><option value="both">+ et −</option><option value="addition">Addition</option><option value="subtraction">Soustraction</option></select></label><label>Décimales <select data-field="decimals"><option value="1">1 chiffre</option><option value="2">2 chiffres</option></select></label>`;
+if(k==='decimal')extra=`${num('min','de',0,0.1)}${num('max','à',20,0.1)}<label>Décimales <select data-field="decimals"><option value="1">1 chiffre</option><option value="2">2 chiffres</option></select></label><label><input type="checkbox" data-field="withCarry" ${v.withCarry!==false?'checked':''}> avec retenue</label>`;
 if(k==='multiplication'||k==='division'){let arr=v.tables||[];extra=`<span class="tables">Tables ${[1,2,3,4,5,6,7,8,9,10].map(n=>`<label><input type="checkbox" data-table="${n}" ${arr.includes(n)?'checked':''}>${n}</label>`).join('')}</span>`+(k==='multiplication'?`${num('factorMin','facteur de')}${num('factorMax','à')}`:`${num('quotientMin','quotient de')}${num('quotientMax','à')}`)};
 if(k==='tens')extra=`${num('startMin','départ de')}${num('startMax','à')} <label><select data-field="mode"><option value="10">Seulement +10</option><option value="multiples">Multiples de 10</option></select></label><span class="tables tensmult">${[10,20,30,40,50,60,70,80,90].map(n=>`<label><input type="checkbox" data-multiple="${n}" ${(v.multiples||[]).includes(n)?'checked':''}>${n}</label>`).join('')}</span>${num('maxResult','résultat max')}`;
 d.innerHTML=`<label><input type="checkbox" class="enabled" ${v.enabled?'checked':''}> <strong>${names[k]}</strong></label><label><input type="number" class="pct" min="0" max="100" value="${v.pct}"> %</label><div class="params">${extra}</div>`;d.dataset.kind=k;root.appendChild(d);d.querySelectorAll('[data-field]').forEach(el=>{let f=el.dataset.field;el.value=v[f]??''});});updateTotal()}

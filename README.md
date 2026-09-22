@@ -44,3 +44,15 @@ En production, définissez `SECRET_KEY` avec une valeur longue et aléatoire. La
 
 ## V30 — Gestionnaire de mots de passe
 Le formulaire de connexion expose `name=username`, `autocomplete=username`, `name=password` et `autocomplete=current-password` afin que Safari, Chrome et les gestionnaires de mots de passe puissent proposer l’enregistrement et le remplissage automatique des identifiants.
+
+
+## V32 — Déploiement Render
+La base SQLite peut être déplacée via la variable d'environnement `DB_PATH`.
+
+Configuration Render recommandée :
+- Build Command : `pip install -r requirements.txt`
+- Start Command : `gunicorn app:app`
+- Persistent Disk mount path : `/var/data`
+- Environment variable : `DB_PATH=/var/data/calcul_mental.db`
+
+En local, sans `DB_PATH`, l'application continue d'utiliser `calcul_mental.db` à côté de `app.py`.
