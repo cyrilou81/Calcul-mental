@@ -96,23 +96,49 @@ def save_config(pid):
 @app.post('/api/session/start/<int:pid>')
 def start(pid):
     cfg=get_cfg(pid); count=cfg.get('count',50); retries=previous_errors(pid)[:count]; remaining=count-len(retries); alloc=allocate(remaining,cfg['categories']) if remaining else {}
-    qs=[]
-    for r in retries: qs.append({'kind':r['kind'],'payload':json.loads(r['payload']),'display':r['display'],'expected':r['expected'],'source':'RETRY','retry_from':r['id']})
+    # Une même opération ne doit apparaître qu'une seule fois dans une séance.
+    # La clé ignore le mode d'affichage des doubles : « Double de 8 » et « 8 + 8 »
+    # représentent le même fait numérique et ne peuvent donc pas coexister.
+    def operation_key(kind, payload):
+        if kind == 'double': return (kind, payload.get('n'))
+        if kind in ('addition', 'multiplication', 'tens'): return (kind, payload.get('a'), payload.get('b'))
+        if kind == 'division': return (kind, payload.get('dividend'), payload.get('divisor'))
+        if kind == 'complement10': return (kind, payload.get('a'))
+        return (kind, json.dumps(payload, sort_keys=True))
+
+    qs=[]; seen=set()
+    # Les reprises sont prioritaires. Si une ancienne séance contenait par hasard
+    # deux fois le même calcul, on ne le remet qu'une fois.
+    for r in retries:
+        payload=json.loads(r['payload']); key=operation_key(r['kind'],payload)
+        if key in seen: continue
+        seen.add(key)
+        qs.append({'kind':r['kind'],'payload':payload,'display':r['display'],'expected':r['expected'],'source':'RETRY','retry_from':r['id']})
+
+    # Pour chaque nouvelle question, on régénère si le calcul existe déjà.
+    # La limite évite toute boucle infinie lorsque la configuration contient
+    # moins de combinaisons possibles que le nombre de questions demandé.
     for kind,n in alloc.items():
-        for _ in range(n):
-            payload,display,expected=gen(kind,cfg['categories'][kind]); qs.append({'kind':kind,'payload':payload,'display':display,'expected':expected,'source':'GENERATED','retry_from':None})
+        added=0; tries=0; max_tries=max(500,n*100)
+        while added<n and tries<max_tries:
+            tries+=1
+            payload,display,expected=gen(kind,cfg['categories'][kind]); key=operation_key(kind,payload)
+            if key in seen: continue
+            seen.add(key)
+            qs.append({'kind':kind,'payload':payload,'display':display,'expected':expected,'source':'GENERATED','retry_from':None})
+            added+=1
     random.shuffle(qs)
     c=db(); cur=c.execute('INSERT INTO sessions(profile_id) VALUES(?)',(pid,)); sid=cur.lastrowid
     for i,q in enumerate(qs): c.execute('INSERT INTO questions(session_id,position,kind,payload,display,expected,status,source,retry_from) VALUES(?,?,?,?,?,?,\'UNANSWERED\',?,?)',(sid,i,q['kind'],json.dumps(q['payload']),q['display'],q['expected'],q['source'],q['retry_from']))
     c.commit(); rows=[dict(x) for x in c.execute('SELECT id,position,kind,display,source FROM questions WHERE session_id=? ORDER BY position',(sid,))]; c.close(); return {'sessionId':sid,'duration':cfg.get('duration',300),'questions':rows}
 @app.post('/api/session/<int:sid>/answer')
 def answer(sid):
-    qid=int(request.json['questionId']); given=int(request.json['answer']); ms=max(0,int(request.json.get('responseMs',0)))
+    qid=int(request.json['questionId']); given=float(request.json['answer']); ms=max(0,int(request.json.get('responseMs',0)))
     c=db(); q=c.execute('SELECT expected FROM questions WHERE id=? AND session_id=?',(qid,sid)).fetchone()
     if not q: c.close(); return {'error':'Question inconnue'},404
     oldq=c.execute('SELECT expected,attempts,had_error FROM questions WHERE id=? AND session_id=?',(qid,sid)).fetchone()
     attempts=(oldq['attempts'] or 0)+1
-    ok=given==oldq['expected']; had_error=bool(oldq['had_error']) or not ok
+    ok=abs(given-float(oldq['expected'])) < 1e-9; had_error=bool(oldq['had_error']) or not ok
     # Une question reste statistiquement en erreur dès le premier essai faux, même si elle est corrigée ensuite.
     status=('INCORRECT' if had_error else 'CORRECT') if ok or attempts>=3 else 'UNANSWERED'
     c.execute('UPDATE questions SET given_answer=?,status=?,response_ms=?,attempts=?,had_error=? WHERE id=?',(given,status,ms,attempts,1 if had_error else 0,qid)); c.commit(); c.close(); return {'correct':ok,'expected':oldq['expected'],'attempts':attempts,'remaining':max(0,3-attempts)}
