@@ -31,6 +31,8 @@ def init_db():
     if 'last_answer' not in cols: c.execute('ALTER TABLE questions ADD COLUMN last_answer REAL')
     pcols={r['name'] for r in c.execute('PRAGMA table_info(profiles)')}
     if 'account_id' not in pcols: c.execute('ALTER TABLE profiles ADD COLUMN account_id INTEGER NOT NULL DEFAULT 1')
+    if 'color' not in pcols: c.execute("ALTER TABLE profiles ADD COLUMN color TEXT NOT NULL DEFAULT '#8fdff7'")
+    if 'school_class' not in pcols: c.execute("ALTER TABLE profiles ADD COLUMN school_class TEXT NOT NULL DEFAULT ''")
     c.commit(); c.close()
 
 DEFAULT={
@@ -236,15 +238,39 @@ def auth_logout(): session.clear(); return {'ok':True}
 @app.get('/api/profiles')
 def profiles():
     if (e:=require_auth()): return e
-    c=db(); rows=[dict(x) for x in c.execute('SELECT id,name,created_at FROM profiles WHERE account_id=? ORDER BY name',(current_account_id(),))]; c.close(); return jsonify(rows)
+    c=db(); rows=[dict(x) for x in c.execute('SELECT id,name,color,school_class,created_at FROM profiles WHERE account_id=? ORDER BY name',(current_account_id(),))]; c.close(); return jsonify(rows)
 @app.post('/api/profiles')
 def create_profile():
     if (e:=require_auth()): return e
-    name=(request.json.get('name') or '').strip()
+    data=request.json or {}
+    name=(data.get('name') or '').strip()
+    color=(data.get('color') or '#8fdff7').strip()
+    school_class=(data.get('school_class') or '').strip()
     if not name: return {'error':'Nom requis'},400
+    if school_class not in ('CP','CE1','CE2','CM1','CM2'): return {'error':'Classe requise'},400
+    if not re.fullmatch(r'#[0-9A-Fa-f]{6}',color): color='#8fdff7'
     try:
-        c=db(); cur=c.execute('INSERT INTO profiles(name,account_id) VALUES(?,?)',(name,current_account_id())); pid=cur.lastrowid; c.execute('INSERT INTO configs(profile_id,data) VALUES(?,?)',(pid,json.dumps(DEFAULT))); c.commit(); c.close(); return {'id':pid,'name':name}
+        c=db(); cur=c.execute('INSERT INTO profiles(name,account_id,color,school_class) VALUES(?,?,?,?)',(name,current_account_id(),color,school_class)); pid=cur.lastrowid; c.execute('INSERT INTO configs(profile_id,data) VALUES(?,?)',(pid,json.dumps(DEFAULT))); c.commit(); c.close(); return {'id':pid,'name':name,'color':color,'school_class':school_class}
     except sqlite3.IntegrityError: return {'error':'Ce profil existe déjà'},409
+@app.put('/api/profiles/<int:pid>')
+def update_profile(pid):
+    if (e:=require_auth()): return e
+    data=request.json or {}
+    name=(data.get('name') or '').strip()
+    color=(data.get('color') or '#8fdff7').strip()
+    school_class=(data.get('school_class') or '').strip()
+    if not name: return {'error':'Nom requis'},400
+    if school_class not in ('CP','CE1','CE2','CM1','CM2'): return {'error':'Classe requise'},400
+    if not re.fullmatch(r'#[0-9A-Fa-f]{6}',color): return {'error':'Couleur invalide'},400
+    c=db()
+    if not c.execute('SELECT id FROM profiles WHERE id=? AND account_id=?',(pid,current_account_id())).fetchone():
+        c.close(); return {'error':'Profil introuvable'},404
+    try:
+        c.execute('UPDATE profiles SET name=?,color=?,school_class=? WHERE id=?',(name,color,school_class,pid)); c.commit()
+    except sqlite3.IntegrityError:
+        c.close(); return {'error':'Ce profil existe déjà'},409
+    c.close(); return {'id':pid,'name':name,'color':color,'school_class':school_class}
+
 @app.delete('/api/profiles/<int:pid>')
 def delete_profile(pid):
     if (e:=require_auth()): return e
