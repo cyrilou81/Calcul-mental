@@ -1,5 +1,6 @@
 from __future__ import annotations
-import json, random, sqlite3, statistics, time, copy, os, os, re
+import json
+import random, random, sqlite3, statistics, time, copy, os, os, re
 from pathlib import Path
 from datetime import timedelta
 from flask import Flask, request, jsonify, send_from_directory, session, redirect
@@ -409,15 +410,20 @@ def rewards(pid):
 def choose_reward(pid):
     if (e:=require_auth()): return e
     if not owns_profile(pid): return {'error':'Profil introuvable'},404
-    card=(request.json or {}).get('card'); valid={'robot-1','robot-2','robot-3','robot-4','robot-5','robot-6','robot-7','robot-8','robot-9','robot-10','fairy-1','fairy-2','fairy-3','fairy-4','fairy-5','fairy-6','fairy-7','fairy-8','fairy-9','fairy-10'}
-    if card not in valid: return {'error':'Carte inconnue'},400
+    kind=(request.json or {}).get('type')
+    if kind not in {'robot','fairy'}: return {'error':'Type de récompense inconnu'},400
     c=db(); r=c.execute('SELECT current_card,completed FROM reward_progress WHERE profile_id=?',(pid,)).fetchone()
-    if r and r['current_card']: c.close(); return {'error':'Termine d’abord la carte en cours.'},409
+    if r and r['current_card']:
+        c.close(); return {'error':'Termine d’abord la carte en cours.'},409
     completed=json.loads(r['completed'] or '[]') if r else []
-    if card in completed: c.close(); return {'error':'Cette carte est déjà révélée.'},409
+    candidates=[f'{kind}-{i}' for i in range(1,11) if f'{kind}-{i}' not in completed]
+    if not candidates:
+        c.close(); return {'error':'Toutes les cartes de ce type sont déjà révélées.'},409
+    card=random.choice(candidates)
     if r: c.execute("UPDATE reward_progress SET current_card=?,revealed='[]' WHERE profile_id=?",(card,pid))
     else: c.execute("INSERT INTO reward_progress(profile_id,current_card,revealed,completed) VALUES(?,?,'[]','[]')",(pid,card))
-    c.commit(); c.close(); return {'ok':True}
+    c.commit(); c.close(); return {'ok':True,'card':card}
+
 
 @app.post('/api/rewards/<int:pid>/reveal')
 def reveal_reward(pid):
