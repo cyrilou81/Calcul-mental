@@ -265,7 +265,11 @@ def save_config(pid):
 def start(pid):
     if (e:=require_auth()): return e
     if not owns_profile(pid): return {'error':'Profil introuvable'},404
-    cfg=get_cfg(pid); count=cfg.get('count',50); retries=previous_errors(pid)[:count]; remaining=count-len(retries); alloc=allocate(remaining,cfg['categories']) if remaining else {}
+    cfg=get_cfg(pid); count=cfg.get('count',50)
+    # Ne reprendre que les erreurs dont la catégorie est encore active dans la configuration.
+    active_kinds={k for k,v in cfg['categories'].items() if v.get('enabled') and v.get('pct',0)>0}
+    retries=[r for r in previous_errors(pid) if r['kind'] in active_kinds][:count]
+    remaining=count-len(retries); alloc=allocate(remaining,cfg['categories']) if remaining else {}
     # Une même opération ne doit apparaître qu'une seule fois dans une séance.
     # La clé ignore le mode d'affichage des doubles : « Double de 8 » et « 8 + 8 »
     # représentent le même fait numérique et ne peuvent donc pas coexister.
