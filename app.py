@@ -45,7 +45,9 @@ DEFAULT={
   'complement10':{'enabled':True,'pct':10},
   'tens':{'enabled':True,'pct':15,'startMin':10,'startMax':99,'mode':'10','multiples':[10,20,30,40,50,60,70,80,90],'maxResult':100},
   'tens_sub':{'enabled':False,'pct':0,'startMin':20,'startMax':100,'mode':'10','multiples':[10,20,30,40,50,60,70,80,90],'nonNegative':True},
-  'decimal_sub':{'enabled':False,'pct':0,'min':0,'max':20,'decimals':1,'withBorrow':True}
+  'decimal_sub':{'enabled':False,'pct':0,'min':0,'max':20,'decimals':1,'withBorrow':True},
+  'decimal_multiplication':{'enabled':False,'pct':0,'multipliers':[10,100,1000],'min':0.1,'max':20,'decimals':1},
+  'decimal_division':{'enabled':False,'pct':0,'divisors':[10,100,1000],'min':1,'max':1000,'decimals':1}
  }}
 
 def get_cfg(pid):
@@ -120,6 +122,16 @@ def gen(kind,cfg):
         a=random.choice(cfg['tables']); b=random.randint(cfg['factorMin'],cfg['factorMax']); return {'a':a,'b':b},f'{a} × {b} = __',a*b
     if kind=='division':
         d=random.choice(cfg['tables']); q=random.randint(cfg['quotientMin'],cfg['quotientMax']); return {'dividend':d*q,'divisor':d},f'{d*q} : {d} = __',q
+    if kind=='decimal_multiplication':
+        m=random.choice(cfg.get('multipliers',[10,100,1000])); dec=max(1,min(2,int(cfg.get('decimals',1))))
+        scale=10**dec; lo=max(1,int(round(float(cfg.get('min',0.1))*scale))); hi=max(lo,int(round(float(cfg.get('max',20))*scale)))
+        ai=random.randint(lo,hi); x=ai/scale; expected=x*m
+        return {'a':x,'b':m},f'{fr(x)} × {m} = __',expected
+    if kind=='decimal_division':
+        d=random.choice(cfg.get('divisors',[10,100,1000])); dec=max(0,min(2,int(cfg.get('decimals',1))))
+        scale=10**dec; lo=max(1,int(round(float(cfg.get('min',1))*scale))); hi=max(lo,int(round(float(cfg.get('max',1000))*scale)))
+        ai=random.randint(lo,hi); x=ai/scale; expected=x/d
+        return {'dividend':x,'divisor':d},f'{fr(x)} : {d} = __',expected
     if kind=='complement10':
         a=random.randint(1,9); return {'a':a},f'{a} + __ = 10',10-a
     if kind=='tens':
@@ -260,6 +272,8 @@ def save_config(pid):
     if total!=100: return {'error':f'Le total doit être 100 % (actuellement {total} %).'},400
     if cats.get('multiplication',{}).get('enabled') and not cats['multiplication'].get('tables'): return {'error':'Choisis au moins une table de multiplication.'},400
     if cats.get('division',{}).get('enabled') and not cats['division'].get('tables'): return {'error':'Choisis au moins une table de division.'},400
+    if cats.get('decimal_multiplication',{}).get('enabled') and not cats['decimal_multiplication'].get('multipliers'): return {'error':'Choisis au moins un multiplicateur décimal.'},400
+    if cats.get('decimal_division',{}).get('enabled') and not cats['decimal_division'].get('divisors'): return {'error':'Choisis au moins un diviseur décimal.'},400
     c=db(); c.execute('INSERT INTO configs(profile_id,data) VALUES(?,?) ON CONFLICT(profile_id) DO UPDATE SET data=excluded.data',(pid,json.dumps(data))); c.commit(); c.close(); return {'ok':True}
 @app.post('/api/session/start/<int:pid>')
 def start(pid):
@@ -275,9 +289,9 @@ def start(pid):
     # représentent le même fait numérique et ne peuvent donc pas coexister.
     def operation_key(kind, payload):
         if kind == 'double': return (kind, payload.get('n'))
-        if kind in ('addition', 'subtraction', 'multiplication', 'tens', 'tens_sub'): return (kind, payload.get('a'), payload.get('b'))
+        if kind in ('addition', 'subtraction', 'multiplication', 'decimal_multiplication', 'tens', 'tens_sub'): return (kind, payload.get('a'), payload.get('b'))
         if kind in ('decimal','decimal_sub'): return (kind, payload.get('a'), payload.get('b'), payload.get('op'))
-        if kind == 'division': return (kind, payload.get('dividend'), payload.get('divisor'))
+        if kind in ('division','decimal_division'): return (kind, payload.get('dividend'), payload.get('divisor'))
         if kind == 'complement10': return (kind, payload.get('a'))
         return (kind, json.dumps(payload, sort_keys=True))
 
