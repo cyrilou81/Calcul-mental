@@ -403,7 +403,7 @@ def rewards(pid):
     c=db(); p=c.execute('SELECT coins FROM profiles WHERE id=?',(pid,)).fetchone(); r=c.execute('SELECT current_card,revealed,completed FROM reward_progress WHERE profile_id=?',(pid,)).fetchone(); c.close()
     if r: state={'currentCard':r['current_card'],'revealed':json.loads(r['revealed'] or '[]'),'completed':json.loads(r['completed'] or '[]')}
     else: state={'currentCard':None,'revealed':[],'completed':[]}
-    return {'coins':p['coins'],'cards':[{'id':'robot-1','type':'robot','label':'Robot','image':'/rewards/robot-1.jpg'},{'id':'fairy-1','type':'fairy','label':'Fée','image':'/rewards/fairy-1.jpg'}],**state}
+    return {'coins':p['coins'],'cards':[{'id':'robot-1','type':'robot','label':'Bolt','image':'/rewards/robot-1.jpg'},{'id':'fairy-1','type':'fairy','label':'Lunéa','image':'/rewards/fairy-1.jpg'}],**state}
 
 @app.post('/api/rewards/<int:pid>/choose')
 def choose_reward(pid):
