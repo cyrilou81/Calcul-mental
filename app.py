@@ -2,7 +2,7 @@ from __future__ import annotations
 import json, random, sqlite3, statistics, time, copy, os, os, re
 from pathlib import Path
 from datetime import timedelta
-from flask import Flask, request, jsonify, send_from_directory, session
+from flask import Flask, request, jsonify, send_from_directory, session, redirect
 from werkzeug.security import generate_password_hash, check_password_hash
 
 ROOT=Path(__file__).parent
@@ -200,12 +200,23 @@ def auth_register():
     except sqlite3.IntegrityError:
         c.close(); return {'error':'Cet identifiant existe déjà.'},409
     c.close(); session.clear(); session['account_id']=aid; session.permanent=True; return {'ok':True,'username':username}
+
+@app.post('/auth/login-form')
+def auth_login_form():
+    username=(request.form.get('username') or '').strip()
+    password=str(request.form.get('password') or '')
+    c=db(); acc=c.execute('SELECT id,username,password_hash FROM accounts WHERE username=? COLLATE NOCASE',(username,)).fetchone(); c.close()
+    if not acc or not check_password_hash(acc['password_hash'],password):
+        return redirect('/?login=error')
+    session.clear(); session['account_id']=acc['id']; session.permanent=True
+    return redirect('/?login=ok')
+
 @app.post('/api/auth/login')
 def auth_login():
     data=request.json or {}; username=(data.get('username') or '').strip(); password=str(data.get('password') or '')
     c=db(); a=c.execute('SELECT id,username,password_hash FROM accounts WHERE username=? COLLATE NOCASE',(username,)).fetchone(); c.close()
     if not a or not check_password_hash(a['password_hash'],password): return {'error':'Identifiant ou mot de passe incorrect.'},401
-    session.clear(); session['account_id']=a['id']; return {'ok':True,'username':a['username']}
+    session.clear(); session['account_id']=a['id']; session.permanent=True; return {'ok':True,'username':a['username']}
 @app.post('/api/auth/logout')
 def auth_logout(): session.clear(); return {'ok':True}
 @app.get('/api/profiles')

@@ -61,7 +61,7 @@ input,select{background:#fffdf7;border:2px solid #9bd8f5}
       <h2>Bienvenue !</h2>
       <p class="auth-slogan">De petits calculs pour de grands progrès !</p>
       <p id="authSubtitle">Connecte-toi pour accéder à tes profils.</p>
-      <form id="authForm" class="auth-form">
+      <form id="authForm" class="auth-form" method="post" action="/auth/login-form">
         <input id="authUsername" name="username" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="Identifiant" required>
         <input id="authPassword" name="password" type="password" autocomplete="current-password" placeholder="Mot de passe" required>
         <button id="authSubmit" type="submit">Se connecter →</button>
@@ -87,6 +87,13 @@ function soundSuccess(){tone(660,0,.13,.08);tone(880,.11,.18,.09)}
 function soundFail(){tone(220,0,.16,.07,'triangle');tone(165,.13,.22,.06,'triangle')}
 function applause(){let c=audio();for(let i=0;i<22;i++){let when=c.currentTime+i*.075+(i%3)*.012,d=.055+((i%4)*.012),buf=c.createBuffer(1,Math.ceil(c.sampleRate*d),c.sampleRate),data=buf.getChannelData(0);for(let j=0;j<data.length;j++)data[j]=(Math.random()*2-1)*Math.pow(1-j/data.length,2);let src=c.createBufferSource(),filter=c.createBiquadFilter(),g=c.createGain();src.buffer=buf;filter.type='bandpass';filter.frequency.value=1100+(i%5)*220;filter.Q.value=.8;g.gain.setValueAtTime(.0001,when);g.gain.linearRampToValueAtTime(.13+(i%3)*.02,when+.006);g.gain.exponentialRampToValueAtTime(.0001,when+d);src.connect(filter);filter.connect(g);g.connect(c.destination);src.start(when)}}
 const $=s=>document.querySelector(s), api=async(url,opt={})=>{let r=await fetch(url,{headers:{'Content-Type':'application/json'},...opt});let text=await r.text(),j;try{j=text?JSON.parse(text):{}}catch(_){throw new Error(r.ok?'Réponse serveur invalide':'Erreur serveur ('+r.status+')')}if(!r.ok)throw new Error(j.error||'Erreur');return j};
+const loginResult=new URLSearchParams(location.search).get('login');
+if(loginResult==='error'){
+  history.replaceState(null,'',location.pathname);
+  setTimeout(()=>{$('#authErr').textContent='Identifiant ou mot de passe incorrect.';show('auth')},0);
+}else if(loginResult==='ok'){
+  history.replaceState(null,'',location.pathname);
+}
 function show(id){['auth','welcome','home','config','exercise','stats','celebration'].forEach(x=>$('#'+x).classList.toggle('hidden',x!==id))}
 async function loadProfiles(){let ps=await api('/api/profiles');$('#profiles').innerHTML='';ps.forEach(p=>{let b=document.createElement('button');b.textContent=p.name;if(deleteMode){b.style.background='#fdecef';b.style.color='#c93446'}b.onclick=()=>deleteMode?deleteProfile(p):login(p);$('#profiles').appendChild(b)});$('#deleteProfileBtn').disabled=!ps.length;$('#deleteProfileBtn').textContent=deleteMode?'Annuler la suppression':'Supprimer profil'}
 async function deleteProfile(p){if(!confirm(`Supprimer le profil « ${p.name} » ainsi que toutes ses séances et statistiques ?`))return;try{await api('/api/profiles/'+p.id,{method:'DELETE'});deleteMode=false;$('#welcomeErr').textContent='';await loadProfiles()}catch(e){$('#welcomeErr').textContent=e.message}}
@@ -143,7 +150,14 @@ function renderAuthMode(){
 }
 $('#toggleAuth').onclick=()=>{registerMode=!registerMode;renderAuthMode()};
 async function boot(){try{let s=await api('/api/auth/status');if(s.authenticated){$('#accountName').textContent='Compte : '+s.username;await loadProfiles();show('welcome')}else show('auth')}catch(e){show('auth')}}
-$('#authForm').onsubmit=async e=>{e.preventDefault();try{let endpoint=registerMode?'/api/auth/register':'/api/auth/login';let r=await api(endpoint,{method:'POST',body:JSON.stringify({username:$('#authUsername').value,password:$('#authPassword').value})});$('#authErr').textContent='';$('#accountName').textContent='Compte : '+r.username;await loadProfiles();show('welcome')}catch(x){$('#authErr').textContent=x.message}};
+$('#authForm').onsubmit=async e=>{
+  if(!registerMode) return; // vraie soumission HTML pour le login : Safari/Chrome peuvent enregistrer le mot de passe
+  e.preventDefault();
+  try{
+    let r=await api('/api/auth/register',{method:'POST',body:JSON.stringify({username:$('#authUsername').value,password:$('#authPassword').value})});
+    $('#authErr').textContent='';$('#accountName').textContent='Compte : '+r.username;await loadProfiles();show('welcome')
+  }catch(x){$('#authErr').textContent=x.message}
+};
 $('#accountLogout').onclick=async()=>{await api('/api/auth/logout',{method:'POST'});profile=null;$('#authPassword').value='';show('auth')};
 $('#playerLogout').onclick=async()=>{await api('/api/auth/logout',{method:'POST'});profile=null;$('#authPassword').value='';show('auth')};
 renderAuthMode(); boot();
