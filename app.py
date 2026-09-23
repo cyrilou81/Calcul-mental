@@ -33,6 +33,12 @@ def init_db():
     if 'account_id' not in pcols: c.execute('ALTER TABLE profiles ADD COLUMN account_id INTEGER NOT NULL DEFAULT 1')
     if 'color' not in pcols: c.execute("ALTER TABLE profiles ADD COLUMN color TEXT NOT NULL DEFAULT '#8fdff7'")
     if 'school_class' not in pcols: c.execute("ALTER TABLE profiles ADD COLUMN school_class TEXT NOT NULL DEFAULT ''")
+    if 'coins' not in pcols: c.execute('ALTER TABLE profiles ADD COLUMN coins INTEGER NOT NULL DEFAULT 0')
+    scols={r['name'] for r in c.execute('PRAGMA table_info(sessions)')}
+    if 'rewarded' not in scols: c.execute('ALTER TABLE sessions ADD COLUMN rewarded INTEGER NOT NULL DEFAULT 0')
+    c.executescript('''
+    CREATE TABLE IF NOT EXISTS reward_progress(profile_id INTEGER PRIMARY KEY, current_card TEXT, revealed TEXT NOT NULL DEFAULT '[]', completed TEXT NOT NULL DEFAULT '[]', FOREIGN KEY(profile_id) REFERENCES profiles(id));
+    ''')
     c.commit(); c.close()
 
 DEFAULT={
@@ -238,7 +244,7 @@ def auth_logout(): session.clear(); return {'ok':True}
 @app.get('/api/profiles')
 def profiles():
     if (e:=require_auth()): return e
-    c=db(); rows=[dict(x) for x in c.execute('SELECT id,name,color,school_class,created_at FROM profiles WHERE account_id=? ORDER BY name',(current_account_id(),))]; c.close(); return jsonify(rows)
+    c=db(); rows=[dict(x) for x in c.execute('SELECT id,name,color,school_class,coins,created_at FROM profiles WHERE account_id=? ORDER BY name',(current_account_id(),))]; c.close(); return jsonify(rows)
 @app.post('/api/profiles')
 def create_profile():
     if (e:=require_auth()): return e
@@ -284,6 +290,7 @@ def delete_profile(pid):
         c.execute(f'DELETE FROM questions WHERE session_id IN ({marks})',session_ids)
     c.execute('DELETE FROM sessions WHERE profile_id=?',(pid,))
     c.execute('DELETE FROM configs WHERE profile_id=?',(pid,))
+    c.execute('DELETE FROM reward_progress WHERE profile_id=?',(pid,))
     c.execute('DELETE FROM profiles WHERE id=?',(pid,))
     c.commit(); c.close()
     return {'ok':True}
@@ -376,9 +383,58 @@ def cancel_session(sid):
 @app.post('/api/session/<int:sid>/finish')
 def finish(sid):
     if (e:=require_auth()): return e
-    c0=db(); own=c0.execute('SELECT 1 FROM sessions s JOIN profiles p ON p.id=s.profile_id WHERE s.id=? AND p.account_id=?',(sid,current_account_id())).fetchone(); c0.close()
-    if not own: return {'error':'Séance inconnue'},404
-    ms=max(0,int(request.json.get('activeMs',0))); c=db(); c.execute('UPDATE sessions SET active_ms=? WHERE id=?',(ms,sid)); c.commit(); c.close(); return {'ok':True}
+    data=request.json or {}; ms=max(0,int(data.get('activeMs',0)))
+    c=db(); s=c.execute('SELECT s.id,s.profile_id,s.rewarded FROM sessions s JOIN profiles p ON p.id=s.profile_id WHERE s.id=? AND p.account_id=?',(sid,current_account_id())).fetchone()
+    if not s: c.close(); return {'error':'Séance inconnue'},404
+    earned=0
+    if not s['rewarded']:
+        earned=c.execute("SELECT COUNT(*) n FROM questions WHERE session_id=? AND status='CORRECT'",(sid,)).fetchone()['n']
+        c.execute('UPDATE profiles SET coins=coins+? WHERE id=?',(earned,s['profile_id']))
+        c.execute('UPDATE sessions SET active_ms=?,rewarded=1 WHERE id=?',(ms,sid))
+    else:
+        c.execute('UPDATE sessions SET active_ms=? WHERE id=?',(ms,sid))
+    balance=c.execute('SELECT coins FROM profiles WHERE id=?',(s['profile_id'],)).fetchone()['coins']
+    c.commit(); c.close(); return {'ok':True,'coinsEarned':earned,'balance':balance}
+
+@app.get('/api/rewards/<int:pid>')
+def rewards(pid):
+    if (e:=require_auth()): return e
+    if not owns_profile(pid): return {'error':'Profil introuvable'},404
+    c=db(); p=c.execute('SELECT coins FROM profiles WHERE id=?',(pid,)).fetchone(); r=c.execute('SELECT current_card,revealed,completed FROM reward_progress WHERE profile_id=?',(pid,)).fetchone(); c.close()
+    if r: state={'currentCard':r['current_card'],'revealed':json.loads(r['revealed'] or '[]'),'completed':json.loads(r['completed'] or '[]')}
+    else: state={'currentCard':None,'revealed':[],'completed':[]}
+    return {'coins':p['coins'],'cards':[{'id':'robot-1','type':'robot','label':'Robot','image':'/rewards/robot-1.jpg'},{'id':'fairy-1','type':'fairy','label':'Fée','image':'/rewards/fairy-1.jpg'}],**state}
+
+@app.post('/api/rewards/<int:pid>/choose')
+def choose_reward(pid):
+    if (e:=require_auth()): return e
+    if not owns_profile(pid): return {'error':'Profil introuvable'},404
+    card=(request.json or {}).get('card'); valid={'robot-1','fairy-1'}
+    if card not in valid: return {'error':'Carte inconnue'},400
+    c=db(); r=c.execute('SELECT current_card,completed FROM reward_progress WHERE profile_id=?',(pid,)).fetchone()
+    if r and r['current_card']: c.close(); return {'error':'Termine d’abord la carte en cours.'},409
+    completed=json.loads(r['completed'] or '[]') if r else []
+    if card in completed: c.close(); return {'error':'Cette carte est déjà révélée.'},409
+    if r: c.execute("UPDATE reward_progress SET current_card=?,revealed='[]' WHERE profile_id=?",(card,pid))
+    else: c.execute("INSERT INTO reward_progress(profile_id,current_card,revealed,completed) VALUES(?,?,'[]','[]')",(pid,card))
+    c.commit(); c.close(); return {'ok':True}
+
+@app.post('/api/rewards/<int:pid>/reveal')
+def reveal_reward(pid):
+    if (e:=require_auth()): return e
+    if not owns_profile(pid): return {'error':'Profil introuvable'},404
+    c=db(); p=c.execute('SELECT coins FROM profiles WHERE id=?',(pid,)).fetchone(); r=c.execute('SELECT current_card,revealed,completed FROM reward_progress WHERE profile_id=?',(pid,)).fetchone()
+    if not r or not r['current_card']: c.close(); return {'error':'Choisis une carte.'},400
+    if p['coins']<10: c.close(); return {'error':'Il faut 10 pièces.'},400
+    revealed=json.loads(r['revealed'] or '[]'); remaining=[i for i in range(20) if i not in revealed]
+    if not remaining: c.close(); return {'error':'Carte déjà terminée.'},400
+    piece=random.choice(remaining); revealed.append(piece); completed=json.loads(r['completed'] or '[]'); card=r['current_card']; done=len(revealed)>=20
+    c.execute('UPDATE profiles SET coins=coins-10 WHERE id=?',(pid,))
+    if done:
+        if card not in completed: completed.append(card)
+        c.execute("UPDATE reward_progress SET current_card=NULL,revealed='[]',completed=? WHERE profile_id=?",(json.dumps(completed),pid))
+    else: c.execute('UPDATE reward_progress SET revealed=? WHERE profile_id=?',(json.dumps(revealed),pid))
+    balance=p['coins']-10; c.commit(); c.close(); return {'ok':True,'piece':piece,'done':done,'coins':balance,'revealed':([] if done else revealed),'completed':completed}
 @app.get('/api/stats/<int:pid>')
 def stats(pid):
     if (e:=require_auth()): return e
