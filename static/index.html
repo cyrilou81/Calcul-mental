@@ -73,7 +73,17 @@ input,select{background:#fffdf7;border:2px solid #9bd8f5}
 .reward-current-wrap{display:flex;flex-direction:column;align-items:center;margin:8px 0 26px}
 .reward-current-wrap>h3{margin:4px 0 10px}
 .puzzle-card.reward-thumb{width:150px;margin:0;cursor:pointer;border-width:3px;box-shadow:0 7px 18px #8765002b}
-.puzzle-card.reward-thumb.can-reveal{animation:rewardPulse 1.4s ease-in-out infinite}
+.puzzle-card.reward-thumb.can-reveal{
+  animation:rewardInvite 1.15s ease-in-out infinite;
+  transform-origin:50% 85%;
+}
+@keyframes rewardInvite{
+  0%,100%{transform:translateY(0) rotate(0deg) scale(1);filter:brightness(1);box-shadow:0 7px 18px #8765002b}
+  18%{transform:translateY(-3px) rotate(-1.8deg) scale(1.025);filter:brightness(1.10);box-shadow:0 0 0 5px #ffd84a55,0 10px 24px #87650044}
+  36%{transform:translateY(-3px) rotate(1.8deg) scale(1.025);filter:brightness(1.20);box-shadow:0 0 0 9px #ffd84a77,0 12px 28px #87650055}
+  54%{transform:translateY(-2px) rotate(-1deg) scale(1.02);filter:brightness(1.08);box-shadow:0 0 0 4px #ffd84a44,0 9px 22px #8765003b}
+  72%{transform:translateY(0) rotate(.7deg) scale(1.01);filter:brightness(1.14)}
+}
 .reward-section-title{margin:22px 0 10px}
 .collection-grid .reward-card{flex:0 0 130px;padding:7px;cursor:pointer}
 .reward-card h3{display:none}
