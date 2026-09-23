@@ -143,7 +143,7 @@ function renderAuthMode(){
 }
 $('#toggleAuth').onclick=()=>{registerMode=!registerMode;renderAuthMode()};
 async function boot(){try{let s=await api('/api/auth/status');if(s.authenticated){$('#accountName').textContent='Compte : '+s.username;await loadProfiles();show('welcome')}else show('auth')}catch(e){show('auth')}}
-$('#authForm').onsubmit=async e=>{e.preventDefault();try{let endpoint=registerMode?'/api/auth/register':'/api/auth/login';let r=await api(endpoint,{method:'POST',body:JSON.stringify({username:$('#authUsername').value,password:$('#authPassword').value})});$('#authPassword').value='';$('#authErr').textContent='';$('#accountName').textContent='Compte : '+r.username;await loadProfiles();show('welcome')}catch(x){$('#authErr').textContent=x.message}};
+$('#authForm').onsubmit=async e=>{e.preventDefault();try{let endpoint=registerMode?'/api/auth/register':'/api/auth/login';let r=await api(endpoint,{method:'POST',body:JSON.stringify({username:$('#authUsername').value,password:$('#authPassword').value})});$('#authErr').textContent='';$('#accountName').textContent='Compte : '+r.username;await loadProfiles();show('welcome')}catch(x){$('#authErr').textContent=x.message}};
 $('#accountLogout').onclick=async()=>{await api('/api/auth/logout',{method:'POST'});profile=null;$('#authPassword').value='';show('auth')};
 $('#playerLogout').onclick=async()=>{await api('/api/auth/logout',{method:'POST'});profile=null;$('#authPassword').value='';show('auth')};
 renderAuthMode(); boot();

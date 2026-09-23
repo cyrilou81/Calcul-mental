@@ -1,6 +1,7 @@
 from __future__ import annotations
 import json, random, sqlite3, statistics, time, copy, os, os, re
 from pathlib import Path
+from datetime import timedelta
 from flask import Flask, request, jsonify, send_from_directory, session
 from werkzeug.security import generate_password_hash, check_password_hash
 
@@ -8,6 +9,9 @@ ROOT=Path(__file__).parent
 DB=Path(os.environ.get('DB_PATH', str(ROOT/'calcul_mental.db')))
 app=Flask(__name__, static_folder='static', static_url_path='')
 app.secret_key=os.environ.get('SECRET_KEY','dev-only-change-me')
+app.config['PERMANENT_SESSION_LIFETIME']=timedelta(days=90)
+app.config['SESSION_COOKIE_SAMESITE']='Lax'
+app.config['SESSION_COOKIE_SECURE']=os.environ.get('RENDER','').lower()=='true'
 
 def db():
     c=sqlite3.connect(DB); c.row_factory=sqlite3.Row; return c
@@ -195,7 +199,7 @@ def auth_register():
         c.commit()
     except sqlite3.IntegrityError:
         c.close(); return {'error':'Cet identifiant existe déjà.'},409
-    c.close(); session.clear(); session['account_id']=aid; return {'ok':True,'username':username}
+    c.close(); session.clear(); session['account_id']=aid; session.permanent=True; return {'ok':True,'username':username}
 @app.post('/api/auth/login')
 def auth_login():
     data=request.json or {}; username=(data.get('username') or '').strip(); password=str(data.get('password') or '')
