@@ -126,12 +126,14 @@ def gen(kind,cfg):
         m=random.choice(cfg.get('multipliers',[10,100,1000])); dec=max(1,min(2,int(cfg.get('decimals',1))))
         scale=10**dec; lo=max(1,int(round(float(cfg.get('min',0.1))*scale))); hi=max(lo,int(round(float(cfg.get('max',20))*scale)))
         ai=random.randint(lo,hi); x=ai/scale; expected=x*m
-        return {'a':x,'b':m},f'{fr(x)} × {m} = __',expected
+        fmt=lambda v: (f'{v:.{dec}f}'.rstrip('0').rstrip('.')).replace('.',',')
+        return {'a':x,'b':m},f'{fmt(x)} × {m} = __',expected
     if kind=='decimal_division':
         d=random.choice(cfg.get('divisors',[10,100,1000])); dec=max(0,min(2,int(cfg.get('decimals',1))))
         scale=10**dec; lo=max(1,int(round(float(cfg.get('min',1))*scale))); hi=max(lo,int(round(float(cfg.get('max',1000))*scale)))
         ai=random.randint(lo,hi); x=ai/scale; expected=x/d
-        return {'dividend':x,'divisor':d},f'{fr(x)} : {d} = __',expected
+        fmt=lambda v: (f'{v:.{dec}f}'.rstrip('0').rstrip('.')).replace('.',',')
+        return {'dividend':x,'divisor':d},f'{fmt(x)} : {d} = __',expected
     if kind=='complement10':
         a=random.randint(1,9); return {'a':a},f'{a} + __ = 10',10-a
     if kind=='tens':
