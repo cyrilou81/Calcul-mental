@@ -45,6 +45,15 @@ input,select{background:#fffdf7;border:2px solid #9bd8f5}
 @media(max-width:600px){#auth{background-position:center}.auth-brand h1{font-size:46px}.auth-box{padding:26px 20px}}
 
 .global-stats-head{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px}.global-stats-head h3{margin:0}.global-stats-head select{font-size:15px;padding:8px 12px}.global-charts{display:grid;grid-template-columns:1fr;gap:12px}.global-cat-bars{display:grid;gap:10px;margin-top:12px}.global-cat-row{display:grid;grid-template-columns:minmax(180px,250px) minmax(120px,1fr) 190px 92px;gap:14px;align-items:center}.bar-track{height:16px;background:#e1f1f8;border-radius:999px;overflow:hidden}.bar-fill{height:100%;background:#269ee8;border-radius:999px}.global-cat-row strong{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums;font-size:clamp(15px,1.35vw,20px)}.cat-detail-btn{padding:7px 11px;margin-left:8px;font-size:13px;border-radius:10px}@media(max-width:760px){.global-cat-row{grid-template-columns:minmax(140px,1fr) 130px 78px}.bar-track{grid-column:1/-1;grid-row:2}.global-cat-row strong{grid-column:2;grid-row:1;white-space:nowrap}.cat-detail-btn{grid-column:3;grid-row:1}}
+
+/* Pendant un test, les gestes tactiles servent uniquement au jeu. */
+#exercise{
+  touch-action:manipulation;
+  -webkit-user-select:none;
+  user-select:none;
+  -webkit-touch-callout:none;
+}
+
 </style></head><body><div class="app">
 <section id="auth">
   <div class="auth-scene">
@@ -138,4 +147,26 @@ $('#authForm').onsubmit=async e=>{e.preventDefault();try{let endpoint=registerMo
 $('#accountLogout').onclick=async()=>{await api('/api/auth/logout',{method:'POST'});profile=null;$('#authPassword').value='';show('auth')};
 $('#playerLogout').onclick=async()=>{await api('/api/auth/logout',{method:'POST'});profile=null;$('#authPassword').value='';show('auth')};
 renderAuthMode(); boot();
+
+// iPhone / iPad : interdire pinch-zoom et double-tap zoom uniquement pendant le test.
+const testIsActive=()=>!$('#exercise').classList.contains('hidden');
+let lastTestTap=0;
+
+['gesturestart','gesturechange','gestureend'].forEach(evt=>{
+  document.addEventListener(evt,e=>{
+    if(testIsActive()) e.preventDefault();
+  },{passive:false});
+});
+
+document.addEventListener('touchmove',e=>{
+  if(testIsActive() && e.touches && e.touches.length>1) e.preventDefault();
+},{passive:false});
+
+document.addEventListener('touchend',e=>{
+  if(!testIsActive()) return;
+  const now=Date.now();
+  if(now-lastTestTap<350) e.preventDefault();
+  lastTestTap=now;
+},{passive:false});
+
 </script></body></html>
