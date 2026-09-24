@@ -303,31 +303,33 @@ input,select{background:#fffdf7;border:2px solid #9bd8f5;}
 }
 
 
-/* V114 — placement adaptatif par rapport au bas de l'écran */
+/* V115 — bloc principal équilibré verticalement (42 % de l'espace libre au-dessus) */
 #home{
   min-height:100dvh;
   height:100dvh;
-  display:flex;
-  flex-direction:column;
-  padding-bottom:max(12px,env(safe-area-inset-bottom));
+  display:grid;
+  grid-template-rows:minmax(0,42fr) auto minmax(0,58fr);
+  padding-bottom:max(10px,env(safe-area-inset-bottom));
   overflow:hidden;
 }
 #home.hidden{display:none}
 #home .home-top{
   position:absolute;
   top:14px;left:18px;right:18px;
+  z-index:2;
 }
 #home .mode-shell{
-  margin-top:auto;
-  margin-bottom:0;
-  flex:0 0 auto;
+  grid-row:2;
   width:100%;
-  max-height:calc(100dvh - max(12px,env(safe-area-inset-bottom)));
+  margin:0;
+  align-self:center;
 }
 @media(max-width:650px){
   #home .home-top{top:8px;left:8px;right:8px}
-  #home{padding-bottom:max(10px,env(safe-area-inset-bottom))}
-  #home .mode-shell{max-height:calc(100dvh - max(10px,env(safe-area-inset-bottom)))}
+  #home{grid-template-rows:minmax(0,38fr) auto minmax(0,62fr)}
+}
+@media(max-height:700px){
+  #home{grid-template-rows:minmax(0,25fr) auto minmax(0,75fr)}
 }
 
 </style>
