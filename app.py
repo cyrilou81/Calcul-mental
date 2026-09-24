@@ -1,6 +1,6 @@
 from __future__ import annotations
 import json
-import random, sqlite3, statistics, time, copy, os, os, re
+import random, sqlite3, statistics, time, copy, os, re
 from pathlib import Path
 from datetime import timedelta
 from flask import Flask, request, jsonify, send_from_directory, session, redirect
@@ -42,6 +42,7 @@ def init_db():
     if 'coins' not in pcols: c.execute('ALTER TABLE profiles ADD COLUMN coins INTEGER NOT NULL DEFAULT 0')
     if 'challenge_level' not in pcols: c.execute('ALTER TABLE profiles ADD COLUMN challenge_level INTEGER NOT NULL DEFAULT 1')
     if 'challenge_stars' not in pcols: c.execute('ALTER TABLE profiles ADD COLUMN challenge_stars INTEGER NOT NULL DEFAULT 0')
+    if 'challenge_level_id' not in pcols: c.execute('ALTER TABLE profiles ADD COLUMN challenge_level_id INTEGER')
     scols={r['name'] for r in c.execute('PRAGMA table_info(sessions)')}
     if 'rewarded' not in scols: c.execute('ALTER TABLE sessions ADD COLUMN rewarded INTEGER NOT NULL DEFAULT 0')
     if 'mode' not in scols: c.execute("ALTER TABLE sessions ADD COLUMN mode TEXT NOT NULL DEFAULT 'learning'")
@@ -50,6 +51,7 @@ def init_db():
     if 'star_awarded' not in scols: c.execute("ALTER TABLE sessions ADD COLUMN star_awarded INTEGER NOT NULL DEFAULT 0")
     if 'challenge_day' not in scols: c.execute("ALTER TABLE sessions ADD COLUMN challenge_day TEXT")
     if 'daily_bonus_awarded' not in scols: c.execute("ALTER TABLE sessions ADD COLUMN daily_bonus_awarded INTEGER NOT NULL DEFAULT 0")
+    if 'challenge_level_id' not in scols: c.execute("ALTER TABLE sessions ADD COLUMN challenge_level_id INTEGER")
     c.executescript('''
     CREATE TABLE IF NOT EXISTS reward_progress(profile_id INTEGER PRIMARY KEY, current_card TEXT, revealed TEXT NOT NULL DEFAULT '[]', completed TEXT NOT NULL DEFAULT '[]', FOREIGN KEY(profile_id) REFERENCES profiles(id));
     CREATE TABLE IF NOT EXISTS challenge_levels(id INTEGER PRIMARY KEY AUTOINCREMENT, school_class TEXT NOT NULL, name TEXT NOT NULL, position INTEGER NOT NULL, data TEXT NOT NULL, UNIQUE(school_class, position));
@@ -364,7 +366,33 @@ def auth_logout(): session.clear(); return {'ok':True}
 @app.get('/admin')
 def admin_page(): return send_from_directory(ROOT/'static','admin.html')
 
+
 CLASSES=('CP','CE1','CE2','CM1','CM2')
+
+def challenge_levels_for(c, school):
+    return c.execute('SELECT id,name,position,data FROM challenge_levels WHERE school_class=? ORDER BY position',(school,)).fetchall()
+
+def resolve_profile_level(c, profile):
+    school=(profile['school_class'] or 'CP').upper()
+    levels=challenge_levels_for(c,school)
+    if not levels:
+        return school,None,1,'Niveau 1'
+    keys=profile.keys()
+    level_id=profile['challenge_level_id'] if 'challenge_level_id' in keys else None
+    row=next((x for x in levels if x['id']==level_id),None)
+    if row is None:
+        legacy=max(1,int(profile['challenge_level'] or 1)) if 'challenge_level' in keys else 1
+        row=levels[min(legacy-1,len(levels)-1)]
+    return school,row,row['position'],row['name']
+
+def sync_profile_level(c, pid):
+    p=c.execute('SELECT id,school_class,challenge_level,challenge_level_id FROM profiles WHERE id=?',(pid,)).fetchone()
+    if not p: return None
+    school,row,pos,name=resolve_profile_level(c,p)
+    if row and (p['challenge_level_id']!=row['id'] or p['challenge_level']!=pos):
+        c.execute('UPDATE profiles SET challenge_level_id=?,challenge_level=? WHERE id=?',(row['id'],pos,pid))
+    return row
+
 def validate_cfg_data(data):
     data=merged_cfg(data or {}); data['duration']=max(60,min(3600,int(data.get('duration',300)))); data['count']=max(1,min(500,int(data.get('count',50))))
     total=sum(int(v.get('pct',0) or 0) for v in data['categories'].values() if v.get('enabled'))
@@ -450,7 +478,7 @@ def update_profile(pid):
     try:
         old_class=c.execute('SELECT school_class FROM profiles WHERE id=?',(pid,)).fetchone()['school_class']
         if old_class != school_class:
-            c.execute('UPDATE profiles SET name=?,color=?,school_class=?,challenge_level=1,challenge_stars=0 WHERE id=?',(name,color,school_class,pid))
+            first=c.execute('SELECT id FROM challenge_levels WHERE school_class=? ORDER BY position LIMIT 1',(school_class,)).fetchone(); first_id=first['id'] if first else None; c.execute('UPDATE profiles SET name=?,color=?,school_class=?,challenge_level=1,challenge_level_id=?,challenge_stars=0 WHERE id=?',(name,color,school_class,first_id,pid))
         else:
             c.execute('UPDATE profiles SET name=?,color=?,school_class=? WHERE id=?',(name,color,school_class,pid))
         c.commit()
@@ -496,8 +524,10 @@ def challenge_status(pid):
     if (e:=require_auth()): return e
     if not owns_profile(pid): return {'error':'Profil introuvable'},404
     day=(request.args.get('date') or '')[:10]
-    c=db(); p=c.execute('SELECT school_class,challenge_level,challenge_stars FROM profiles WHERE id=?',(pid,)).fetchone()
-    school=p['school_class'] or 'CP'; levels=c.execute('SELECT id,name,position FROM challenge_levels WHERE school_class=? ORDER BY position',(school,)).fetchall(); max_level=max(1,len(levels)); current=min(max(1,p['challenge_level']),max_level); level_name=(levels[current-1]['name'] if levels else f'Niveau {current}')
+    c=db(); p=c.execute('SELECT school_class,challenge_level,challenge_level_id,challenge_stars FROM profiles WHERE id=?',(pid,)).fetchone()
+    school,row,current,level_name=resolve_profile_level(c,p); levels=challenge_levels_for(c,school); max_level=max(1,len(levels))
+    if row and (p['challenge_level_id']!=row['id'] or p['challenge_level']!=current):
+        c.execute('UPDATE profiles SET challenge_level_id=?,challenge_level=? WHERE id=?',(row['id'],current,pid)); c.commit()
     done_today=False
     if re.fullmatch(r'\\d{4}-\\d{2}-\\d{2}',day):
         done_today=bool(c.execute("SELECT 1 FROM sessions WHERE profile_id=? AND mode='challenge' AND rewarded=1 AND challenge_day=? LIMIT 1",(pid,day)).fetchone())
@@ -525,11 +555,16 @@ def start(pid):
     if not owns_profile(pid): return {'error':'Profil introuvable'},404
     mode=(request.args.get('mode') or 'learning').lower()
     if mode not in ('learning','challenge'): mode='learning'
-    challenge_class=None; challenge_level=None
+    challenge_class=None; challenge_level=None; challenge_level_id=None
     if mode=='challenge':
-        c0=db(); p0=c0.execute('SELECT school_class,challenge_level FROM profiles WHERE id=?',(pid,)).fetchone(); c0.close()
-        challenge_class=p0['school_class'] or 'CP'; challenge_level=p0['challenge_level']
-        cfg=challenge_cfg(challenge_class,challenge_level)
+        c0=db(); p0=c0.execute('SELECT school_class,challenge_level,challenge_level_id FROM profiles WHERE id=?',(pid,)).fetchone()
+        challenge_class,row,challenge_level,_=resolve_profile_level(c0,p0); challenge_level_id=row['id'] if row else None
+        if row:
+            c0.execute('UPDATE profiles SET challenge_level=?,challenge_level_id=? WHERE id=?',(challenge_level,challenge_level_id,pid)); c0.commit()
+            cfg=merged_cfg(json.loads(row['data']))
+        else:
+            cfg=challenge_cfg(challenge_class,challenge_level)
+        c0.close()
     else:
         cfg=get_cfg(pid)
     count=cfg.get('count',50)
@@ -570,7 +605,7 @@ def start(pid):
             qs.append({'kind':kind,'payload':payload,'display':display,'expected':expected,'source':'GENERATED','retry_from':None})
             added+=1
     random.shuffle(qs)
-    c=db(); cur=c.execute('INSERT INTO sessions(profile_id,mode,challenge_class,challenge_level) VALUES(?,?,?,?)',(pid,mode,challenge_class,challenge_level)); sid=cur.lastrowid
+    c=db(); cur=c.execute('INSERT INTO sessions(profile_id,mode,challenge_class,challenge_level,challenge_level_id) VALUES(?,?,?,?,?)',(pid,mode,challenge_class,challenge_level,challenge_level_id)); sid=cur.lastrowid
     for i,q in enumerate(qs): c.execute('INSERT INTO questions(session_id,position,kind,payload,display,expected,status,source,retry_from) VALUES(?,?,?,?,?,?,\'UNANSWERED\',?,?)',(sid,i,q['kind'],json.dumps(q['payload']),q['display'],q['expected'],q['source'],q['retry_from']))
     c.commit(); rows=[dict(x) for x in c.execute('SELECT id,position,kind,display,source FROM questions WHERE session_id=? ORDER BY position',(sid,))]; c.close(); return {'sessionId':sid,'duration':cfg.get('duration',300),'questions':rows}
 @app.post('/api/session/<int:sid>/answer')
@@ -604,7 +639,7 @@ def finish(sid):
     data=request.json or {}; ms=max(0,int(data.get('activeMs',0)))
     local_day=str(data.get('localDate',''))[:10]
     if not re.fullmatch(r'\d{4}-\d{2}-\d{2}',local_day): local_day=None
-    c=db(); s=c.execute('SELECT s.id,s.profile_id,s.rewarded,s.mode,s.challenge_class,s.challenge_level,s.star_awarded,s.daily_bonus_awarded FROM sessions s JOIN profiles p ON p.id=s.profile_id WHERE s.id=? AND p.account_id=?',(sid,current_account_id())).fetchone()
+    c=db(); s=c.execute('SELECT s.id,s.profile_id,s.rewarded,s.mode,s.challenge_class,s.challenge_level,s.challenge_level_id,s.star_awarded,s.daily_bonus_awarded FROM sessions s JOIN profiles p ON p.id=s.profile_id WHERE s.id=? AND p.account_id=?',(sid,current_account_id())).fetchone()
     if not s: c.close(); return {'error':'Séance inconnue'},404
     earned=0
     if not s['rewarded']:
@@ -625,13 +660,14 @@ def finish(sid):
             c.execute('UPDATE sessions SET daily_bonus_awarded=1 WHERE id=?',(sid,))
     if s['mode']=='challenge' and not s['star_awarded']:
         correct=c.execute("SELECT COUNT(*) n FROM questions WHERE session_id=? AND status='CORRECT'",(sid,)).fetchone()['n']
-        p=c.execute('SELECT school_class,challenge_level,challenge_stars FROM profiles WHERE id=?',(s['profile_id'],)).fetchone()
+        p=c.execute('SELECT school_class,challenge_level,challenge_level_id,challenge_stars FROM profiles WHERE id=?',(s['profile_id'],)).fetchone()
         # L'étoile ne compte que si le profil est toujours sur le même palier que le défi joué.
-        if correct>45 and p['school_class']==s['challenge_class'] and p['challenge_level']==s['challenge_level'] and p['challenge_stars']<3:
+        same_level=(p['challenge_level_id']==s['challenge_level_id']) if s['challenge_level_id'] is not None else (p['challenge_level']==s['challenge_level']);
+        if correct>45 and p['school_class']==s['challenge_class'] and same_level and p['challenge_stars']<3:
             c.execute('UPDATE profiles SET challenge_stars=challenge_stars+1 WHERE id=?',(s['profile_id'],))
             star_awarded=True
         c.execute('UPDATE sessions SET star_awarded=1 WHERE id=?',(sid,))
-    pstate=c.execute('SELECT coins,challenge_level,challenge_stars,school_class FROM profiles WHERE id=?',(s['profile_id'],)).fetchone()
+    pstate=c.execute('SELECT coins,challenge_level,challenge_level_id,challenge_stars,school_class FROM profiles WHERE id=?',(s['profile_id'],)).fetchone()
     balance=pstate['coins']
     c.commit(); c.close(); return {'ok':True,'coinsEarned':earned,'dailyBonus':daily_bonus,'balance':balance,'starAwarded':star_awarded,'challenge':{'schoolClass':pstate['school_class'],'level':pstate['challenge_level'],'stars':pstate['challenge_stars']}}
 
@@ -721,4 +757,10 @@ def seed_challenge_levels():
         c.commit()
     c.close()
 seed_challenge_levels()
+def migrate_profile_level_ids():
+    c=db()
+    for r in c.execute('SELECT id FROM profiles').fetchall():
+        sync_profile_level(c,r['id'])
+    c.commit(); c.close()
+migrate_profile_level_ids()
 if __name__=='__main__': app.run(host='127.0.0.1',port=5050,debug=True)
