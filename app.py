@@ -596,7 +596,7 @@ def challenge_status(pid):
     if row and (p['challenge_level_id']!=row['id'] or p['challenge_level']!=current):
         c.execute('UPDATE profiles SET challenge_level_id=?,challenge_level=? WHERE id=?',(row['id'],current,pid)); c.commit()
     done_today=False
-    if re.fullmatch(r'\\d{4}-\\d{2}-\\d{2}',day):
+    if re.fullmatch(r'\d{4}-\d{2}-\d{2}',day):
         done_today=bool(c.execute("SELECT 1 FROM sessions WHERE profile_id=? AND mode='challenge' AND rewarded=1 AND challenge_day=? LIMIT 1",(pid,day)).fetchone())
     c.close()
     return {'schoolClass':school,'level':current,'levelName':level_name,'stars':p['challenge_stars'],'maxLevel':max_level,'threshold':46,'doneToday':done_today,'levels':[{'id':x['id'],'name':x['name'],'position':x['position']} for x in levels]}

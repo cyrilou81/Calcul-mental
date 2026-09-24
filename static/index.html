@@ -355,6 +355,59 @@ input,select{background:#fffdf7;border:2px solid #9bd8f5;}
   .challenge-level-card .challenge-level-stars{gap:2px;height:28px}
 }
 
+
+/* V123 — étoiles badge plus bombées */
+.level-star.earned{
+  position:relative;
+  color:#ffc536;
+  -webkit-text-stroke:1.15px #df9000;
+  background:linear-gradient(180deg,#fff08a 0%,#ffd34d 32%,#ffb313 68%,#e99700 100%);
+  -webkit-background-clip:text;
+  background-clip:text;
+  -webkit-text-fill-color:transparent;
+  text-shadow:none;
+  filter:
+    drop-shadow(0 1px 0 #fff0a0)
+    drop-shadow(0 2px 0 #c77b00)
+    drop-shadow(0 4px 3px rgba(126,78,0,.28));
+}
+.level-star.earned::after{
+  content:"★";
+  position:absolute;
+  inset:0;
+  color:transparent;
+  -webkit-text-stroke:1px rgba(255,255,255,.42);
+  clip-path:inset(0 0 55% 0);
+  pointer-events:none;
+}
+/* V123 — écran de fin compact : réserver explicitement une place au chien */
+#celebration{
+  justify-content:flex-start!important;
+  overflow-y:auto!important;
+  padding-top:clamp(10px,2dvh,24px)!important;
+  padding-bottom:12px!important;
+}
+#celebration .bravo-dog{
+  display:block!important;
+  visibility:visible!important;
+  opacity:1!important;
+  flex:0 0 auto!important;
+  width:min(300px,58vw)!important;
+  height:auto!important;
+  min-height:0!important;
+  max-height:230px!important;
+  object-fit:contain!important;
+  margin:0 auto!important;
+}
+@media(max-height:700px){
+  #celebration .bravo-dog{
+    width:min(220px,48vw)!important;
+    max-height:150px!important;
+  }
+  #celebration{gap:5px!important}
+  #celebration h2{margin:0!important}
+}
+
 </style>
 </head><body><div class="app">
 <section id="auth">
