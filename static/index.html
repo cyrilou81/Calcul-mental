@@ -235,6 +235,36 @@ input,select{background:#fffdf7;border:2px solid #9bd8f5;}
   .challenge-progress{justify-content:flex-start}
 }
 
+
+/* V108 — niveaux verrouillés option C, mais cadenas monochrome */
+.challenge-level-card.locked{
+  background:#fff;
+  border:2px solid #8f9aa5;
+  color:#4f5964;
+  box-shadow:0 3px 8px rgba(50,65,80,.08)
+}
+.challenge-level-card.locked .challenge-level-name{color:#4f5964}
+.challenge-level-card.locked .challenge-level-stars{
+  color:#56697d;
+  font-family:Arial,sans-serif;
+  font-size:24px;
+  line-height:24px;
+  text-shadow:none
+}
+
+/* Sécurité verticale : l'accueil doit rester dans le viewport.
+   On compacte seulement si la hauteur disponible devient insuffisante. */
+#home{max-height:100dvh;overflow-y:auto;overscroll-behavior-y:contain}
+@media(max-height:760px){
+  #home{padding-top:8px;padding-bottom:8px}
+  #home .player-header{margin-bottom:6px}
+  #home .mode-shell{margin-top:6px}
+  #home .mode-pane{padding-top:14px;padding-bottom:14px}
+  #home .challenge-progress{margin-bottom:4px}
+  #home .hero-start{margin-top:10px;margin-bottom:8px}
+  #home .home-secondary{margin-top:8px}
+}
+
 </style>
 </head><body><div class="app">
 <section id="auth">
@@ -403,7 +433,7 @@ progress.innerHTML=levels.map((x,i)=>{
   let pos=i+1,isDone=pos<challengeState.level,isCurrent=pos===challengeState.level;
   let stars=isDone?3:(isCurrent?challengeState.stars:0);
   let cls=isDone?'done':(isCurrent?'current':'locked');
-  let symbol=(isDone||isCurrent)?`${'★'.repeat(stars)}${'☆'.repeat(3-stars)}`:'🔒';
+  let symbol=(isDone||isCurrent)?`${'★'.repeat(stars)}${'☆'.repeat(3-stars)}`:'&#128274;&#xfe0e;';
   return `<div class="challenge-level-card ${cls}" data-current="${isCurrent?'1':'0'}"><div class="challenge-level-name">${escapeHtml(x.name)}</div><div class="challenge-level-stars">${symbol}</div></div>`
 }).join('');
 requestAnimationFrame(()=>{let cur=progress.querySelector('[data-current="1"]');if(cur)cur.scrollIntoView({behavior:'smooth',block:'nearest',inline:'center'})});
