@@ -491,7 +491,22 @@ $('#rewardBtn').onclick=openRewards;$('#rewardBack').onclick=()=>show('home');
 $('#statsBtn').onclick=async()=>{await renderStats();show('stats')};$('#celebrationHome').onclick=()=>show('home');
 $('#accountLogout').onclick=async()=>{await api('/api/auth/logout',{method:'POST'});profile=null;$('#authPassword').value='';show('auth')};
 $('#playerLogout').onclick=async()=>{await api('/api/auth/logout',{method:'POST'});profile=null;$('#authPassword').value='';show('auth')};
-renderAuthMode(); boot();
+async function boot(){
+  try{
+    const s=await api('/api/auth/status');
+    if(s.authenticated){
+      $('#accountName').textContent='Compte : '+s.username;
+      await loadProfiles();
+      show('welcome');
+    }else{
+      show('auth');
+    }
+  }catch(e){
+    $('#authErr').textContent=e.message||'Erreur de connexion.';
+    show('auth');
+  }
+}
+boot();
 
 // iPhone / iPad : interdire pinch-zoom et double-tap zoom uniquement pendant le test.
 const testIsActive=()=>!$('#exercise').classList.contains('hidden');

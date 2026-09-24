@@ -43,7 +43,23 @@ document.querySelectorAll('[data-back]').forEach(b=>b.onclick=()=>{let x=b.datas
 $('#manageList').onclick=()=>{renderManager();show('managerView')};
 function renderManager(){let sel=$('#copyFrom');sel.innerHTML='<option value="">Configuration vide</option>'+levels.map(x=>`<option value="${x.id}">${x.school_class} · ${x.name}</option>`).join('');let r=$('#managerList');r.innerHTML='';levels.filter(x=>x.school_class===currentClass).sort((a,b)=>a.position-b.position).forEach(x=>{let d=document.createElement('div');d.className='level-item';d.innerHTML=`<button class="level-open">${x.name}</button><button class="danger">Supprimer</button>`;d.children[0].onclick=()=>openConfig(x.id);d.children[1].onclick=async()=>{if(confirm('Supprimer « '+x.name+' » ?')){await api('/api/admin/levels/'+x.id,{method:'DELETE'});await loadLevels();renderManager()}};r.appendChild(d)})}
 $('#addLevel').onclick=async()=>{try{await api('/api/admin/levels',{method:'POST',body:JSON.stringify({school_class:currentClass,name:$('#newName').value,copy_from:$('#copyFrom').value||null})});$('#newName').value='';await loadLevels();renderManager();$('#managerErr').textContent=''}catch(e){$('#managerErr').textContent=e.message}};
-async function openConfig(id){current=await api('/api/admin/levels/'+id);cfg=current.config;$('#configClass').textContent=current.school_class;$('#levelName').value=current.name;$('#durationMinutes').value=Math.round(cfg.duration/60);$('#questionCount').value=cfg.count;ConfigForm.render($('#configRows'),cfg);wireRows();updateTotal();show('configView')}
+async function openConfig(id){
+  try{
+    current=await api('/api/admin/levels/'+id);
+    cfg=current.config;
+    $('#configClass').textContent=current.school_class;
+    $('#levelName').value=current.name;
+    $('#durationMinutes').value=Math.round(cfg.duration/60);
+    $('#questionCount').value=cfg.count;
+    ConfigForm.render($('#configRows'),cfg);
+    wireRows();updateTotal();
+    $('#configErr').textContent='';
+    show('configView');
+  }catch(e){
+    const box=$('#managerErr'); if(box) box.textContent='Impossible d’ouvrir le niveau : '+e.message;
+    alert('Impossible d’ouvrir le niveau : '+e.message);
+  }
+}
 function updateTotal(){let rows=[...$('#configRows').querySelectorAll('.config-row')],total=rows.reduce((s,r)=>s+(r.querySelector('.enabled').checked?(+r.querySelector('.pct').value||0):0),0);$('#totalPct').textContent=total;$('#allocate').disabled=!(rows.some(r=>r.querySelector('.enabled').checked)&&total<100)}
 function wireRows(){$('#configRows').oninput=e=>{if(e.target.classList.contains('enabled')){let p=e.target.closest('.config-row').querySelector('.pct');if(!e.target.checked){p.value=0;p.disabled=true}else p.disabled=false}updateTotal()}}
 $('#allocate').onclick=()=>{let rows=[...$('#configRows').querySelectorAll('.config-row')].filter(r=>r.querySelector('.enabled').checked),total=rows.reduce((s,r)=>s+(+r.querySelector('.pct').value||0),0),rem=100-total;if(!rows.length||rem<=0)return;let each=Math.floor(rem/rows.length),extra=rem%rows.length;rows.forEach((r,i)=>r.querySelector('.pct').value=(+r.querySelector('.pct').value||0)+each+(i<extra?1:0));updateTotal()};
