@@ -636,7 +636,7 @@ if(loginResult==='error'){
 }else if(loginResult==='ok'){
   history.replaceState(null,'',location.pathname);
 }
-function show(id){['auth','welcome','profileManager','home','rewards','config','exercise','stats','celebration'].forEach(x=>$('#'+x).classList.toggle('hidden',x!==id))}
+function show(id){['auth','welcome','profileManager','home','rewards','config','exercise','stats','celebration','levelVictory'].forEach(x=>$('#'+x).classList.toggle('hidden',x!==id))}
 const profileColors=['#8be36b','#dda5f5','#8fd7f7','#ffd36a','#ff9f8f','#9bb6ff','#7de0c3','#f6a6cf'];
 let newProfileColor=profileColors[0];
 function colorPickerHtml(selected){return profileColors.map(c=>`<button type="button" class="color-dot ${c.toLowerCase()===String(selected).toLowerCase()?'selected':''}" data-color="${c}" style="background:${c}" aria-label="Choisir cette couleur"></button>`).join('')}
