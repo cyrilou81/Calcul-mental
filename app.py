@@ -593,6 +593,14 @@ def challenge_status(pid):
     day=(request.args.get('date') or '')[:10]
     c=db(); p=c.execute('SELECT school_class,challenge_level,challenge_level_id,challenge_stars FROM profiles WHERE id=?',(pid,)).fetchone()
     school,row,current,level_name=resolve_profile_level(c,p); levels=challenge_levels_for(c,school); max_level=max(1,len(levels))
+    # Répare aussi les profils déjà arrivés à 3 étoiles avant l'avancement automatique.
+    if row and p['challenge_stars']>=3:
+        next_row=next((x for x in levels if x['position']==current+1),None)
+        if next_row:
+            c.execute('UPDATE profiles SET challenge_level=?,challenge_level_id=?,challenge_stars=0 WHERE id=?',
+                      (next_row['position'],next_row['id'],pid)); c.commit()
+            row=next_row; current=next_row['position']; level_name=next_row['name']
+            p=c.execute('SELECT school_class,challenge_level,challenge_level_id,challenge_stars FROM profiles WHERE id=?',(pid,)).fetchone()
     if row and (p['challenge_level_id']!=row['id'] or p['challenge_level']!=current):
         c.execute('UPDATE profiles SET challenge_level_id=?,challenge_level=? WHERE id=?',(row['id'],current,pid)); c.commit()
     done_today=False
@@ -749,7 +757,6 @@ def finish(sid):
                 levels=challenge_levels_for(c,p['school_class'])
                 next_row=next((x for x in levels if x['position']==p['challenge_level']+1),None)
                 if next_row:
-                    clear_challenge_stats(c,s['profile_id'])
                     c.execute('UPDATE profiles SET challenge_level=?,challenge_level_id=?,challenge_stars=0 WHERE id=?',
                               (next_row['position'],next_row['id'],s['profile_id']))
         c.execute('UPDATE sessions SET star_awarded=1 WHERE id=?',(sid,))
