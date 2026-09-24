@@ -93,6 +93,8 @@ DEFAULT={
   'complement10':{'enabled':True,'pct':10},
   'tens':{'enabled':True,'pct':15,'startMin':10,'startMax':99,'mode':'10','multiples':[10,20,30,40,50,60,70,80,90],'maxResult':100},
   'tens_sub':{'enabled':False,'pct':0,'startMin':20,'startMax':100,'mode':'10','multiples':[10,20,30,40,50,60,70,80,90],'nonNegative':True},
+  'double_tens':{'enabled':False,'pct':0,'min':10,'max':100},
+  'half_tens':{'enabled':False,'pct':0,'min':20,'max':100},
   'decimal_sub':{'enabled':False,'pct':0,'min':0,'max':20,'decimals':1,'withBorrow':True},
   'decimal_multiplication':{'enabled':False,'pct':0,'multipliers':[10,100,1000],'min':0.1,'max':20,'decimals':1},
   'decimal_division':{'enabled':False,'pct':0,'divisors':[10,100,1000],'min':1,'max':1000,'decimals':1}
@@ -297,6 +299,18 @@ def gen(kind,cfg):
         if not candidates: raise ValueError("Aucune soustraction de dizaines possible avec ces réglages")
         x,y=random.choice(candidates)
         return {'a':x,'b':y},f'{x} − {y} = __',x-y
+    if kind=='double_tens':
+        lo=max(10,int(cfg.get('min',10))); hi=max(lo,int(cfg.get('max',100)))
+        choices=[n for n in range(lo,hi+1) if n%10==0]
+        if not choices: raise ValueError("Aucune dizaine possible avec ces réglages")
+        n=random.choice(choices)
+        return {'n':n},f'Double de {n} = __',n*2
+    if kind=='half_tens':
+        lo=max(20,int(cfg.get('min',20))); hi=max(lo,int(cfg.get('max',100)))
+        choices=[n for n in range(lo,hi+1) if n%20==0]
+        if not choices: raise ValueError("Aucune dizaine avec une moitié entière possible avec ces réglages")
+        n=random.choice(choices)
+        return {'n':n},f'Moitié de {n} = __',n//2
     if kind=='decimal_sub':
         decimals=max(1,min(2,int(cfg.get('decimals',1)))); scale=10**decimals
         lo=int(round(float(cfg.get('min',0))*scale)); hi=int(round(float(cfg.get('max',20))*scale))
@@ -748,7 +762,7 @@ def finish(sid):
         p=c.execute('SELECT school_class,challenge_level,challenge_level_id,challenge_stars FROM profiles WHERE id=?',(s['profile_id'],)).fetchone()
         # L'étoile ne compte que si le profil est toujours sur le même palier que le défi joué.
         same_level=(p['challenge_level_id']==s['challenge_level_id']) if s['challenge_level_id'] is not None else (p['challenge_level']==s['challenge_level']);
-        if correct>3 and p['school_class']==s['challenge_class'] and same_level and p['challenge_stars']<3:
+        if correct>45 and p['school_class']==s['challenge_class'] and same_level and p['challenge_stars']<3:
             new_stars=p['challenge_stars']+1
             c.execute('UPDATE profiles SET challenge_stars=? WHERE id=?',(new_stars,s['profile_id']))
             star_awarded=True
