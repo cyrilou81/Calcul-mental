@@ -548,6 +548,7 @@ def update_profile(pid):
     try:
         old_class=c.execute('SELECT school_class FROM profiles WHERE id=?',(pid,)).fetchone()['school_class']
         if old_class != school_class:
+            clear_challenge_stats(c,pid)
             first=c.execute('SELECT id FROM challenge_levels WHERE school_class=? ORDER BY position LIMIT 1',(school_class,)).fetchone(); first_id=first['id'] if first else None; c.execute('UPDATE profiles SET name=?,color=?,school_class=?,challenge_level=1,challenge_level_id=?,challenge_stars=0 WHERE id=?',(name,color,school_class,first_id,pid))
         else:
             c.execute('UPDATE profiles SET name=?,color=?,school_class=? WHERE id=?',(name,color,school_class,pid))
@@ -600,6 +601,12 @@ def challenge_status(pid):
     c.close()
     return {'schoolClass':school,'level':current,'levelName':level_name,'stars':p['challenge_stars'],'maxLevel':max_level,'threshold':46,'doneToday':done_today,'levels':[{'id':x['id'],'name':x['name'],'position':x['position']} for x in levels]}
 
+def clear_challenge_stats(c,pid):
+    # Les questions n'ont pas de cascade FK garantie dans les anciennes BDD :
+    # supprimer explicitement avant les séances.
+    c.execute("DELETE FROM questions WHERE session_id IN (SELECT id FROM sessions WHERE profile_id=? AND mode='challenge')",(pid,))
+    c.execute("DELETE FROM sessions WHERE profile_id=? AND mode='challenge'",(pid,))
+
 @app.post('/api/challenge/<int:pid>/promote')
 def challenge_promote(pid):
     if (e:=require_auth()): return e
@@ -612,7 +619,11 @@ def challenge_promote(pid):
     if p['challenge_level']>=max_level:
         c.close(); return {'error':'C’est déjà le dernier niveau de cette classe.'},400
     level=p['challenge_level']+1
-    c.execute('UPDATE profiles SET challenge_level=?,challenge_stars=0 WHERE id=?',(level,pid)); c.commit(); c.close()
+    next_row=c.execute('SELECT id FROM challenge_levels WHERE school_class=? AND position=?',(school,level)).fetchone()
+    next_id=next_row['id'] if next_row else None
+    clear_challenge_stats(c,pid)
+    c.execute('UPDATE profiles SET challenge_level=?,challenge_level_id=?,challenge_stars=0 WHERE id=?',(level,next_id,pid))
+    c.commit(); c.close()
     return {'ok':True,'level':level,'stars':0}
 
 @app.post('/api/session/start/<int:pid>')
@@ -785,7 +796,9 @@ def reveal_reward(pid):
 def stats(pid):
     if (e:=require_auth()): return e
     if not owns_profile(pid): return {'error':'Profil introuvable'},404
-    c=db(); ss=[dict(x) for x in c.execute('SELECT id,started_at,active_ms FROM sessions WHERE profile_id=? ORDER BY id DESC',(pid,))]
+    mode=(request.args.get('mode') or 'learning').lower()
+    if mode not in ('learning','challenge'): mode='learning'
+    c=db(); ss=[dict(x) for x in c.execute('SELECT id,started_at,active_ms,mode FROM sessions WHERE profile_id=? AND mode=? ORDER BY id DESC',(pid,mode))]
     out=[]
     for s in ss:
         qs=[dict(x) for x in c.execute("SELECT * FROM questions WHERE session_id=? AND status!='UNANSWERED'",(s['id'],))]
@@ -796,7 +809,7 @@ def stats(pid):
             kqs=[q for q in qs if q['kind']==kind]; kc=sum(1 for q in kqs if q['status']=='CORRECT')
             kt=[q['response_ms'] for q in kqs if q['response_ms'] is not None]; cats.append({'kind':kind,'attempted':len(kqs),'correct':kc,'accuracy':round(100*kc/len(kqs),1) if kqs else 0,'medianMs':int(statistics.median(kt)) if kt else None})
         out.append({'id':s['id'],'date':s['started_at'],'activeMs':s['active_ms'],'attempted':len(qs),'correct':len(correct),'incorrect':len(qs)-len(correct),'accuracy':round(100*len(correct)/len(qs),1) if qs else 0,'medianMs':int(statistics.median(times)) if times else None,'avgMs':int(sum(times)/len(times)) if times else None,'categories':cats})
-    c.close(); return {'sessions':out}
+    c.close(); return {'sessions':out,'mode':mode}
 
 @app.get('/api/session/<int:sid>/stats')
 def session_stats(sid):
