@@ -153,6 +153,35 @@ input,select{background:#fffdf7;border:2px solid #9bd8f5;}
 }
 
 #statsBtn,.profile-switch,.player-logout{background:#269ee8!important;color:#fff!important;border:2px solid #147fc1!important;border-radius:16px!important;box-shadow:0 4px 0 #116da5!important;font-weight:800!important;transition:transform .12s,background .12s!important;}
+
+/* Progression Défi */
+.challenge-progress{
+  display:flex;gap:10px;overflow-x:auto;padding:5px 4px 14px;margin:2px auto 8px;
+  scroll-snap-type:x proximity;scrollbar-width:thin;justify-content:flex-start
+}
+.challenge-level-card{
+  flex:0 0 112px;min-height:112px;box-sizing:border-box;padding:13px 8px 10px;
+  border:2px solid #dbe3eb;border-radius:16px;background:linear-gradient(180deg,#fff,#f5f8fb);
+  box-shadow:0 3px 8px rgba(35,70,95,.08);text-align:center;scroll-snap-align:center;
+  display:flex;flex-direction:column;align-items:center
+}
+.challenge-level-name{font-size:16px;font-weight:900;color:#31445d;line-height:1.15;margin:2px 0 10px}
+.challenge-level-stars{font-size:25px;line-height:1;letter-spacing:-2px;white-space:nowrap;color:#ffb51b;text-shadow:0 1px 0 #d88c00}
+.challenge-level-card.done{background:linear-gradient(180deg,#f4fff5,#e6f9e9);border-color:#bde6c4}
+.challenge-level-card.current{background:linear-gradient(180deg,#edf7ff,#dceeff);border-color:#269ee8;box-shadow:0 0 0 2px rgba(38,158,232,.09),0 5px 12px rgba(38,110,160,.14)}
+.challenge-level-card.locked{background:linear-gradient(180deg,#fbfcfd,#f0f3f6);color:#8491a1}
+.challenge-level-card.locked .challenge-level-name{color:#657386}
+.challenge-level-card.locked .challenge-level-stars{color:#cbd1d7;text-shadow:none}
+.challenge-level-state{margin-top:auto;padding-top:9px;font-size:12px;font-weight:900;color:#168e4c}
+.challenge-level-card.current .challenge-level-state{color:#176cb0}
+.challenge-level-card.locked .challenge-level-state{font-size:20px;color:#718096;padding-top:5px}
+@media(max-width:650px){
+ .challenge-progress{margin-left:-4px;margin-right:-4px;gap:8px;padding-bottom:11px}
+ .challenge-level-card{flex-basis:98px;min-height:104px;padding:11px 6px 9px;border-radius:14px}
+ .challenge-level-name{font-size:15px;margin-bottom:9px}
+ .challenge-level-stars{font-size:22px}
+}
+
 </style>
 </head><body><div class="app">
 <section id="auth">
@@ -185,7 +214,7 @@ input,select{background:#fffdf7;border:2px solid #9bd8f5;}
     <button id="learningTab" class="mode-tab" role="tab">📘 Apprentissage</button>
   </div>
   <div id="challengePane" class="mode-pane compact-pane">
-    <div class="challenge-title"><div><span id="challengeClass">CE1</span> · niveau <span id="challengeLevel">1</span></div><div id="challengeStars" class="challenge-stars">☆☆☆</div></div>
+    <div id="challengeProgress" class="challenge-progress" aria-label="Progression des niveaux"></div>
     <div id="dailyChallengeBadge" class="daily-badge todo"><span class="daily-dot"></span><span>Défi du jour à faire</span></div>
     <button id="challengeStart" class="primary mode-start hero-start">Commencer le défi quotidien</button>
     <button id="promoteChallenge" class="promote hidden">Passer au niveau suivant</button>
@@ -315,7 +344,17 @@ $('#manageProfilesBtn').onclick=async()=>{show('profileManager');newProfileColor
 $('#profilesBack').onclick=async()=>{await loadProfiles();show('welcome')};
 $('#createProfileBtn').onclick=async()=>{try{await api('/api/profiles',{method:'POST',body:JSON.stringify({name:$('#newProfileName').value,school_class:$('#newProfileClass').value,color:newProfileColor})});$('#newProfileName').value='';$('#newProfileClass').value='';$('#profileManagerErr').textContent='';await renderProfileManager();await loadProfiles()}catch(x){$('#profileManagerErr').textContent=x.message}};
 function updateSessionSummary(){if(!cfg)return;let mins=Math.max(1,Math.round((cfg.duration||300)/60));$('#sessionSummary').textContent=`${cfg.count||50} questions · ${mins} minute${mins>1?'s':''}`}
-function renderChallenge(){if(!challengeState)return;$('#challengeClass').textContent=challengeState.schoolClass;$('#challengeLevel').textContent=challengeState.levelName||challengeState.level;$('#challengeStars').textContent='★'.repeat(challengeState.stars)+'☆'.repeat(3-challengeState.stars);let b=$('#dailyChallengeBadge');b.classList.toggle('done',!!challengeState.doneToday);b.classList.toggle('todo',!challengeState.doneToday);b.querySelector('span:last-child').textContent=challengeState.doneToday?'Défi du jour effectué ✓':'Défi du jour à faire';$('#promoteChallenge').classList.toggle('hidden',!(challengeState.stars>=3&&challengeState.level<challengeState.maxLevel))}
+function renderChallenge(){if(!challengeState)return;
+let progress=$('#challengeProgress'),levels=challengeState.levels||[];
+progress.innerHTML=levels.map((x,i)=>{
+  let pos=i+1,isDone=pos<challengeState.level,isCurrent=pos===challengeState.level;
+  let stars=isDone?3:(isCurrent?challengeState.stars:0);
+  let cls=isDone?'done':(isCurrent?'current':'locked');
+  let state=isDone?'✓ Terminé':(isCurrent?'Niveau actuel':'🔒');
+  return `<div class="challenge-level-card ${cls}" data-current="${isCurrent?'1':'0'}"><div class="challenge-level-name">${esc(x.name)}</div><div class="challenge-level-stars">${'★'.repeat(stars)}${'☆'.repeat(3-stars)}</div><div class="challenge-level-state">${state}</div></div>`
+}).join('');
+requestAnimationFrame(()=>{let cur=progress.querySelector('[data-current="1"]');if(cur)cur.scrollIntoView({behavior:'smooth',block:'nearest',inline:'center'})});
+let b=$('#dailyChallengeBadge');b.classList.toggle('done',!!challengeState.doneToday);b.classList.toggle('todo',!challengeState.doneToday);b.querySelector('span:last-child').textContent=challengeState.doneToday?'Défi du jour effectué ✓':'Défi du jour à faire';$('#promoteChallenge').classList.toggle('hidden',!(challengeState.stars>=3&&challengeState.level<challengeState.maxLevel))}
 function localDateKey(){let d=new Date(),y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),day=String(d.getDate()).padStart(2,'0');return `${y}-${m}-${day}`}
 async function refreshChallenge(){challengeState=await api('/api/challenge/'+profile.id+'?date='+localDateKey());renderChallenge()}
 function selectMode(mode){currentMode=mode;let ch=mode==='challenge';$('#challengeTab').classList.toggle('active',ch);$('#learningTab').classList.toggle('active',!ch);$('#challengePane').classList.toggle('hidden',!ch);$('#learningPane').classList.toggle('hidden',ch)}
