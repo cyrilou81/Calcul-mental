@@ -351,7 +351,7 @@ progress.innerHTML=levels.map((x,i)=>{
   let stars=isDone?3:(isCurrent?challengeState.stars:0);
   let cls=isDone?'done':(isCurrent?'current':'locked');
   let state=isDone?'✓ Terminé':(isCurrent?'Niveau actuel':'🔒');
-  return `<div class="challenge-level-card ${cls}" data-current="${isCurrent?'1':'0'}"><div class="challenge-level-name">${esc(x.name)}</div><div class="challenge-level-stars">${'★'.repeat(stars)}${'☆'.repeat(3-stars)}</div><div class="challenge-level-state">${state}</div></div>`
+  return `<div class="challenge-level-card ${cls}" data-current="${isCurrent?'1':'0'}"><div class="challenge-level-name">${escapeHtml(x.name)}</div><div class="challenge-level-stars">${'★'.repeat(stars)}${'☆'.repeat(3-stars)}</div><div class="challenge-level-state">${state}</div></div>`
 }).join('');
 requestAnimationFrame(()=>{let cur=progress.querySelector('[data-current="1"]');if(cur)cur.scrollIntoView({behavior:'smooth',block:'nearest',inline:'center'})});
 let b=$('#dailyChallengeBadge');b.classList.toggle('done',!!challengeState.doneToday);b.classList.toggle('todo',!challengeState.doneToday);b.querySelector('span:last-child').textContent=challengeState.doneToday?'Défi du jour effectué ✓':'Défi du jour à faire';$('#promoteChallenge').classList.toggle('hidden',!(challengeState.stars>=3&&challengeState.level<challengeState.maxLevel))}
