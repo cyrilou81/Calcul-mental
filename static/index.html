@@ -222,6 +222,19 @@ input,select{background:#fffdf7;border:2px solid #9bd8f5;}
   .challenge-level-card .challenge-level-stars{font-size:19px}
 }
 
+
+/* V107 — onglet inactif plus lisible + niveaux centrés */
+.mode-tab:not(.active){
+  background:#b9def1;
+  color:#17618c;
+}
+.challenge-progress{
+  justify-content:center;
+}
+@media(max-width:650px){
+  .challenge-progress{justify-content:flex-start}
+}
+
 </style>
 </head><body><div class="app">
 <section id="auth">
