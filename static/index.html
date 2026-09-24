@@ -303,41 +303,21 @@ input,select{background:#fffdf7;border:2px solid #9bd8f5;}
 }
 
 
-/* V115 — bloc principal équilibré verticalement (42 % de l'espace libre au-dessus) */
-#home{
-  min-height:100dvh;
-  height:100dvh;
-  display:grid;
-  grid-template-rows:minmax(0,42fr) auto minmax(0,58fr);
-  padding-bottom:max(10px,env(safe-area-inset-bottom));
-  overflow:hidden;
-}
-#home.hidden{display:none}
-#home .home-top{
-  position:absolute;
-  top:14px;left:18px;right:18px;
-  z-index:2;
-}
+/* V117 — position adaptative sans modifier le modèle d'affichage de #home */
 #home .mode-shell{
-  grid-row:2;
-  width:100%;
-  margin:0;
-  align-self:center;
+  position:relative;
+  left:50%;
+  transform:translateX(-50%);
+  width:min(100%,760px);
+  margin-left:0;
+  margin-right:0;
+  margin-top:clamp(18px,calc((100dvh - 640px) * .38),120px);
 }
 @media(max-width:650px){
-  #home .home-top{top:8px;left:8px;right:8px}
-  #home{grid-template-rows:minmax(0,38fr) auto minmax(0,62fr)}
-}
-@media(max-height:700px){
-  #home{grid-template-rows:minmax(0,25fr) auto minmax(0,75fr)}
-}
-
-
-/* V116 — centrage horizontal explicite du bloc principal */
-#home .mode-shell{
-  justify-self:center;
-  margin-left:auto;
-  margin-right:auto;
+  #home .mode-shell{
+    width:100%;
+    margin-top:clamp(12px,calc((100dvh - 590px) * .30),72px);
+  }
 }
 
 </style>
