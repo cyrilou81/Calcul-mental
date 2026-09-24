@@ -56,3 +56,10 @@ Configuration Render recommandée :
 - Environment variable : `DB_PATH=/var/data/calcul_mental.db`
 
 En local, sans `DB_PATH`, l'application continue d'utiliser `calcul_mental.db` à côté de `app.py`.
+
+
+## Test de fumée
+
+Après `pip install -r requirements.txt` :
+
+`python tests/smoke_v99.py`

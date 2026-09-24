@@ -43,6 +43,28 @@ def init_db():
     if 'challenge_level' not in pcols: c.execute('ALTER TABLE profiles ADD COLUMN challenge_level INTEGER NOT NULL DEFAULT 1')
     if 'challenge_stars' not in pcols: c.execute('ALTER TABLE profiles ADD COLUMN challenge_stars INTEGER NOT NULL DEFAULT 0')
     if 'challenge_level_id' not in pcols: c.execute('ALTER TABLE profiles ADD COLUMN challenge_level_id INTEGER')
+    # V99: l'ancien schéma imposait un nom de profil unique dans toute la base.
+    # On migre vers une unicité par compte : deux comptes peuvent chacun avoir "Paul".
+    profile_sql=c.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name='profiles'").fetchone()['sql']
+    if 'name TEXT NOT NULL UNIQUE' in profile_sql:
+        c.execute('ALTER TABLE profiles RENAME TO profiles_legacy_v99')
+        c.execute('''CREATE TABLE profiles(
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            account_id INTEGER NOT NULL DEFAULT 1,
+            color TEXT NOT NULL DEFAULT '#8fdff7',
+            school_class TEXT NOT NULL DEFAULT '',
+            coins INTEGER NOT NULL DEFAULT 0,
+            challenge_level INTEGER NOT NULL DEFAULT 1,
+            challenge_stars INTEGER NOT NULL DEFAULT 0,
+            challenge_level_id INTEGER
+        )''')
+        c.execute('''INSERT INTO profiles(id,name,created_at,account_id,color,school_class,coins,challenge_level,challenge_stars,challenge_level_id)
+                     SELECT id,name,created_at,account_id,color,school_class,coins,challenge_level,challenge_stars,challenge_level_id
+                     FROM profiles_legacy_v99''')
+        c.execute('DROP TABLE profiles_legacy_v99')
+    c.execute('CREATE UNIQUE INDEX IF NOT EXISTS ux_profiles_account_name ON profiles(account_id,name COLLATE NOCASE)')
     scols={r['name'] for r in c.execute('PRAGMA table_info(sessions)')}
     if 'rewarded' not in scols: c.execute('ALTER TABLE sessions ADD COLUMN rewarded INTEGER NOT NULL DEFAULT 0')
     if 'mode' not in scols: c.execute("ALTER TABLE sessions ADD COLUMN mode TEXT NOT NULL DEFAULT 'learning'")
@@ -79,12 +101,9 @@ DEFAULT={
 # Défis centralisés : 5 paliers par classe.
 # Les réglages sont volontairement côté serveur : aucun bouton de configuration
 # n'est exposé à l'enfant dans le mode Défi.
-def challenge_cfg(school_class, level, use_db=True):
+def seed_challenge_cfg(school_class, level):
     school_class=(school_class or 'CP').upper()
     level=max(1,int(level or 1))
-    if use_db:
-        c=db(); row=c.execute('SELECT data FROM challenge_levels WHERE school_class=? ORDER BY position LIMIT 1 OFFSET ?',(school_class,level-1)).fetchone(); c.close()
-        if row: return merged_cfg(json.loads(row['data']))
     level=max(1,min(5,level))
     cfg=copy.deepcopy(DEFAULT)
     cfg['duration']=300
@@ -363,8 +382,40 @@ def auth_login():
     session.clear(); session['account_id']=a['id']; session.permanent=True; return {'ok':True,'username':a['username']}
 @app.post('/api/auth/logout')
 def auth_logout(): session.clear(); return {'ok':True}
+def admin_unlocked():
+    admin_password=os.environ.get('ADMIN_PASSWORD')
+    return authenticated() and (not admin_password or session.get('admin_unlocked') is True)
+
+def require_admin():
+    if not authenticated(): return ({'error':'Connexion requise'},401)
+    if not admin_unlocked(): return ({'error':'Accès administrateur requis'},403)
+    return None
+
+@app.route('/admin/login',methods=['GET','POST'])
+def admin_login():
+    if not authenticated(): return redirect('/')
+    admin_password=os.environ.get('ADMIN_PASSWORD')
+    if not admin_password:
+        session['admin_unlocked']=True
+        return redirect('/admin')
+    error=''
+    if request.method=='POST':
+        supplied=str(request.form.get('password') or '')
+        if supplied==admin_password:
+            session['admin_unlocked']=True
+            return redirect('/admin')
+        error='<p style="color:#b42318;font-weight:700">Mot de passe incorrect.</p>'
+    return f'''<!doctype html><html lang="fr"><meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Administration</title><body style="font-family:system-ui;background:#f4f8fb;margin:0;display:grid;place-items:center;min-height:100vh">
+    <form method="post" style="background:white;padding:28px;border-radius:18px;box-shadow:0 8px 30px #0002;min-width:min(320px,80vw)">
+    <h1 style="font-size:24px">Administration</h1>{error}<input name="password" type="password" autocomplete="current-password" placeholder="Mot de passe admin"
+    style="box-sizing:border-box;width:100%;padding:12px;border:1px solid #ccd5df;border-radius:10px"><button style="width:100%;margin-top:14px;padding:12px;border:0;border-radius:10px;background:#269ee8;color:white;font-weight:800">Entrer</button></form></body></html>'''
+
 @app.get('/admin')
-def admin_page(): return send_from_directory(ROOT/'static','admin.html')
+def admin_page():
+    if not authenticated(): return redirect('/')
+    if not admin_unlocked(): return redirect('/admin/login')
+    return send_from_directory(ROOT/'static','admin.html')
 
 
 CLASSES=('CP','CE1','CE2','CM1','CM2')
@@ -394,24 +445,35 @@ def sync_profile_level(c, pid):
     return row
 
 def validate_cfg_data(data):
-    data=merged_cfg(data or {}); data['duration']=max(60,min(3600,int(data.get('duration',300)))); data['count']=max(1,min(500,int(data.get('count',50))))
-    total=sum(int(v.get('pct',0) or 0) for v in data['categories'].values() if v.get('enabled'))
+    data=merged_cfg(data or {})
+    data['duration']=max(60,min(3600,int(data.get('duration',300))))
+    data['count']=max(1,min(500,int(data.get('count',50))))
+    cats=data['categories']
+    total=sum(int(v.get('pct',0) or 0) for v in cats.values() if v.get('enabled'))
     if total!=100: raise ValueError(f'Le total doit être 100 % (actuellement {total} %).')
+    if cats.get('multiplication',{}).get('enabled') and not cats['multiplication'].get('tables'):
+        raise ValueError('Choisis au moins une table de multiplication.')
+    if cats.get('division',{}).get('enabled') and not cats['division'].get('tables'):
+        raise ValueError('Choisis au moins une table de division.')
+    if cats.get('decimal_multiplication',{}).get('enabled') and not cats['decimal_multiplication'].get('multipliers'):
+        raise ValueError('Choisis au moins un multiplicateur décimal.')
+    if cats.get('decimal_division',{}).get('enabled') and not cats['decimal_division'].get('divisors'):
+        raise ValueError('Choisis au moins un diviseur décimal.')
     return data
 
 @app.get('/api/admin/levels')
 def admin_levels():
-    if (e:=require_auth()): return e
+    if (e:=require_admin()): return e
     c=db(); rows=[dict(r) for r in c.execute('SELECT id,school_class,name,position FROM challenge_levels ORDER BY CASE school_class WHEN "CP" THEN 1 WHEN "CE1" THEN 2 WHEN "CE2" THEN 3 WHEN "CM1" THEN 4 ELSE 5 END,position')]; c.close(); return jsonify(rows)
 @app.get('/api/admin/levels/<int:lid>')
 def admin_level(lid):
-    if (e:=require_auth()): return e
+    if (e:=require_admin()): return e
     c=db(); r=c.execute('SELECT * FROM challenge_levels WHERE id=?',(lid,)).fetchone(); c.close()
     if not r:return {'error':'Niveau introuvable'},404
     return {'id':r['id'],'school_class':r['school_class'],'name':r['name'],'position':r['position'],'config':merged_cfg(json.loads(r['data']))}
 @app.post('/api/admin/levels')
 def admin_level_create():
-    if (e:=require_auth()): return e
+    if (e:=require_admin()): return e
     d=request.json or {}; school=(d.get('school_class') or '').upper(); name=(d.get('name') or '').strip(); source=d.get('copy_from')
     if school not in CLASSES or not name:return {'error':'Classe et nom requis.'},400
     c=db(); pos=c.execute('SELECT COALESCE(MAX(position),0)+1 n FROM challenge_levels WHERE school_class=?',(school,)).fetchone()['n']
@@ -423,7 +485,7 @@ def admin_level_create():
     cur=c.execute('INSERT INTO challenge_levels(school_class,name,position,data) VALUES(?,?,?,?)',(school,name,pos,json.dumps(cfg))); c.commit(); lid=cur.lastrowid;c.close();return {'ok':True,'id':lid}
 @app.put('/api/admin/levels/<int:lid>')
 def admin_level_save(lid):
-    if (e:=require_auth()): return e
+    if (e:=require_admin()): return e
     d=request.json or {}; c=db(); old=c.execute('SELECT id FROM challenge_levels WHERE id=?',(lid,)).fetchone()
     if not old:c.close();return {'error':'Niveau introuvable'},404
     try: cfg=validate_cfg_data(d.get('config',{}))
@@ -431,7 +493,7 @@ def admin_level_save(lid):
     name=(d.get('name') or '').strip() or 'Niveau'; c.execute('UPDATE challenge_levels SET name=?,data=? WHERE id=?',(name,json.dumps(cfg),lid));c.commit();c.close();return {'ok':True}
 @app.post('/api/admin/levels/<int:lid>/move')
 def admin_level_move(lid):
-    if (e:=require_auth()): return e
+    if (e:=require_admin()): return e
     direction=(request.json or {}).get('direction'); c=db(); r=c.execute('SELECT school_class,position FROM challenge_levels WHERE id=?',(lid,)).fetchone()
     if not r:c.close();return {'error':'Niveau introuvable'},404
     target=r['position']+(-1 if direction=='up' else 1); other=c.execute('SELECT id FROM challenge_levels WHERE school_class=? AND position=?',(r['school_class'],target)).fetchone()
@@ -440,7 +502,7 @@ def admin_level_move(lid):
     c.close();return {'ok':True}
 @app.delete('/api/admin/levels/<int:lid>')
 def admin_level_delete(lid):
-    if (e:=require_auth()): return e
+    if (e:=require_admin()): return e
     c=db(); r=c.execute('SELECT school_class,position FROM challenge_levels WHERE id=?',(lid,)).fetchone()
     if not r:c.close();return {'error':'Niveau introuvable'},404
     c.execute('DELETE FROM challenge_levels WHERE id=?',(lid,));c.execute('UPDATE challenge_levels SET position=position-1 WHERE school_class=? AND position>?',(r['school_class'],r['position']));c.commit();c.close();return {'ok':True}
@@ -448,7 +510,12 @@ def admin_level_delete(lid):
 @app.get('/api/profiles')
 def profiles():
     if (e:=require_auth()): return e
-    c=db(); rows=[dict(x) for x in c.execute('SELECT id,name,color,school_class,coins,challenge_level,challenge_stars,created_at FROM profiles WHERE account_id=? ORDER BY name',(current_account_id(),))]; c.close(); return jsonify(rows)
+    c=db()
+    pids=[r['id'] for r in c.execute('SELECT id FROM profiles WHERE account_id=?',(current_account_id(),)).fetchall()]
+    for pid in pids: sync_profile_level(c,pid)
+    c.commit()
+    rows=[dict(x) for x in c.execute('SELECT id,name,color,school_class,coins,challenge_level,challenge_level_id,challenge_stars,created_at FROM profiles WHERE account_id=? ORDER BY name',(current_account_id(),))]
+    c.close(); return jsonify(rows)
 @app.post('/api/profiles')
 def create_profile():
     if (e:=require_auth()): return e
@@ -459,8 +526,11 @@ def create_profile():
     if not name: return {'error':'Nom requis'},400
     if school_class not in ('CP','CE1','CE2','CM1','CM2'): return {'error':'Classe requise'},400
     if not re.fullmatch(r'#[0-9A-Fa-f]{6}',color): color='#8fdff7'
+    c=db()
+    if c.execute('SELECT 1 FROM profiles WHERE account_id=? AND name=? COLLATE NOCASE',(current_account_id(),name)).fetchone():
+        c.close(); return {'error':'Ce profil existe déjà'},409
     try:
-        c=db(); cur=c.execute('INSERT INTO profiles(name,account_id,color,school_class) VALUES(?,?,?,?)',(name,current_account_id(),color,school_class)); pid=cur.lastrowid; c.execute('INSERT INTO configs(profile_id,data) VALUES(?,?)',(pid,json.dumps(DEFAULT))); c.commit(); c.close(); return {'id':pid,'name':name,'color':color,'school_class':school_class}
+        cur=c.execute('INSERT INTO profiles(name,account_id,color,school_class) VALUES(?,?,?,?)',(name,current_account_id(),color,school_class)); pid=cur.lastrowid; c.execute('INSERT INTO configs(profile_id,data) VALUES(?,?)',(pid,json.dumps(DEFAULT))); c.commit(); c.close(); return {'id':pid,'name':name,'color':color,'school_class':school_class}
     except sqlite3.IntegrityError: return {'error':'Ce profil existe déjà'},409
 @app.put('/api/profiles/<int:pid>')
 def update_profile(pid):
@@ -512,12 +582,8 @@ def config(pid):
 def save_config(pid):
     if (e:=require_auth()): return e
     if not owns_profile(pid): return {'error':'Profil introuvable'},404
-    data=request.json; data['duration']=max(60,min(3600,int(data.get('duration',300)))); data['count']=max(1,min(500,int(data.get('count',50)))); cats=data.get('categories',{}); total=sum(v.get('pct',0) for v in cats.values() if v.get('enabled'))
-    if total!=100: return {'error':f'Le total doit être 100 % (actuellement {total} %).'},400
-    if cats.get('multiplication',{}).get('enabled') and not cats['multiplication'].get('tables'): return {'error':'Choisis au moins une table de multiplication.'},400
-    if cats.get('division',{}).get('enabled') and not cats['division'].get('tables'): return {'error':'Choisis au moins une table de division.'},400
-    if cats.get('decimal_multiplication',{}).get('enabled') and not cats['decimal_multiplication'].get('multipliers'): return {'error':'Choisis au moins un multiplicateur décimal.'},400
-    if cats.get('decimal_division',{}).get('enabled') and not cats['decimal_division'].get('divisors'): return {'error':'Choisis au moins un diviseur décimal.'},400
+    try: data=validate_cfg_data(request.json or {})
+    except (ValueError,TypeError) as ex: return {'error':str(ex)},400
     c=db(); c.execute('INSERT INTO configs(profile_id,data) VALUES(?,?) ON CONFLICT(profile_id) DO UPDATE SET data=excluded.data',(pid,json.dumps(data))); c.commit(); c.close(); return {'ok':True}
 @app.get('/api/challenge/<int:pid>')
 def challenge_status(pid):
@@ -563,7 +629,7 @@ def start(pid):
             c0.execute('UPDATE profiles SET challenge_level=?,challenge_level_id=? WHERE id=?',(challenge_level,challenge_level_id,pid)); c0.commit()
             cfg=merged_cfg(json.loads(row['data']))
         else:
-            cfg=challenge_cfg(challenge_class,challenge_level)
+            cfg=copy.deepcopy(DEFAULT)
         c0.close()
     else:
         cfg=get_cfg(pid)
@@ -753,7 +819,7 @@ def seed_challenge_levels():
     if n==0:
         for school in CLASSES:
             for level in range(1,6):
-                c.execute('INSERT INTO challenge_levels(school_class,name,position,data) VALUES(?,?,?,?)',(school,f'{school}-{level}',level,json.dumps(challenge_cfg(school,level,use_db=False))))
+                c.execute('INSERT INTO challenge_levels(school_class,name,position,data) VALUES(?,?,?,?)',(school,f'{school}-{level}',level,json.dumps(seed_challenge_cfg(school,level))))
         c.commit()
     c.close()
 seed_challenge_levels()
