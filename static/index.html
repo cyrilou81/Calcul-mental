@@ -152,6 +152,23 @@ input,select{background:#fffdf7;border:2px solid #9bd8f5}
   .profile-switch{font-size:14px!important;padding:8px 14px!important}
   #configBtn.secondary-action{font-size:16px!important;padding:10px 16px!important}
 }
+
+.player-block{gap:7px!important}
+.profile-switch,.player-logout{
+  padding:10px 16px!important;
+  font-size:15px!important;
+  font-weight:750!important;
+  border-radius:14px!important;
+  background:#245d80!important;
+  color:#fff!important;
+  border:0!important;
+  box-shadow:0 4px 10px rgba(23,74,107,.18)!important;
+  width:auto!important;
+}
+.player-logout{margin:0!important}
+@media(max-width:600px){
+  .profile-switch,.player-logout{font-size:14px!important;padding:9px 14px!important}
+}
 </style></head><body><div class="app">
 <section id="auth">
   <div class="auth-scene">
@@ -174,7 +191,7 @@ input,select{background:#fffdf7;border:2px solid #9bd8f5}
 <section id="profileManager" class="card profile-manager hidden"><div class="top"><h2>Gérer les profils</h2><button id="profilesBack">Retour</button></div><div id="profileManagerList"></div><h3>Ajouter un profil</h3><div class="profile-editor new-profile-editor"><label>Prénom<input id="newProfileName" placeholder="Prénom"></label><label>Classe<select id="newProfileClass"><option value="">Choisir…</option><option>CP</option><option>CE1</option><option>CE2</option><option>CM1</option><option>CM2</option></select></label><div><span>Couleur</span><div id="newProfileColors" class="color-picker"></div></div><button id="createProfileBtn" class="profile-manage-action">Ajouter le profil</button></div><div id="profileManagerErr" class="error"></div></section>
 <section id="home" class="hidden">
 <div class="top home-top">
-  <div class="player-block"><div id="hello" class="player-name"></div><button id="logout" class="profile-switch">Changer de profils</button></div>
+  <div class="player-block"><div id="hello" class="player-name"></div><button id="logout" class="profile-switch">Changer de profil</button><button id="playerLogout" class="player-logout">Se déconnecter</button></div>
   <div class="home-tools"><div class="coin-badge"><span class="gold-coin"></span><span id="coinCount">0</span></div></div>
 </div>
 <div class="mode-shell">
@@ -192,7 +209,7 @@ input,select{background:#fffdf7;border:2px solid #9bd8f5}
     <button id="start" class="primary mode-start hero-start">Commencer l'entraînement</button>
     <button id="configBtn" class="secondary-action">Configurer l'entraînement</button>
   </div>
-  <div class="home-secondary"><button id="rewardBtn">🎁 Récompenses</button><button id="statsBtn">📊 Stats</button><button id="playerLogout">Se déconnecter</button></div>
+  <div class="home-secondary"><button id="rewardBtn">🎁 Récompenses</button><button id="statsBtn">📊 Stats</button></div>
 </div>
 </section>
 <section id="rewards" class="hidden card reward-screen"><div class="top reward-head"><h2>Récompenses</h2><div style="display:flex;gap:12px;align-items:center"><div class="coin-badge"><span class="gold-coin"></span><span id="rewardCoinCount">0</span></div><button id="rewardBack">Retour</button></div></div><div id="rewardContent"></div></section>
