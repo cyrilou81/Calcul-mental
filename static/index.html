@@ -183,47 +183,6 @@ input,select{background:#fffdf7;border:2px solid #9bd8f5;}
 }
 
 
-/* V103 — aucun contenu ne doit élargir la page */
-html,body{width:100%;max-width:100%;overflow-x:hidden}
-*,*::before,*::after{box-sizing:border-box}
-main,.app,.card,.screen,section,.mode-shell,.mode-pane{max-width:100%;min-width:0}
-button,input,select,.challenge-level-name{max-width:100%}
-.challenge-level-name{overflow-wrap:anywhere;word-break:break-word}
-
-/* Défi : cartes volontairement petites et contenues dans la zone */
-#challengePane{min-width:0;overflow:hidden}
-.challenge-progress{
-  width:100%;max-width:100%;display:flex;gap:6px;overflow-x:auto;overflow-y:hidden;
-  padding:4px 2px 9px;margin:0 auto 7px;scroll-snap-type:x proximity;
-  -webkit-overflow-scrolling:touch;overscroll-behavior-x:contain
-}
-.challenge-level-card{
-  flex:0 0 82px;width:82px;min-width:82px;min-height:86px;
-  padding:8px 4px 6px;border-radius:12px;overflow:hidden
-}
-.challenge-level-name{
-  width:100%;font-size:12px;line-height:1.15;margin:1px 0 7px;
-  white-space:normal;text-align:center
-}
-.challenge-level-stars{
-  width:100%;font-size:17px;line-height:1;letter-spacing:-2px;
-  white-space:nowrap;overflow:hidden;text-align:center
-}
-.challenge-level-state{
-  width:100%;margin-top:auto;padding-top:7px;font-size:9px;line-height:1.1;
-  white-space:normal;overflow-wrap:anywhere
-}
-.challenge-level-card.locked .challenge-level-state{font-size:15px;padding-top:4px}
-@media(max-width:650px){
-  body{padding-left:8px;padding-right:8px}
-  .challenge-progress{gap:5px;padding-left:1px;padding-right:1px}
-  .challenge-level-card{flex-basis:72px;width:72px;min-width:72px;min-height:80px;padding:7px 3px 5px}
-  .challenge-level-name{font-size:11px;margin-bottom:6px}
-  .challenge-level-stars{font-size:15px}
-  .challenge-level-state{font-size:8px;padding-top:6px}
-}
-
-
 /* V104 — progression réduite à l'essentiel : nom + étoiles ou cadenas */
 .challenge-level-card{min-height:68px;justify-content:center}
 .challenge-level-card.done{
@@ -248,6 +207,38 @@ button,input,select,.challenge-level-name{max-width:100%}
 @media(max-width:650px){
   .challenge-level-card{min-height:62px}
   .challenge-level-card .challenge-level-name{margin-bottom:6px}
+}
+
+
+/* V105 — confinement horizontal sans modifier les dimensions normales de l'interface */
+html,body{max-width:100%;overflow-x:hidden}
+.mode-shell,.mode-pane,#challengePane,#learningPane{min-width:0;max-width:100%}
+.challenge-progress{
+  width:100%;max-width:100%;overflow-x:auto;overflow-y:hidden;
+  -webkit-overflow-scrolling:touch;overscroll-behavior-x:contain
+}
+
+/* Progression : un peu plus généreuse, tout en restant compacte */
+.challenge-level-card{
+  flex:0 0 96px;width:96px;min-width:96px;min-height:82px;
+  padding:10px 7px 8px;border-radius:14px
+}
+.challenge-level-card .challenge-level-name{
+  font-size:14px;line-height:1.15;margin:0 0 9px;
+  white-space:normal;overflow-wrap:anywhere
+}
+.challenge-level-card .challenge-level-stars{
+  font-size:20px;line-height:20px;height:20px
+}
+.challenge-level-card.current{
+  border-width:3px;
+  box-shadow:0 0 0 2px rgba(38,158,232,.12),0 5px 12px rgba(38,110,160,.14)
+}
+.challenge-level-card.locked .challenge-level-stars{font-size:20px;line-height:20px}
+@media(max-width:650px){
+  .challenge-level-card{flex-basis:86px;width:86px;min-width:86px;min-height:76px;padding:9px 6px 7px}
+  .challenge-level-card .challenge-level-name{font-size:13px;margin-bottom:8px}
+  .challenge-level-card .challenge-level-stars{font-size:18px;line-height:18px;height:18px}
 }
 
 </style>
