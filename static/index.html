@@ -284,32 +284,13 @@ input,select{background:#fffdf7;border:2px solid #9bd8f5;}
 @media(max-width:650px){.stats-mode-tabs{grid-template-columns:1fr}.stats-mode-tab{padding:10px 8px}}
 
 
-/* V111 — remonter tout le bloc principal Défi/Apprentissage */
-#home .home-top{
-  position:absolute;
-  top:14px;left:18px;right:18px;
-  z-index:2;
-  pointer-events:none;
-}
-#home .home-top .player-block,
-#home .home-top .home-tools{pointer-events:auto}
+/* V120 — placement adaptatif sur la base fonctionnelle V110 */
 #home .mode-shell{
-  margin-top:0;
-  padding-top:8px;
-}
-@media(max-width:650px){
-  #home .home-top{top:8px;left:8px;right:8px}
-  #home .mode-shell{padding-top:4px}
-}
-
-
-/* V119 — position verticale adaptative, sans toucher aux calques ni aux interactions */
-#home .mode-shell{
-  margin-top:clamp(14px,calc((100dvh - 650px) * .28),82px);
+  margin-top:clamp(6px,calc((100dvh - 760px) * .18),42px);
 }
 @media(max-width:650px){
   #home .mode-shell{
-    margin-top:clamp(10px,calc((100dvh - 620px) * .22),54px);
+    margin-top:clamp(4px,calc((100dvh - 700px) * .14),28px);
   }
 }
 
