@@ -127,6 +127,31 @@ input,select{background:#fffdf7;border:2px solid #9bd8f5}
 .hero-start{min-height:96px;font-size:clamp(23px,5vw,30px)!important;margin-top:24px!important;border-radius:22px!important}
 .learning-summary{font-size:clamp(19px,4vw,23px)!important;font-weight:800!important;color:#174a6b;margin:5px 0 8px!important}
 @media(max-width:600px){.player-name{font-size:23px}.profile-switch{font-size:12px!important;padding:4px 10px!important}.hero-start{min-height:82px;margin-top:15px!important;font-size:20px!important}.compact-pane{padding:16px}.challenge-title{margin-bottom:4px}}
+
+.profile-switch{
+  padding:9px 16px!important;
+  font-size:15px!important;
+  font-weight:750!important;
+  border-radius:14px!important;
+  background:#fff!important;
+  color:#245d80!important;
+  border:1px solid #c8e2ef!important;
+  box-shadow:0 4px 10px rgba(36,93,128,.12)!important;
+}
+#configBtn.secondary-action{
+  width:auto!important;
+  display:inline-flex!important;
+  align-items:center;
+  justify-content:center;
+  margin:12px auto 0!important;
+  padding:11px 18px!important;
+  font-size:17px!important;
+  font-weight:750!important;
+}
+@media(max-width:600px){
+  .profile-switch{font-size:14px!important;padding:8px 14px!important}
+  #configBtn.secondary-action{font-size:16px!important;padding:10px 16px!important}
+}
 </style></head><body><div class="app">
 <section id="auth">
   <div class="auth-scene">
@@ -149,7 +174,7 @@ input,select{background:#fffdf7;border:2px solid #9bd8f5}
 <section id="profileManager" class="card profile-manager hidden"><div class="top"><h2>Gérer les profils</h2><button id="profilesBack">Retour</button></div><div id="profileManagerList"></div><h3>Ajouter un profil</h3><div class="profile-editor new-profile-editor"><label>Prénom<input id="newProfileName" placeholder="Prénom"></label><label>Classe<select id="newProfileClass"><option value="">Choisir…</option><option>CP</option><option>CE1</option><option>CE2</option><option>CM1</option><option>CM2</option></select></label><div><span>Couleur</span><div id="newProfileColors" class="color-picker"></div></div><button id="createProfileBtn" class="profile-manage-action">Ajouter le profil</button></div><div id="profileManagerErr" class="error"></div></section>
 <section id="home" class="hidden">
 <div class="top home-top">
-  <div class="player-block"><div id="hello" class="player-name"></div><button id="logout" class="profile-switch">Profils</button></div>
+  <div class="player-block"><div id="hello" class="player-name"></div><button id="logout" class="profile-switch">Changer de profils</button></div>
   <div class="home-tools"><div class="coin-badge"><span class="gold-coin"></span><span id="coinCount">0</span></div></div>
 </div>
 <div class="mode-shell">
@@ -212,7 +237,7 @@ function updateSessionSummary(){if(!cfg)return;let mins=Math.max(1,Math.round((c
 function renderChallenge(){if(!challengeState)return;$('#challengeClass').textContent=challengeState.schoolClass;$('#challengeLevel').textContent=challengeState.level;$('#challengeStars').textContent='★'.repeat(challengeState.stars)+'☆'.repeat(3-challengeState.stars);$('#promoteChallenge').classList.toggle('hidden',!(challengeState.stars>=3&&challengeState.level<5))}
 async function refreshChallenge(){challengeState=await api('/api/challenge/'+profile.id);renderChallenge()}
 function selectMode(mode){currentMode=mode;let ch=mode==='challenge';$('#challengeTab').classList.toggle('active',ch);$('#learningTab').classList.toggle('active',!ch);$('#challengePane').classList.toggle('hidden',!ch);$('#learningPane').classList.toggle('hidden',ch)}
-async function login(p){profile=p;$('#hello').textContent='Bonjour '+p.name;$('#coinCount').textContent=p.coins||0;$('#welcomeErr').textContent='';show('home');try{[cfg,challengeState]=await Promise.all([api('/api/config/'+p.id),api('/api/challenge/'+p.id)]);updateSessionSummary();renderChallenge();selectMode('challenge')}catch(e){profile=null;cfg=null;challengeState=null;$('#welcomeErr').textContent=e.message;show('welcome')}}
+async function login(p){profile=p;$('#hello').textContent=p.name;$('#coinCount').textContent=p.coins||0;$('#welcomeErr').textContent='';show('home');try{[cfg,challengeState]=await Promise.all([api('/api/config/'+p.id),api('/api/challenge/'+p.id)]);updateSessionSummary();renderChallenge();selectMode('challenge')}catch(e){profile=null;cfg=null;challengeState=null;$('#welcomeErr').textContent=e.message;show('welcome')}}
 $('#logout').onclick=()=>{profile=null;show('welcome');loadProfiles()}; document.querySelectorAll('.back').forEach(b=>b.onclick=()=>{if(b.closest('#stats')&&statsView==='category'){renderStats();return}show('home')});
 const names={double:'Doubles',addition:'Additions',subtraction:'Soustractions',decimal:'Additions de décimaux',multiplication:'Multiplications',division:'Divisions',complement10:'Compléments à 10',tens:'Ajout de dizaines',tens_sub:'Soustraction de dizaines',decimal_sub:'Soustractions de décimaux',decimal_multiplication:'Multiplication de décimaux',decimal_division:'Division de décimaux'};
 function configNumber(v){let n=Number(String(v).trim().replace(',','.'));return Number.isFinite(n)?n:0}
