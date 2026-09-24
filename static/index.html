@@ -169,6 +169,22 @@ input,select{background:#fffdf7;border:2px solid #9bd8f5}
 @media(max-width:600px){
   .profile-switch,.player-logout{font-size:14px!important;padding:9px 14px!important}
 }
+
+/* V80: Changer de profil et Se déconnecter = même rendu que Stats */
+.profile-switch,.player-logout{
+  background:var(--blue)!important;
+  color:white!important;
+  border:none!important;
+  box-shadow:none!important;
+}
+
+/* V81 : nom + boutons alignés sur le même axe */
+.player-block{
+  align-items:center!important;
+}
+.player-name{
+  text-align:center!important;
+}
 </style></head><body><div class="app">
 <section id="auth">
   <div class="auth-scene">
