@@ -35,8 +35,14 @@ def init_db():
     if 'color' not in pcols: c.execute("ALTER TABLE profiles ADD COLUMN color TEXT NOT NULL DEFAULT '#8fdff7'")
     if 'school_class' not in pcols: c.execute("ALTER TABLE profiles ADD COLUMN school_class TEXT NOT NULL DEFAULT ''")
     if 'coins' not in pcols: c.execute('ALTER TABLE profiles ADD COLUMN coins INTEGER NOT NULL DEFAULT 0')
+    if 'challenge_level' not in pcols: c.execute('ALTER TABLE profiles ADD COLUMN challenge_level INTEGER NOT NULL DEFAULT 1')
+    if 'challenge_stars' not in pcols: c.execute('ALTER TABLE profiles ADD COLUMN challenge_stars INTEGER NOT NULL DEFAULT 0')
     scols={r['name'] for r in c.execute('PRAGMA table_info(sessions)')}
     if 'rewarded' not in scols: c.execute('ALTER TABLE sessions ADD COLUMN rewarded INTEGER NOT NULL DEFAULT 0')
+    if 'mode' not in scols: c.execute("ALTER TABLE sessions ADD COLUMN mode TEXT NOT NULL DEFAULT 'learning'")
+    if 'challenge_class' not in scols: c.execute("ALTER TABLE sessions ADD COLUMN challenge_class TEXT")
+    if 'challenge_level' not in scols: c.execute("ALTER TABLE sessions ADD COLUMN challenge_level INTEGER")
+    if 'star_awarded' not in scols: c.execute("ALTER TABLE sessions ADD COLUMN star_awarded INTEGER NOT NULL DEFAULT 0")
     c.executescript('''
     CREATE TABLE IF NOT EXISTS reward_progress(profile_id INTEGER PRIMARY KEY, current_card TEXT, revealed TEXT NOT NULL DEFAULT '[]', completed TEXT NOT NULL DEFAULT '[]', FOREIGN KEY(profile_id) REFERENCES profiles(id));
     ''')
@@ -58,6 +64,99 @@ DEFAULT={
   'decimal_multiplication':{'enabled':False,'pct':0,'multipliers':[10,100,1000],'min':0.1,'max':20,'decimals':1},
   'decimal_division':{'enabled':False,'pct':0,'divisors':[10,100,1000],'min':1,'max':1000,'decimals':1}
  }}
+
+# Défis centralisés : 5 paliers par classe.
+# Les réglages sont volontairement côté serveur : aucun bouton de configuration
+# n'est exposé à l'enfant dans le mode Défi.
+def challenge_cfg(school_class, level):
+    school_class=(school_class or 'CP').upper()
+    level=max(1,min(5,int(level or 1)))
+    cfg=copy.deepcopy(DEFAULT)
+    cfg['duration']=300
+    cfg['count']=50
+    for v in cfg['categories'].values():
+        v['enabled']=False; v['pct']=0
+
+    def on(kind,pct,**kw):
+        v=cfg['categories'][kind]; v.update(kw); v['enabled']=True; v['pct']=pct
+
+    # Ces 25 templates constituent une première progression centrale facilement
+    # ajustable ensuite sans modifier l'interface.
+    if school_class=='CP':
+        if level==1:
+            on('addition',50,aMin=0,aMax=5,bMin=0,bMax=5,maxResult=10,withCarry=False)
+            on('complement10',25); on('double',25,min=1,max=5,display='both')
+        elif level==2:
+            on('addition',45,aMin=0,aMax=10,bMin=0,bMax=10,maxResult=20,withCarry=False)
+            on('subtraction',30,aMin=0,aMax=20,bMin=0,bMax=10,nonNegative=True)
+            on('double',25,min=1,max=10,display='both')
+        elif level==3:
+            on('addition',40,aMin=0,aMax=20,bMin=0,bMax=10,maxResult=30,withCarry=True)
+            on('subtraction',35,aMin=0,aMax=30,bMin=0,bMax=10,nonNegative=True)
+            on('complement10',25)
+        elif level==4:
+            on('addition',40,aMin=0,aMax=30,bMin=0,bMax=20,maxResult=50,withCarry=True)
+            on('subtraction',35,aMin=0,aMax=50,bMin=0,bMax=20,nonNegative=True)
+            on('tens',25,startMin=10,startMax=39,mode='10',multiples=[10],maxResult=50)
+        else:
+            on('addition',40,aMin=0,aMax=50,bMin=0,bMax=30,maxResult=100,withCarry=True)
+            on('subtraction',35,aMin=0,aMax=100,bMin=0,bMax=50,nonNegative=True)
+            on('tens',25,startMin=10,startMax=89,mode='10',multiples=[10],maxResult=100)
+    elif school_class=='CE1':
+        if level==1:
+            on('addition',30,aMin=1,aMax=30,bMin=1,bMax=20,maxResult=50,withCarry=True)
+            on('subtraction',25,aMin=10,aMax=50,bMin=1,bMax=30,nonNegative=True)
+            on('double',20,min=1,max=10,display='both'); on('complement10',10)
+            on('tens',15,startMin=10,startMax=89,mode='10',multiples=[10],maxResult=100)
+        elif level==2:
+            on('addition',30,aMin=1,aMax=60,bMin=1,bMax=40,maxResult=100,withCarry=True)
+            on('subtraction',25,aMin=10,aMax=100,bMin=1,bMax=60,nonNegative=True)
+            on('double',15,min=1,max=20,display='both')
+            on('tens',15,startMin=10,startMax=89,mode='10',multiples=[10],maxResult=100)
+            on('multiplication',15,tables=[2,5,10],factorMin=1,factorMax=10)
+        elif level==3:
+            on('addition',25,aMin=10,aMax=90,bMin=1,bMax=90,maxResult=150,withCarry=True)
+            on('subtraction',25,aMin=20,aMax=150,bMin=1,bMax=100,nonNegative=True)
+            on('double',15,min=5,max=50,display='both')
+            on('multiplication',20,tables=[2,3,4,5,10],factorMin=1,factorMax=10)
+            on('division',15,tables=[2,5,10],quotientMin=1,quotientMax=10)
+        elif level==4:
+            on('addition',25,aMin=20,aMax=150,bMin=10,bMax=100,maxResult=250,withCarry=True)
+            on('subtraction',25,aMin=30,aMax=250,bMin=1,bMax=150,nonNegative=True)
+            on('multiplication',25,tables=[2,3,4,5,10],factorMin=1,factorMax=10)
+            on('division',15,tables=[2,3,4,5,10],quotientMin=1,quotientMax=10)
+            on('tens_sub',10,startMin=20,startMax=200,mode='10',multiples=[10],nonNegative=True)
+        else:
+            on('addition',25,aMin=20,aMax=250,bMin=10,bMax=200,maxResult=400,withCarry=True)
+            on('subtraction',25,aMin=50,aMax=400,bMin=1,bMax=250,nonNegative=True)
+            on('multiplication',25,tables=[2,3,4,5,6,10],factorMin=1,factorMax=10)
+            on('division',20,tables=[2,3,4,5,10],quotientMin=1,quotientMax=10)
+            on('double',5,min=10,max=100,display='both')
+    elif school_class=='CE2':
+        tables_by_level=[[2,3,4,5,10],[2,3,4,5,6,10],[2,3,4,5,6,7,10],[2,3,4,5,6,7,8,9,10],[2,3,4,5,6,7,8,9,10]]
+        lim=[300,500,800,1000,1500][level-1]
+        on('addition',25,aMin=20,aMax=lim//2,bMin=10,bMax=lim//2,maxResult=lim,withCarry=True)
+        on('subtraction',25,aMin=50,aMax=lim,bMin=1,bMax=lim//2,nonNegative=True)
+        on('multiplication',30,tables=tables_by_level[level-1],factorMin=1,factorMax=10)
+        on('division',20,tables=tables_by_level[level-1],quotientMin=1,quotientMax=10)
+    elif school_class=='CM1':
+        lim=[1000,2000,5000,10000,20000][level-1]
+        on('addition',20,aMin=100,aMax=lim//2,bMin=10,bMax=lim//2,maxResult=lim,withCarry=True)
+        on('subtraction',20,aMin=100,aMax=lim,bMin=1,bMax=lim//2,nonNegative=True)
+        on('multiplication',25,tables=[2,3,4,5,6,7,8,9,10],factorMin=1,factorMax=10)
+        on('division',20,tables=[2,3,4,5,6,7,8,9,10],quotientMin=1,quotientMax=12)
+        on('decimal',15,min=0,max=20*(level+1),decimals=1,withCarry=True)
+    else: # CM2
+        lim=[5000,10000,20000,50000,100000][level-1]
+        on('addition',15,aMin=100,aMax=lim//2,bMin=10,bMax=lim//2,maxResult=lim,withCarry=True)
+        on('subtraction',15,aMin=100,aMax=lim,bMin=1,bMax=lim//2,nonNegative=True)
+        on('multiplication',20,tables=[2,3,4,5,6,7,8,9,10],factorMin=2,factorMax=12)
+        on('division',15,tables=[2,3,4,5,6,7,8,9,10],quotientMin=2,quotientMax=15)
+        on('decimal',15,min=0,max=100,decimals=1 if level<4 else 2,withCarry=True)
+        on('decimal_sub',10,min=0,max=100,decimals=1 if level<4 else 2,withBorrow=True)
+        on('decimal_multiplication',5,multipliers=[10,100,1000],min=0.1,max=50,decimals=1)
+        on('decimal_division',5,divisors=[10,100,1000],min=1,max=1000,decimals=1)
+    return cfg
 
 def get_cfg(pid):
     c=db(); r=c.execute('SELECT data FROM configs WHERE profile_id=?',(pid,)).fetchone(); c.close()
@@ -245,7 +344,7 @@ def auth_logout(): session.clear(); return {'ok':True}
 @app.get('/api/profiles')
 def profiles():
     if (e:=require_auth()): return e
-    c=db(); rows=[dict(x) for x in c.execute('SELECT id,name,color,school_class,coins,created_at FROM profiles WHERE account_id=? ORDER BY name',(current_account_id(),))]; c.close(); return jsonify(rows)
+    c=db(); rows=[dict(x) for x in c.execute('SELECT id,name,color,school_class,coins,challenge_level,challenge_stars,created_at FROM profiles WHERE account_id=? ORDER BY name',(current_account_id(),))]; c.close(); return jsonify(rows)
 @app.post('/api/profiles')
 def create_profile():
     if (e:=require_auth()): return e
@@ -273,7 +372,12 @@ def update_profile(pid):
     if not c.execute('SELECT id FROM profiles WHERE id=? AND account_id=?',(pid,current_account_id())).fetchone():
         c.close(); return {'error':'Profil introuvable'},404
     try:
-        c.execute('UPDATE profiles SET name=?,color=?,school_class=? WHERE id=?',(name,color,school_class,pid)); c.commit()
+        old_class=c.execute('SELECT school_class FROM profiles WHERE id=?',(pid,)).fetchone()['school_class']
+        if old_class != school_class:
+            c.execute('UPDATE profiles SET name=?,color=?,school_class=?,challenge_level=1,challenge_stars=0 WHERE id=?',(name,color,school_class,pid))
+        else:
+            c.execute('UPDATE profiles SET name=?,color=?,school_class=? WHERE id=?',(name,color,school_class,pid))
+        c.commit()
     except sqlite3.IntegrityError:
         c.close(); return {'error':'Ce profil existe déjà'},409
     c.close(); return {'id':pid,'name':name,'color':color,'school_class':school_class}
@@ -311,14 +415,43 @@ def save_config(pid):
     if cats.get('decimal_multiplication',{}).get('enabled') and not cats['decimal_multiplication'].get('multipliers'): return {'error':'Choisis au moins un multiplicateur décimal.'},400
     if cats.get('decimal_division',{}).get('enabled') and not cats['decimal_division'].get('divisors'): return {'error':'Choisis au moins un diviseur décimal.'},400
     c=db(); c.execute('INSERT INTO configs(profile_id,data) VALUES(?,?) ON CONFLICT(profile_id) DO UPDATE SET data=excluded.data',(pid,json.dumps(data))); c.commit(); c.close(); return {'ok':True}
+@app.get('/api/challenge/<int:pid>')
+def challenge_status(pid):
+    if (e:=require_auth()): return e
+    if not owns_profile(pid): return {'error':'Profil introuvable'},404
+    c=db(); p=c.execute('SELECT school_class,challenge_level,challenge_stars FROM profiles WHERE id=?',(pid,)).fetchone(); c.close()
+    return {'schoolClass':p['school_class'] or 'CP','level':p['challenge_level'],'stars':p['challenge_stars'],'maxLevel':5,'threshold':46}
+
+@app.post('/api/challenge/<int:pid>/promote')
+def challenge_promote(pid):
+    if (e:=require_auth()): return e
+    if not owns_profile(pid): return {'error':'Profil introuvable'},404
+    c=db(); p=c.execute('SELECT challenge_level,challenge_stars FROM profiles WHERE id=?',(pid,)).fetchone()
+    if p['challenge_stars']<3:
+        c.close(); return {'error':'Il faut 3 étoiles pour passer au niveau suivant.'},400
+    if p['challenge_level']>=5:
+        c.close(); return {'error':'Le niveau 5 est déjà le dernier niveau de cette classe.'},400
+    level=p['challenge_level']+1
+    c.execute('UPDATE profiles SET challenge_level=?,challenge_stars=0 WHERE id=?',(level,pid)); c.commit(); c.close()
+    return {'ok':True,'level':level,'stars':0}
+
 @app.post('/api/session/start/<int:pid>')
 def start(pid):
     if (e:=require_auth()): return e
     if not owns_profile(pid): return {'error':'Profil introuvable'},404
-    cfg=get_cfg(pid); count=cfg.get('count',50)
-    # Ne reprendre que les erreurs dont la catégorie est encore active dans la configuration.
+    mode=(request.args.get('mode') or 'learning').lower()
+    if mode not in ('learning','challenge'): mode='learning'
+    challenge_class=None; challenge_level=None
+    if mode=='challenge':
+        c0=db(); p0=c0.execute('SELECT school_class,challenge_level FROM profiles WHERE id=?',(pid,)).fetchone(); c0.close()
+        challenge_class=p0['school_class'] or 'CP'; challenge_level=p0['challenge_level']
+        cfg=challenge_cfg(challenge_class,challenge_level)
+    else:
+        cfg=get_cfg(pid)
+    count=cfg.get('count',50)
     active_kinds={k for k,v in cfg['categories'].items() if v.get('enabled') and v.get('pct',0)>0}
-    retries=[r for r in previous_errors(pid) if r['kind'] in active_kinds][:count]
+    # Un Défi doit rester standardisé : aucune reprise d'erreur d'une séance précédente.
+    retries=[] if mode=='challenge' else [r for r in previous_errors(pid) if r['kind'] in active_kinds][:count]
     remaining=count-len(retries); alloc=allocate(remaining,cfg['categories']) if remaining else {}
     # Une même opération ne doit apparaître qu'une seule fois dans une séance.
     # La clé ignore le mode d'affichage des doubles : « Double de 8 » et « 8 + 8 »
@@ -353,7 +486,7 @@ def start(pid):
             qs.append({'kind':kind,'payload':payload,'display':display,'expected':expected,'source':'GENERATED','retry_from':None})
             added+=1
     random.shuffle(qs)
-    c=db(); cur=c.execute('INSERT INTO sessions(profile_id) VALUES(?)',(pid,)); sid=cur.lastrowid
+    c=db(); cur=c.execute('INSERT INTO sessions(profile_id,mode,challenge_class,challenge_level) VALUES(?,?,?,?)',(pid,mode,challenge_class,challenge_level)); sid=cur.lastrowid
     for i,q in enumerate(qs): c.execute('INSERT INTO questions(session_id,position,kind,payload,display,expected,status,source,retry_from) VALUES(?,?,?,?,?,?,\'UNANSWERED\',?,?)',(sid,i,q['kind'],json.dumps(q['payload']),q['display'],q['expected'],q['source'],q['retry_from']))
     c.commit(); rows=[dict(x) for x in c.execute('SELECT id,position,kind,display,source FROM questions WHERE session_id=? ORDER BY position',(sid,))]; c.close(); return {'sessionId':sid,'duration':cfg.get('duration',300),'questions':rows}
 @app.post('/api/session/<int:sid>/answer')
@@ -385,7 +518,7 @@ def cancel_session(sid):
 def finish(sid):
     if (e:=require_auth()): return e
     data=request.json or {}; ms=max(0,int(data.get('activeMs',0)))
-    c=db(); s=c.execute('SELECT s.id,s.profile_id,s.rewarded FROM sessions s JOIN profiles p ON p.id=s.profile_id WHERE s.id=? AND p.account_id=?',(sid,current_account_id())).fetchone()
+    c=db(); s=c.execute('SELECT s.id,s.profile_id,s.rewarded,s.mode,s.challenge_class,s.challenge_level,s.star_awarded FROM sessions s JOIN profiles p ON p.id=s.profile_id WHERE s.id=? AND p.account_id=?',(sid,current_account_id())).fetchone()
     if not s: c.close(); return {'error':'Séance inconnue'},404
     earned=0
     if not s['rewarded']:
@@ -394,8 +527,18 @@ def finish(sid):
         c.execute('UPDATE sessions SET active_ms=?,rewarded=1 WHERE id=?',(ms,sid))
     else:
         c.execute('UPDATE sessions SET active_ms=? WHERE id=?',(ms,sid))
-    balance=c.execute('SELECT coins FROM profiles WHERE id=?',(s['profile_id'],)).fetchone()['coins']
-    c.commit(); c.close(); return {'ok':True,'coinsEarned':earned,'balance':balance}
+    star_awarded=False
+    if s['mode']=='challenge' and not s['star_awarded']:
+        correct=c.execute("SELECT COUNT(*) n FROM questions WHERE session_id=? AND status='CORRECT'",(sid,)).fetchone()['n']
+        p=c.execute('SELECT school_class,challenge_level,challenge_stars FROM profiles WHERE id=?',(s['profile_id'],)).fetchone()
+        # L'étoile ne compte que si le profil est toujours sur le même palier que le défi joué.
+        if correct>45 and p['school_class']==s['challenge_class'] and p['challenge_level']==s['challenge_level'] and p['challenge_stars']<3:
+            c.execute('UPDATE profiles SET challenge_stars=challenge_stars+1 WHERE id=?',(s['profile_id'],))
+            star_awarded=True
+        c.execute('UPDATE sessions SET star_awarded=1 WHERE id=?',(sid,))
+    pstate=c.execute('SELECT coins,challenge_level,challenge_stars,school_class FROM profiles WHERE id=?',(s['profile_id'],)).fetchone()
+    balance=pstate['coins']
+    c.commit(); c.close(); return {'ok':True,'coinsEarned':earned,'balance':balance,'starAwarded':star_awarded,'challenge':{'schoolClass':pstate['school_class'],'level':pstate['challenge_level'],'stars':pstate['challenge_stars']}}
 
 @app.get('/api/rewards/<int:pid>')
 def rewards(pid):
