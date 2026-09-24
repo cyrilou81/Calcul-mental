@@ -223,10 +223,6 @@ input,select{background:#fffdf7;border:2px solid #9bd8f5}
   .daily-badge{font-size:15px;padding:9px 13px;margin-top:13px}
 }
 
-/* V83 — même ombre pour Récompenses, Stats, Changer de profil et Se déconnecter */
-#rewardBtn,#statsBtn,.profile-switch,.player-logout{
-  box-shadow:0 7px 18px rgba(38,158,232,.24)!important;
-}
 .daily-bonus-block{
   margin:14px auto 0;
   max-width:430px;
@@ -262,6 +258,21 @@ input,select{background:#fffdf7;border:2px solid #9bd8f5}
 @media(max-width:600px){
   .daily-bonus-block{padding:10px 12px;margin-top:10px}
   .daily-bonus-label{font-size:14px}
+}
+
+/* V84 — format visuel identique au bouton Récompenses d'origine */
+#statsBtn,.profile-switch,.player-logout{
+  background:#269ee8!important;
+  color:#fff!important;
+  border:none!important;
+  border-radius:12px!important;
+  box-shadow:0 6px 0 rgba(20,112,168,.28),0 9px 18px rgba(20,112,168,.16)!important;
+  font-weight:700!important;
+  transition:transform .08s ease,box-shadow .08s ease!important;
+}
+#statsBtn:active,.profile-switch:active,.player-logout:active{
+  transform:translateY(3px)!important;
+  box-shadow:0 3px 0 rgba(20,112,168,.28),0 5px 10px rgba(20,112,168,.14)!important;
 }
 </style></head><body><div class="app">
 <section id="auth">
