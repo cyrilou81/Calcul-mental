@@ -303,28 +303,14 @@ input,select{background:#fffdf7;border:2px solid #9bd8f5;}
 }
 
 
-/* V117 — position adaptative sans modifier le modèle d'affichage de #home */
+/* V119 — position verticale adaptative, sans toucher aux calques ni aux interactions */
 #home .mode-shell{
-  position:relative;
-  left:50%;
-  transform:translateX(-50%);
-  width:min(100%,760px);
-  margin-left:0;
-  margin-right:0;
-  margin-top:clamp(18px,calc((100dvh - 640px) * .38),120px);
+  margin-top:clamp(14px,calc((100dvh - 650px) * .28),82px);
 }
 @media(max-width:650px){
   #home .mode-shell{
-    width:100%;
-    margin-top:clamp(12px,calc((100dvh - 590px) * .30),72px);
+    margin-top:clamp(10px,calc((100dvh - 620px) * .22),54px);
   }
-}
-
-
-/* V118 — le bloc interactif passe au-dessus du calque home-top */
-#home .mode-shell{
-  z-index:3;
-  pointer-events:auto;
 }
 
 </style>
