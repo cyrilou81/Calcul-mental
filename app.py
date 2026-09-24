@@ -43,6 +43,7 @@ def init_db():
     if 'challenge_class' not in scols: c.execute("ALTER TABLE sessions ADD COLUMN challenge_class TEXT")
     if 'challenge_level' not in scols: c.execute("ALTER TABLE sessions ADD COLUMN challenge_level INTEGER")
     if 'star_awarded' not in scols: c.execute("ALTER TABLE sessions ADD COLUMN star_awarded INTEGER NOT NULL DEFAULT 0")
+    if 'challenge_day' not in scols: c.execute("ALTER TABLE sessions ADD COLUMN challenge_day TEXT")
     c.executescript('''
     CREATE TABLE IF NOT EXISTS reward_progress(profile_id INTEGER PRIMARY KEY, current_card TEXT, revealed TEXT NOT NULL DEFAULT '[]', completed TEXT NOT NULL DEFAULT '[]', FOREIGN KEY(profile_id) REFERENCES profiles(id));
     ''')
@@ -419,8 +420,13 @@ def save_config(pid):
 def challenge_status(pid):
     if (e:=require_auth()): return e
     if not owns_profile(pid): return {'error':'Profil introuvable'},404
-    c=db(); p=c.execute('SELECT school_class,challenge_level,challenge_stars FROM profiles WHERE id=?',(pid,)).fetchone(); c.close()
-    return {'schoolClass':p['school_class'] or 'CP','level':p['challenge_level'],'stars':p['challenge_stars'],'maxLevel':5,'threshold':46}
+    day=(request.args.get('date') or '')[:10]
+    c=db(); p=c.execute('SELECT school_class,challenge_level,challenge_stars FROM profiles WHERE id=?',(pid,)).fetchone()
+    done_today=False
+    if re.fullmatch(r'\\d{4}-\\d{2}-\\d{2}',day):
+        done_today=bool(c.execute("SELECT 1 FROM sessions WHERE profile_id=? AND mode='challenge' AND rewarded=1 AND challenge_day=? LIMIT 1",(pid,day)).fetchone())
+    c.close()
+    return {'schoolClass':p['school_class'] or 'CP','level':p['challenge_level'],'stars':p['challenge_stars'],'maxLevel':5,'threshold':46,'doneToday':done_today}
 
 @app.post('/api/challenge/<int:pid>/promote')
 def challenge_promote(pid):
@@ -518,6 +524,8 @@ def cancel_session(sid):
 def finish(sid):
     if (e:=require_auth()): return e
     data=request.json or {}; ms=max(0,int(data.get('activeMs',0)))
+    local_day=str(data.get('localDate',''))[:10]
+    if not re.fullmatch(r'\d{4}-\d{2}-\d{2}',local_day): local_day=None
     c=db(); s=c.execute('SELECT s.id,s.profile_id,s.rewarded,s.mode,s.challenge_class,s.challenge_level,s.star_awarded FROM sessions s JOIN profiles p ON p.id=s.profile_id WHERE s.id=? AND p.account_id=?',(sid,current_account_id())).fetchone()
     if not s: c.close(); return {'error':'Séance inconnue'},404
     earned=0
@@ -528,6 +536,8 @@ def finish(sid):
     else:
         c.execute('UPDATE sessions SET active_ms=? WHERE id=?',(ms,sid))
     star_awarded=False
+    if s['mode']=='challenge':
+        c.execute('UPDATE sessions SET challenge_day=? WHERE id=?',(local_day,sid))
     if s['mode']=='challenge' and not s['star_awarded']:
         correct=c.execute("SELECT COUNT(*) n FROM questions WHERE session_id=? AND status='CORRECT'",(sid,)).fetchone()['n']
         p=c.execute('SELECT school_class,challenge_level,challenge_stars FROM profiles WHERE id=?',(s['profile_id'],)).fetchone()

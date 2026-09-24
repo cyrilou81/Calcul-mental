@@ -185,6 +185,43 @@ input,select{background:#fffdf7;border:2px solid #9bd8f5}
 .player-name{
   text-align:center!important;
 }
+
+/* V82 — ces trois boutons ont STRICTEMENT le même rendu */
+.same-as-stats{
+  background:#269ee8!important;
+  color:#fff!important;
+  border:0!important;
+  border-radius:16px!important;
+  padding:10px 14px!important;
+  font-size:16px!important;
+  font-weight:650!important;
+  box-shadow:0 7px 18px rgba(38,158,232,.24)!important;
+}
+.same-as-stats:hover{background:#168fd9!important}
+.profile-switch.same-as-stats,.player-logout.same-as-stats{width:auto!important;margin:0!important}
+
+.daily-badge{
+  width:max-content;
+  max-width:100%;
+  margin:18px auto 0;
+  padding:10px 16px;
+  border-radius:999px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:9px;
+  font-size:17px;
+  font-weight:800;
+  transition:.2s ease;
+}
+.daily-badge.todo{background:#fff3d6;color:#9a6500;border:1px solid #f2d48c}
+.daily-badge.done{background:#e3f8e9;color:#18783a;border:1px solid #afe0bd}
+.daily-dot{width:10px;height:10px;border-radius:50%;background:currentColor;flex:0 0 auto}
+.daily-badge.done .daily-dot{box-shadow:0 0 0 4px rgba(24,120,58,.10)}
+@media(max-width:600px){
+  .same-as-stats{font-size:14px!important;padding:9px 12px!important}
+  .daily-badge{font-size:15px;padding:9px 13px;margin-top:13px}
+}
 </style></head><body><div class="app">
 <section id="auth">
   <div class="auth-scene">
@@ -207,7 +244,7 @@ input,select{background:#fffdf7;border:2px solid #9bd8f5}
 <section id="profileManager" class="card profile-manager hidden"><div class="top"><h2>Gérer les profils</h2><button id="profilesBack">Retour</button></div><div id="profileManagerList"></div><h3>Ajouter un profil</h3><div class="profile-editor new-profile-editor"><label>Prénom<input id="newProfileName" placeholder="Prénom"></label><label>Classe<select id="newProfileClass"><option value="">Choisir…</option><option>CP</option><option>CE1</option><option>CE2</option><option>CM1</option><option>CM2</option></select></label><div><span>Couleur</span><div id="newProfileColors" class="color-picker"></div></div><button id="createProfileBtn" class="profile-manage-action">Ajouter le profil</button></div><div id="profileManagerErr" class="error"></div></section>
 <section id="home" class="hidden">
 <div class="top home-top">
-  <div class="player-block"><div id="hello" class="player-name"></div><button id="logout" class="profile-switch">Changer de profil</button><button id="playerLogout" class="player-logout">Se déconnecter</button></div>
+  <div class="player-block"><div id="hello" class="player-name"></div><button id="logout" class="profile-switch same-as-stats">Changer de profil</button><button id="playerLogout" class="player-logout same-as-stats">Se déconnecter</button></div>
   <div class="home-tools"><div class="coin-badge"><span class="gold-coin"></span><span id="coinCount">0</span></div></div>
 </div>
 <div class="mode-shell">
@@ -217,6 +254,7 @@ input,select{background:#fffdf7;border:2px solid #9bd8f5}
   </div>
   <div id="challengePane" class="mode-pane compact-pane">
     <div class="challenge-title"><div><span id="challengeClass">CE1</span> · niveau <span id="challengeLevel">1</span></div><div id="challengeStars" class="challenge-stars">☆☆☆</div></div>
+    <div id="dailyChallengeBadge" class="daily-badge todo"><span class="daily-dot"></span><span>Défi du jour à faire</span></div>
     <button id="challengeStart" class="primary mode-start hero-start">Commencer le défi quotidien</button>
     <button id="promoteChallenge" class="promote hidden">Passer au niveau suivant</button>
   </div>
@@ -225,7 +263,7 @@ input,select{background:#fffdf7;border:2px solid #9bd8f5}
     <button id="start" class="primary mode-start hero-start">Commencer l'entraînement</button>
     <button id="configBtn" class="secondary-action">Configurer l'entraînement</button>
   </div>
-  <div class="home-secondary"><button id="rewardBtn">🎁 Récompenses</button><button id="statsBtn">📊 Stats</button></div>
+  <div class="home-secondary"><button id="rewardBtn">🎁 Récompenses</button><button id="statsBtn" class="same-as-stats">📊 Stats</button></div>
 </div>
 </section>
 <section id="rewards" class="hidden card reward-screen"><div class="top reward-head"><h2>Récompenses</h2><div style="display:flex;gap:12px;align-items:center"><div class="coin-badge"><span class="gold-coin"></span><span id="rewardCoinCount">0</span></div><button id="rewardBack">Retour</button></div></div><div id="rewardContent"></div></section>
@@ -267,10 +305,11 @@ $('#manageProfilesBtn').onclick=async()=>{show('profileManager');newProfileColor
 $('#profilesBack').onclick=async()=>{await loadProfiles();show('welcome')};
 $('#createProfileBtn').onclick=async()=>{try{await api('/api/profiles',{method:'POST',body:JSON.stringify({name:$('#newProfileName').value,school_class:$('#newProfileClass').value,color:newProfileColor})});$('#newProfileName').value='';$('#newProfileClass').value='';$('#profileManagerErr').textContent='';await renderProfileManager();await loadProfiles()}catch(x){$('#profileManagerErr').textContent=x.message}};
 function updateSessionSummary(){if(!cfg)return;let mins=Math.max(1,Math.round((cfg.duration||300)/60));$('#sessionSummary').textContent=`${cfg.count||50} questions · ${mins} minute${mins>1?'s':''}`}
-function renderChallenge(){if(!challengeState)return;$('#challengeClass').textContent=challengeState.schoolClass;$('#challengeLevel').textContent=challengeState.level;$('#challengeStars').textContent='★'.repeat(challengeState.stars)+'☆'.repeat(3-challengeState.stars);$('#promoteChallenge').classList.toggle('hidden',!(challengeState.stars>=3&&challengeState.level<5))}
-async function refreshChallenge(){challengeState=await api('/api/challenge/'+profile.id);renderChallenge()}
+function renderChallenge(){if(!challengeState)return;$('#challengeClass').textContent=challengeState.schoolClass;$('#challengeLevel').textContent=challengeState.level;$('#challengeStars').textContent='★'.repeat(challengeState.stars)+'☆'.repeat(3-challengeState.stars);let b=$('#dailyChallengeBadge');b.classList.toggle('done',!!challengeState.doneToday);b.classList.toggle('todo',!challengeState.doneToday);b.querySelector('span:last-child').textContent=challengeState.doneToday?'Défi du jour effectué ✓':'Défi du jour à faire';$('#promoteChallenge').classList.toggle('hidden',!(challengeState.stars>=3&&challengeState.level<5))}
+function localDateKey(){let d=new Date(),y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),day=String(d.getDate()).padStart(2,'0');return `${y}-${m}-${day}`}
+async function refreshChallenge(){challengeState=await api('/api/challenge/'+profile.id+'?date='+localDateKey());renderChallenge()}
 function selectMode(mode){currentMode=mode;let ch=mode==='challenge';$('#challengeTab').classList.toggle('active',ch);$('#learningTab').classList.toggle('active',!ch);$('#challengePane').classList.toggle('hidden',!ch);$('#learningPane').classList.toggle('hidden',ch)}
-async function login(p){profile=p;$('#hello').textContent=p.name;$('#coinCount').textContent=p.coins||0;$('#welcomeErr').textContent='';show('home');try{[cfg,challengeState]=await Promise.all([api('/api/config/'+p.id),api('/api/challenge/'+p.id)]);updateSessionSummary();renderChallenge();selectMode('challenge')}catch(e){profile=null;cfg=null;challengeState=null;$('#welcomeErr').textContent=e.message;show('welcome')}}
+async function login(p){profile=p;$('#hello').textContent=p.name;$('#coinCount').textContent=p.coins||0;$('#welcomeErr').textContent='';show('home');try{cfg=await api('/api/config/'+p.id);await refreshChallenge();updateSessionSummary();selectMode('challenge')}catch(e){profile=null;cfg=null;challengeState=null;$('#welcomeErr').textContent=e.message;show('welcome')}}
 $('#logout').onclick=()=>{profile=null;show('welcome');loadProfiles()}; document.querySelectorAll('.back').forEach(b=>b.onclick=()=>{if(b.closest('#stats')&&statsView==='category'){renderStats();return}show('home')});
 const names={double:'Doubles',addition:'Additions',subtraction:'Soustractions',decimal:'Additions de décimaux',multiplication:'Multiplications',division:'Divisions',complement10:'Compléments à 10',tens:'Ajout de dizaines',tens_sub:'Soustraction de dizaines',decimal_sub:'Soustractions de décimaux',decimal_multiplication:'Multiplication de décimaux',decimal_division:'Division de décimaux'};
 function configNumber(v){let n=Number(String(v).trim().replace(',','.'));return Number.isFinite(n)?n:0}
@@ -303,7 +342,7 @@ function displayQ(){if(index>=session.questions.length||activeMs>=session.durati
 function flashWrong(remaining){wrongFlash=true;renderInput();let el=$('#question');el.classList.remove('shake');void el.offsetWidth;el.classList.add('shake');$('#feedback').textContent=remaining>0?`Essaie encore · ${remaining} essai${remaining>1?'s':''}`:'';setTimeout(()=>{wrongFlash=false;input='';renderInput();},520)}
 async function submit(){let q=session.questions[index],ms=Math.round(performance.now()-qStart);correction=true;let r=await api('/api/session/'+session.sessionId+'/answer',{method:'POST',body:JSON.stringify({questionId:q.id,answer:Number(input),responseMs:ms})});attempts=r.attempts;if(r.correct){soundSuccess();correction=false;index++;displayQ();return}soundFail();if(attempts<3){correction=false;flashWrong(3-attempts);return}wrongFlash=true;renderInput();$('#feedback').innerHTML=`La réponse était <strong>${r.expected}</strong>`;setTimeout(()=>{correction=false;index++;displayQ()},2400)}
 function tick(t){if(!ticking)return;if(!correction){if(lastTick)activeMs+=t-lastTick}lastTick=t;let left=Math.max(0,session.duration*1000-activeMs),sec=Math.ceil(left/1000);$('#timer').textContent=String(Math.floor(sec/60)).padStart(2,'0')+':'+String(sec%60).padStart(2,'0');if(left<=0&&!correction){finish();return}timerHandle=requestAnimationFrame(tick)}
-async function finish(){if(!session)return;ticking=false;if(timerHandle)cancelAnimationFrame(timerHandle);let sid=session.sessionId,finishedMode=session.mode;session=null;let r=await api('/api/session/'+sid+'/finish',{method:'POST',body:JSON.stringify({activeMs:Math.round(activeMs)})});if(r.challenge){challengeState={...challengeState,...r.challenge};renderChallenge()}show('celebration');applause();if(finishedMode==='challenge'&&r.starAwarded){let p=document.querySelector('#celebration p');if(p)p.textContent='⭐ Une étoile gagnée !'}animateCoins(r.coinsEarned||0,r.balance||0)}
+async function finish(){if(!session)return;ticking=false;if(timerHandle)cancelAnimationFrame(timerHandle);let sid=session.sessionId,finishedMode=session.mode;session=null;let r=await api('/api/session/'+sid+'/finish',{method:'POST',body:JSON.stringify({activeMs:Math.round(activeMs),localDate:localDateKey()})});if(r.challenge){challengeState={...challengeState,...r.challenge};if(finishedMode==='challenge')challengeState.doneToday=true;renderChallenge()}show('celebration');applause();if(finishedMode==='challenge'&&r.starAwarded){let p=document.querySelector('#celebration p');if(p)p.textContent='⭐ Une étoile gagnée !'}animateCoins(r.coinsEarned||0,r.balance||0)}
 $('#stop').onclick=async()=>{if(!session)return;ticking=false;if(timerHandle)cancelAnimationFrame(timerHandle);let sid=session.sessionId;session=null;await api('/api/session/'+sid,{method:'DELETE'});show('home')};
 async function startTest(mode){session=await api('/api/session/start/'+profile.id+'?mode='+mode,{method:'POST'});session.mode=mode;index=0;activeMs=0;lastTick=0;ticking=true;show('exercise');makeKeypad();displayQ();timerHandle=requestAnimationFrame(tick)}
 $('#start').onclick=()=>startTest('learning');
