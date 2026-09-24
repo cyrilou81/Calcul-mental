@@ -183,62 +183,43 @@ input,select{background:#fffdf7;border:2px solid #9bd8f5;}
 }
 
 
-/* V104 — progression réduite à l'essentiel : nom + étoiles ou cadenas */
-.challenge-level-card{min-height:68px;justify-content:center}
-.challenge-level-card.done{
-  background:#e9f8ec;
-  border-color:#acd9b5;
-  box-shadow:0 2px 7px rgba(45,130,70,.10)
-}
-.challenge-level-card.current{
-  background:#eaf5ff;
-  border-color:#269ee8
-}
-.challenge-level-card.locked{
-  background:#f3f5f7;
-  border-color:#d8dee5
-}
-.challenge-level-card .challenge-level-name{margin:0 0 7px}
-.challenge-level-card .challenge-level-stars{height:18px;overflow:visible}
-.challenge-level-card.locked .challenge-level-stars{
-  font-size:18px;line-height:18px;letter-spacing:0;color:inherit;text-shadow:none
-}
-.challenge-level-state{display:none!important}
-@media(max-width:650px){
-  .challenge-level-card{min-height:62px}
-  .challenge-level-card .challenge-level-name{margin-bottom:6px}
-}
-
-
-/* V105 — confinement horizontal sans modifier les dimensions normales de l'interface */
-html,body{max-width:100%;overflow-x:hidden}
-.mode-shell,.mode-pane,#challengePane,#learningPane{min-width:0;max-width:100%}
+/* V106 — progression seulement. Le reste de la page reste strictement au rendu V102. */
 .challenge-progress{
-  width:100%;max-width:100%;overflow-x:auto;overflow-y:hidden;
+  max-width:100%;overflow-x:auto;overflow-y:hidden;
   -webkit-overflow-scrolling:touch;overscroll-behavior-x:contain
 }
-
-/* Progression : un peu plus généreuse, tout en restant compacte */
 .challenge-level-card{
-  flex:0 0 96px;width:96px;min-width:96px;min-height:82px;
-  padding:10px 7px 8px;border-radius:14px
+  flex:0 0 104px;min-width:104px;min-height:92px;
+  padding:11px 8px 9px;border-radius:15px
 }
 .challenge-level-card .challenge-level-name{
-  font-size:14px;line-height:1.15;margin:0 0 9px;
+  font-size:15px;line-height:1.15;margin:1px 0 10px;
   white-space:normal;overflow-wrap:anywhere
 }
 .challenge-level-card .challenge-level-stars{
-  font-size:20px;line-height:20px;height:20px
+  font-size:21px;line-height:22px;letter-spacing:-2px;
+  white-space:nowrap;text-align:center
+}
+.challenge-level-card.done{
+  background:#e9f8ec;border-color:#acd9b5;
+  box-shadow:0 3px 8px rgba(45,130,70,.10)
 }
 .challenge-level-card.current{
-  border-width:3px;
-  box-shadow:0 0 0 2px rgba(38,158,232,.12),0 5px 12px rgba(38,110,160,.14)
+  background:linear-gradient(180deg,#edf7ff,#dceeff);
+  border:4px solid #269ee8;
+  box-shadow:0 0 0 2px rgba(38,158,232,.10),0 5px 12px rgba(38,110,160,.14)
 }
-.challenge-level-card.locked .challenge-level-stars{font-size:20px;line-height:20px}
+.challenge-level-card.locked{
+  background:linear-gradient(180deg,#fbfcfd,#f0f3f6);border-color:#d8dee5
+}
+.challenge-level-card.locked .challenge-level-stars{
+  font-size:21px;letter-spacing:0;color:#718096;text-shadow:none
+}
+.challenge-level-state{display:none!important}
 @media(max-width:650px){
-  .challenge-level-card{flex-basis:86px;width:86px;min-width:86px;min-height:76px;padding:9px 6px 7px}
-  .challenge-level-card .challenge-level-name{font-size:13px;margin-bottom:8px}
-  .challenge-level-card .challenge-level-stars{font-size:18px;line-height:18px;height:18px}
+  .challenge-level-card{flex-basis:92px;min-width:92px;min-height:84px;padding:10px 6px 8px}
+  .challenge-level-card .challenge-level-name{font-size:14px;margin-bottom:8px}
+  .challenge-level-card .challenge-level-stars{font-size:19px}
 }
 
 </style>
@@ -409,7 +390,7 @@ progress.innerHTML=levels.map((x,i)=>{
   let pos=i+1,isDone=pos<challengeState.level,isCurrent=pos===challengeState.level;
   let stars=isDone?3:(isCurrent?challengeState.stars:0);
   let cls=isDone?'done':(isCurrent?'current':'locked');
-  let symbol=isCurrent||isDone?`${'★'.repeat(stars)}${'☆'.repeat(3-stars)}`:'🔒';
+  let symbol=(isDone||isCurrent)?`${'★'.repeat(stars)}${'☆'.repeat(3-stars)}`:'🔒';
   return `<div class="challenge-level-card ${cls}" data-current="${isCurrent?'1':'0'}"><div class="challenge-level-name">${escapeHtml(x.name)}</div><div class="challenge-level-stars">${symbol}</div></div>`
 }).join('');
 requestAnimationFrame(()=>{let cur=progress.querySelector('[data-current="1"]');if(cur)cur.scrollIntoView({behavior:'smooth',block:'nearest',inline:'center'})});
