@@ -1,10 +1,11 @@
 window.ConfigForm=(()=>{
-const names={double:'Doubles',addition:'Additions',subtraction:'Soustractions',decimal:'Additions de décimaux',multiplication:'Multiplications',division:'Divisions',complement10:'Compléments à 10',tens:'Ajout de dizaines',tens_sub:'Soustraction de dizaines',decimal_sub:'Soustractions de décimaux',decimal_multiplication:'Multiplication de décimaux',decimal_division:'Division de décimaux'};
-const order=['addition','subtraction','double','complement10','multiplication','tens','tens_sub','division','decimal','decimal_sub','decimal_multiplication','decimal_division'];
+const names={double:'Doubles',half:'Moitiés',addition:'Additions',subtraction:'Soustractions',decimal:'Additions de décimaux',multiplication:'Multiplications',division:'Divisions',complement10:'Compléments à 10',tens:'Ajout de dizaines',tens_sub:'Soustraction de dizaines',decimal_sub:'Soustractions de décimaux',decimal_multiplication:'Multiplication de décimaux',decimal_division:'Division de décimaux'};
+const order=['addition','subtraction','double','half','complement10','multiplication','tens','tens_sub','division','decimal','decimal_sub','decimal_multiplication','decimal_division'];
 const num=(k,label)=>`<label>${label} <input type="text" inputmode="decimal" data-field="${k}"></label>`;
 const nval=v=>{let n=Number(String(v).trim().replace(',','.'));return Number.isFinite(n)?n:0};
 function render(root,cfg){root.innerHTML='';order.filter(k=>cfg.categories[k]).forEach(k=>{let v=cfg.categories[k],d=document.createElement('div');d.className='config-row';let extra='';
 if(k==='double')extra=`${num('min','de')}${num('max','à')} <label>Affichage <select data-field="display"><option value="both">Les deux</option><option value="word">Double de X</option><option value="sum">X + X</option></select></label>`;
+if(k==='half')extra=`<label><input type="checkbox" data-field="tens" ${v.tens?'checked':''}> Dizaines</label>`;
 if(k==='addition')extra=`${num('aMin','1er de')}${num('aMax','à')}${num('bMin','2e de')}${num('bMax','à')}${num('maxResult','résultat max')}<label><input type="checkbox" data-field="withCarry" ${v.withCarry!==false?'checked':''}> avec retenue</label>`;
 if(k==='subtraction')extra=`${num('aMin','1er de')}${num('aMax','à')}${num('bMin','2e de')}${num('bMax','à')}<label><input type="checkbox" data-field="nonNegative" ${v.nonNegative!==false?'checked':''}> résultat positif</label>`;
 if(k==='decimal')extra=`${num('min','de')}${num('max','à')}<label>Décimales <select data-field="decimals"><option value="1">1 chiffre</option><option value="2">2 chiffres</option></select></label><label><input type="checkbox" data-field="withCarry" ${v.withCarry!==false?'checked':''}> avec retenue</label>`;

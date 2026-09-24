@@ -55,6 +55,7 @@ DEFAULT={
  'duration':300,'count':50,
  'categories':{
   'double':{'enabled':True,'pct':15,'min':1,'max':10,'display':'both'},
+  'half':{'enabled':False,'pct':0,'tens':False},
   'addition':{'enabled':True,'pct':20,'aMin':1,'aMax':10,'bMin':1,'bMax':10,'maxResult':100,'withCarry':True},
   'subtraction':{'enabled':True,'pct':15,'aMin':1,'aMax':10,'bMin':1,'bMax':10,'nonNegative':True},
   'decimal':{'enabled':False,'pct':0,'min':0,'max':20,'decimals':1,'withCarry':True},
@@ -190,6 +191,12 @@ def gen(kind,cfg):
     if kind=='double':
         n=random.randint(cfg['min'],cfg['max']); mode=cfg.get('display','both'); mode=random.choice(['word','sum']) if mode=='both' else mode
         return {'n':n,'mode':mode}, (f'Double de {n} = __' if mode=='word' else f'{n} + {n} = __'), n*2
+    if kind=='half':
+        # Moitiés simples : 2, 4, 6, 8, 10. L'option « Dizaines » ajoute 20, 30, ... 100.
+        choices=[2,4,6,8,10]
+        if cfg.get('tens',False): choices += [20,30,40,50,60,70,80,90,100]
+        n=random.choice(choices)
+        return {'n':n}, f'Moitié de {n} = __', n//2
     if kind=='addition':
         # "Sans retenue" = aucune colonne décimale ne produit une somme >= 10.
         def no_carry(x,y):
@@ -529,7 +536,7 @@ def start(pid):
     # La clé ignore le mode d'affichage des doubles : « Double de 8 » et « 8 + 8 »
     # représentent le même fait numérique et ne peuvent donc pas coexister.
     def operation_key(kind, payload):
-        if kind == 'double': return (kind, payload.get('n'))
+        if kind in ('double','half'): return (kind, payload.get('n'))
         if kind in ('addition', 'subtraction', 'multiplication', 'decimal_multiplication', 'tens', 'tens_sub'): return (kind, payload.get('a'), payload.get('b'))
         if kind in ('decimal','decimal_sub'): return (kind, payload.get('a'), payload.get('b'), payload.get('op'))
         if kind in ('division','decimal_division'): return (kind, payload.get('dividend'), payload.get('divisor'))
