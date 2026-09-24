@@ -44,6 +44,7 @@ def init_db():
     if 'challenge_level' not in scols: c.execute("ALTER TABLE sessions ADD COLUMN challenge_level INTEGER")
     if 'star_awarded' not in scols: c.execute("ALTER TABLE sessions ADD COLUMN star_awarded INTEGER NOT NULL DEFAULT 0")
     if 'challenge_day' not in scols: c.execute("ALTER TABLE sessions ADD COLUMN challenge_day TEXT")
+    if 'daily_bonus_awarded' not in scols: c.execute("ALTER TABLE sessions ADD COLUMN daily_bonus_awarded INTEGER NOT NULL DEFAULT 0")
     c.executescript('''
     CREATE TABLE IF NOT EXISTS reward_progress(profile_id INTEGER PRIMARY KEY, current_card TEXT, revealed TEXT NOT NULL DEFAULT '[]', completed TEXT NOT NULL DEFAULT '[]', FOREIGN KEY(profile_id) REFERENCES profiles(id));
     ''')
@@ -526,7 +527,7 @@ def finish(sid):
     data=request.json or {}; ms=max(0,int(data.get('activeMs',0)))
     local_day=str(data.get('localDate',''))[:10]
     if not re.fullmatch(r'\d{4}-\d{2}-\d{2}',local_day): local_day=None
-    c=db(); s=c.execute('SELECT s.id,s.profile_id,s.rewarded,s.mode,s.challenge_class,s.challenge_level,s.star_awarded FROM sessions s JOIN profiles p ON p.id=s.profile_id WHERE s.id=? AND p.account_id=?',(sid,current_account_id())).fetchone()
+    c=db(); s=c.execute('SELECT s.id,s.profile_id,s.rewarded,s.mode,s.challenge_class,s.challenge_level,s.star_awarded,s.daily_bonus_awarded FROM sessions s JOIN profiles p ON p.id=s.profile_id WHERE s.id=? AND p.account_id=?',(sid,current_account_id())).fetchone()
     if not s: c.close(); return {'error':'Séance inconnue'},404
     earned=0
     if not s['rewarded']:
@@ -535,9 +536,16 @@ def finish(sid):
         c.execute('UPDATE sessions SET active_ms=?,rewarded=1 WHERE id=?',(ms,sid))
     else:
         c.execute('UPDATE sessions SET active_ms=? WHERE id=?',(ms,sid))
+    daily_bonus=0
     star_awarded=False
     if s['mode']=='challenge':
+        # finish() n'est jamais appelé par STOP : seuls 50 calculs traités ou le timer écoulé valident le défi.
+        already_done=bool(local_day and c.execute("SELECT 1 FROM sessions WHERE profile_id=? AND mode='challenge' AND rewarded=1 AND challenge_day=? AND id<>? LIMIT 1",(s['profile_id'],local_day,sid)).fetchone())
         c.execute('UPDATE sessions SET challenge_day=? WHERE id=?',(local_day,sid))
+        if local_day and not already_done and not s['daily_bonus_awarded']:
+            daily_bonus=10
+            c.execute('UPDATE profiles SET coins=coins+10 WHERE id=?',(s['profile_id'],))
+            c.execute('UPDATE sessions SET daily_bonus_awarded=1 WHERE id=?',(sid,))
     if s['mode']=='challenge' and not s['star_awarded']:
         correct=c.execute("SELECT COUNT(*) n FROM questions WHERE session_id=? AND status='CORRECT'",(sid,)).fetchone()['n']
         p=c.execute('SELECT school_class,challenge_level,challenge_stars FROM profiles WHERE id=?',(s['profile_id'],)).fetchone()
@@ -548,7 +556,7 @@ def finish(sid):
         c.execute('UPDATE sessions SET star_awarded=1 WHERE id=?',(sid,))
     pstate=c.execute('SELECT coins,challenge_level,challenge_stars,school_class FROM profiles WHERE id=?',(s['profile_id'],)).fetchone()
     balance=pstate['coins']
-    c.commit(); c.close(); return {'ok':True,'coinsEarned':earned,'balance':balance,'starAwarded':star_awarded,'challenge':{'schoolClass':pstate['school_class'],'level':pstate['challenge_level'],'stars':pstate['challenge_stars']}}
+    c.commit(); c.close(); return {'ok':True,'coinsEarned':earned,'dailyBonus':daily_bonus,'balance':balance,'starAwarded':star_awarded,'challenge':{'schoolClass':pstate['school_class'],'level':pstate['challenge_level'],'stars':pstate['challenge_stars']}}
 
 @app.get('/api/rewards/<int:pid>')
 def rewards(pid):
