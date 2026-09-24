@@ -119,6 +119,14 @@ input,select{background:#fffdf7;border:2px solid #9bd8f5}
 
 .home-top{padding:0 4px 12px}.home-tools{display:flex;align-items:center;gap:10px}.home-tools button{padding:9px 13px}.mode-shell{max-width:720px;margin:0 auto}.mode-tabs{display:grid;grid-template-columns:1fr 1fr;gap:8px;background:rgba(255,255,255,.72);padding:6px;border-radius:20px;border:1px solid #cfe9f7}.mode-tab{font-size:clamp(17px,3.8vw,21px);padding:14px 10px;background:transparent}.mode-tab.active{background:#269ee8;color:#fff;box-shadow:0 5px 14px rgba(38,158,232,.22)}.mode-pane{margin-top:14px;background:rgba(255,255,255,.9);border:1px solid #cfe9f7;border-radius:24px;padding:clamp(18px,4vw,28px);box-shadow:0 12px 32px rgba(41,132,181,.10);text-align:center}.challenge-title{display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:clamp(24px,5vw,34px);font-weight:850;color:#174a6b}.challenge-stars{color:#f2b51d;letter-spacing:3px;white-space:nowrap}.mode-help{color:#5b7890;margin:10px auto 18px;line-height:1.4;max-width:560px}.level-strip{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin:18px 0}.level-pill{padding:12px 4px;border-radius:14px;background:#eef5f8;color:#8295a2;font-weight:800;border:1px solid #dbeaf1}.level-pill.done{background:#e7f8ed;color:#16803a;border-color:#bde7ca}.level-pill.current{background:#e5f3ff;color:#1676b8;border:2px solid #269ee8}.mode-start{width:100%;font-size:clamp(20px,4.5vw,26px);padding:18px;margin-top:6px}.promote{width:100%;margin-top:10px;background:#28ad61;color:white;font-size:18px}.secondary-action{width:100%;margin-top:10px}.home-secondary{display:flex;justify-content:center;gap:8px;flex-wrap:wrap;margin-top:14px}.home-secondary button{padding:10px 14px}.mode-pane h3{font-size:clamp(23px,5vw,31px);margin:4px 0}.mode-pane #sessionSummary{font-weight:750;color:#174a6b;font-size:18px}
 @media(max-width:600px){.app{padding:10px}.home-top h2{font-size:20px;margin:8px 0}.coin-badge{transform:scale(.9)}.mode-shell{width:100%}.mode-pane{margin-top:9px;padding:15px;border-radius:20px}.mode-tabs{border-radius:17px}.mode-tab{padding:11px 6px}.challenge-title{font-size:23px}.mode-help{font-size:14px;margin:7px auto 12px}.level-strip{gap:5px;margin:12px 0}.level-pill{padding:10px 2px;font-size:13px}.mode-start{padding:15px;font-size:20px}.home-secondary{margin-top:9px}.home-secondary button{font-size:13px;padding:8px 10px}}
+
+.player-block{display:flex;flex-direction:column;align-items:flex-start;gap:4px}
+.player-name{font-size:clamp(24px,5vw,34px);font-weight:900;color:#174a6b;line-height:1.05}
+.profile-switch{padding:5px 12px!important;font-size:13px!important;border-radius:10px!important;background:rgba(255,255,255,.78)!important;color:#527187!important;box-shadow:none!important}
+.compact-pane{padding-top:clamp(20px,5vw,34px);padding-bottom:clamp(20px,5vw,34px)}
+.hero-start{min-height:96px;font-size:clamp(23px,5vw,30px)!important;margin-top:24px!important;border-radius:22px!important}
+.learning-summary{font-size:clamp(19px,4vw,23px)!important;font-weight:800!important;color:#174a6b;margin:5px 0 8px!important}
+@media(max-width:600px){.player-name{font-size:23px}.profile-switch{font-size:12px!important;padding:4px 10px!important}.hero-start{min-height:82px;margin-top:15px!important;font-size:20px!important}.compact-pane{padding:16px}.challenge-title{margin-bottom:4px}}
 </style></head><body><div class="app">
 <section id="auth">
   <div class="auth-scene">
@@ -140,24 +148,23 @@ input,select{background:#fffdf7;border:2px solid #9bd8f5}
 <section id="welcome" class="card welcome-playful hidden"><div class="brain-badge">🧠</div><h1>Calcul mental</h1><p class="welcome-sub">Choisis ton profil :</p><p id="accountName" style="margin:-8px 0 12px;font-weight:700;color:#356b86"></p><div id="profiles" class="profiles"></div><div class="manage-wrap"><button id="manageProfilesBtn">＋ Ajouter / Gérer les profils</button></div><div id="welcomeErr" class="error"></div><button id="accountLogout">Se déconnecter</button></section>
 <section id="profileManager" class="card profile-manager hidden"><div class="top"><h2>Gérer les profils</h2><button id="profilesBack">Retour</button></div><div id="profileManagerList"></div><h3>Ajouter un profil</h3><div class="profile-editor new-profile-editor"><label>Prénom<input id="newProfileName" placeholder="Prénom"></label><label>Classe<select id="newProfileClass"><option value="">Choisir…</option><option>CP</option><option>CE1</option><option>CE2</option><option>CM1</option><option>CM2</option></select></label><div><span>Couleur</span><div id="newProfileColors" class="color-picker"></div></div><button id="createProfileBtn" class="profile-manage-action">Ajouter le profil</button></div><div id="profileManagerErr" class="error"></div></section>
 <section id="home" class="hidden">
-<div class="top home-top"><h2 id="hello"></h2><div class="home-tools"><div class="coin-badge"><span class="gold-coin"></span><span id="coinCount">0</span></div><button id="logout">Profils</button></div></div>
+<div class="top home-top">
+  <div class="player-block"><div id="hello" class="player-name"></div><button id="logout" class="profile-switch">Profils</button></div>
+  <div class="home-tools"><div class="coin-badge"><span class="gold-coin"></span><span id="coinCount">0</span></div></div>
+</div>
 <div class="mode-shell">
   <div class="mode-tabs" role="tablist">
     <button id="challengeTab" class="mode-tab active" role="tab">🏆 Défi</button>
     <button id="learningTab" class="mode-tab" role="tab">📘 Apprentissage</button>
   </div>
-  <div id="challengePane" class="mode-pane">
+  <div id="challengePane" class="mode-pane compact-pane">
     <div class="challenge-title"><div><span id="challengeClass">CE1</span> · niveau <span id="challengeLevel">1</span></div><div id="challengeStars" class="challenge-stars">☆☆☆</div></div>
-    <p class="mode-help">Plus de 45 bonnes réponses = 1 étoile. Trois étoiles débloquent le niveau suivant.</p>
-    <div class="level-strip" id="levelStrip"></div>
-    <button id="challengeStart" class="primary mode-start">Commencer le défi</button>
+    <button id="challengeStart" class="primary mode-start hero-start">Commencer le défi quotidien</button>
     <button id="promoteChallenge" class="promote hidden">Passer au niveau suivant</button>
   </div>
-  <div id="learningPane" class="mode-pane hidden">
-    <h3>Apprentissage personnalisé</h3>
-    <p class="mode-help">Travaille exactement les calculs dont tu as besoin.</p>
-    <p id="sessionSummary">50 questions · 5 minutes</p>
-    <button id="start" class="primary mode-start">Commencer l'entraînement</button>
+  <div id="learningPane" class="mode-pane compact-pane hidden">
+    <p id="sessionSummary" class="learning-summary">50 questions · 5 minutes</p>
+    <button id="start" class="primary mode-start hero-start">Commencer l'entraînement</button>
     <button id="configBtn" class="secondary-action">Configurer l'entraînement</button>
   </div>
   <div class="home-secondary"><button id="rewardBtn">🎁 Récompenses</button><button id="statsBtn">📊 Stats</button><button id="playerLogout">Se déconnecter</button></div>
@@ -202,7 +209,7 @@ $('#manageProfilesBtn').onclick=async()=>{show('profileManager');newProfileColor
 $('#profilesBack').onclick=async()=>{await loadProfiles();show('welcome')};
 $('#createProfileBtn').onclick=async()=>{try{await api('/api/profiles',{method:'POST',body:JSON.stringify({name:$('#newProfileName').value,school_class:$('#newProfileClass').value,color:newProfileColor})});$('#newProfileName').value='';$('#newProfileClass').value='';$('#profileManagerErr').textContent='';await renderProfileManager();await loadProfiles()}catch(x){$('#profileManagerErr').textContent=x.message}};
 function updateSessionSummary(){if(!cfg)return;let mins=Math.max(1,Math.round((cfg.duration||300)/60));$('#sessionSummary').textContent=`${cfg.count||50} questions · ${mins} minute${mins>1?'s':''}`}
-function renderChallenge(){if(!challengeState)return;$('#challengeClass').textContent=challengeState.schoolClass;$('#challengeLevel').textContent=challengeState.level;$('#challengeStars').textContent='★'.repeat(challengeState.stars)+'☆'.repeat(3-challengeState.stars);$('#levelStrip').innerHTML=[1,2,3,4,5].map(n=>`<div class="level-pill ${n<challengeState.level?'done':n===challengeState.level?'current':''}">${challengeState.schoolClass}-${n}</div>`).join('');$('#promoteChallenge').classList.toggle('hidden',!(challengeState.stars>=3&&challengeState.level<5))}
+function renderChallenge(){if(!challengeState)return;$('#challengeClass').textContent=challengeState.schoolClass;$('#challengeLevel').textContent=challengeState.level;$('#challengeStars').textContent='★'.repeat(challengeState.stars)+'☆'.repeat(3-challengeState.stars);$('#promoteChallenge').classList.toggle('hidden',!(challengeState.stars>=3&&challengeState.level<5))}
 async function refreshChallenge(){challengeState=await api('/api/challenge/'+profile.id);renderChallenge()}
 function selectMode(mode){currentMode=mode;let ch=mode==='challenge';$('#challengeTab').classList.toggle('active',ch);$('#learningTab').classList.toggle('active',!ch);$('#challengePane').classList.toggle('hidden',!ch);$('#learningPane').classList.toggle('hidden',ch)}
 async function login(p){profile=p;$('#hello').textContent='Bonjour '+p.name;$('#coinCount').textContent=p.coins||0;$('#welcomeErr').textContent='';show('home');try{[cfg,challengeState]=await Promise.all([api('/api/config/'+p.id),api('/api/challenge/'+p.id)]);updateSessionSummary();renderChallenge();selectMode('challenge')}catch(e){profile=null;cfg=null;challengeState=null;$('#welcomeErr').textContent=e.message;show('welcome')}}
