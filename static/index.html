@@ -408,6 +408,38 @@ input,select{background:#fffdf7;border:2px solid #9bd8f5;}
   #celebration h2{margin:0!important}
 }
 
+
+/* V125 — étoile modèle 5 : volume brillant plus marqué */
+.level-star.earned{
+  position:relative;
+  color:#ffc32f;
+  -webkit-text-stroke:1px #dc8700;
+  background:
+    radial-gradient(circle at 38% 28%,#fffbd0 0 7%,#ffe977 15%,#ffc52e 43%,#f5a400 72%,#d77a00 100%);
+  -webkit-background-clip:text;
+  background-clip:text;
+  -webkit-text-fill-color:transparent;
+  filter:
+    drop-shadow(0 -1px 0 rgba(255,255,255,.75))
+    drop-shadow(0 2px 0 #c97600)
+    drop-shadow(0 4px 3px rgba(122,72,0,.30));
+}
+.level-star.earned::before{
+  content:"★";
+  position:absolute;inset:0;
+  background:linear-gradient(180deg,rgba(255,255,255,.95),rgba(255,255,255,0));
+  -webkit-background-clip:text;background-clip:text;
+  -webkit-text-fill-color:transparent;
+  clip-path:inset(4% 8% 58% 8%);
+  opacity:.8;pointer-events:none;
+}
+.challenge-level-card.done{
+  background:linear-gradient(180deg,#f3fff5,#e1f7e6)!important;
+  border-color:#38b867!important;
+  box-shadow:0 3px 8px rgba(32,145,75,.13)!important;
+}
+.challenge-level-card.done .challenge-level-name{color:#16864a}
+
 </style>
 </head><body><div class="app">
 <section id="auth">
@@ -443,7 +475,7 @@ input,select{background:#fffdf7;border:2px solid #9bd8f5;}
     <div id="challengeProgress" class="challenge-progress" aria-label="Progression des niveaux"></div>
     <div id="dailyChallengeBadge" class="daily-badge todo"><span class="daily-dot"></span><span>Défi du jour à faire</span></div>
     <button id="challengeStart" class="primary mode-start hero-start">Commencer le défi quotidien</button>
-    <button id="promoteChallenge" class="promote hidden">Passer au niveau suivant</button>
+    
   </div>
   <div id="learningPane" class="mode-pane compact-pane hidden">
     <p id="sessionSummary" class="learning-summary">50 questions · 5 minutes</p>
@@ -579,7 +611,7 @@ progress.innerHTML=levels.map((x,i)=>{
   return `<div class="challenge-level-card ${cls}" data-current="${isCurrent?'1':'0'}"><div class="challenge-level-name">${escapeHtml(x.name)}</div><div class="challenge-level-stars">${symbol}</div></div>`
 }).join('');
 requestAnimationFrame(()=>{let cur=progress.querySelector('[data-current="1"]');if(cur)cur.scrollIntoView({behavior:'smooth',block:'nearest',inline:'center'})});
-let b=$('#dailyChallengeBadge');b.classList.toggle('done',!!challengeState.doneToday);b.classList.toggle('todo',!challengeState.doneToday);b.querySelector('span:last-child').textContent=challengeState.doneToday?'Défi du jour effectué ✓':'Défi du jour à faire';$('#promoteChallenge').classList.toggle('hidden',!(challengeState.stars>=3&&challengeState.level<challengeState.maxLevel))}
+let b=$('#dailyChallengeBadge');b.classList.toggle('done',!!challengeState.doneToday);b.classList.toggle('todo',!challengeState.doneToday);b.querySelector('span:last-child').textContent=challengeState.doneToday?'Défi du jour effectué ✓':'Défi du jour à faire';}
 function localDateKey(){let d=new Date(),y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),day=String(d.getDate()).padStart(2,'0');return `${y}-${m}-${day}`}
 async function refreshChallenge(){challengeState=await api('/api/challenge/'+profile.id+'?date='+localDateKey());renderChallenge()}
 function selectMode(mode){currentMode=mode;let ch=mode==='challenge';$('#challengeTab').classList.toggle('active',ch);$('#learningTab').classList.toggle('active',!ch);$('#challengePane').classList.toggle('hidden',!ch);$('#learningPane').classList.toggle('hidden',ch)}
@@ -592,7 +624,7 @@ function updateTotal(){let rows=[...document.querySelectorAll('.config-row')],to
 $('#configRows').addEventListener('input',e=>{if(e.target.classList.contains('enabled')){let p=e.target.closest('.config-row').querySelector('.pct');if(!e.target.checked){p.value=0;p.disabled=true}else p.disabled=false}$('#configErr').textContent='';updateTotal()});
 $('#challengeTab').onclick=()=>selectMode('challenge');
 $('#learningTab').onclick=()=>selectMode('learning');
-$('#promoteChallenge').onclick=async()=>{try{challengeState=await api('/api/challenge/'+profile.id+'/promote',{method:'POST'});renderChallenge()}catch(e){alert(e.message)}};
+
 $('#configBtn').onclick=()=>{renderConfig();$('#configErr').textContent='';show('config')};
 $('#allocateConfig').onclick=()=>{let rows=[...document.querySelectorAll('.config-row')].filter(r=>r.querySelector('.enabled').checked),total=rows.reduce((s,r)=>s+(+r.querySelector('.pct').value||0),0),remaining=100-total;if(!rows.length||remaining<=0)return;let each=Math.floor(remaining/rows.length),extra=remaining%rows.length;rows.forEach((r,i)=>{let p=r.querySelector('.pct');p.value=(+p.value||0)+each+(i<extra?1:0)});updateTotal()};
 $('#saveConfig').onclick=async()=>{let rows=[...document.querySelectorAll('#configRows .config-row')];rows.forEach(r=>{if(!r.querySelector('.enabled').checked)r.querySelector('.pct').value=0});let total=rows.reduce((s,r)=>s+(r.querySelector('.enabled').checked?(+r.querySelector('.pct').value||0):0),0);if(total!==100){$('#configErr').textContent='Total actif doit être 100%';soundFail();updateTotal();return}cfg.duration=Math.max(60,Math.round((+$('#durationMinutes').value||5)*60));cfg.count=Math.max(1,Math.min(500,Math.round(+$('#questionCount').value||50)));ConfigForm.collect($('#configRows'),cfg);try{await api('/api/config/'+profile.id,{method:'PUT',body:JSON.stringify(cfg)});$('#configErr').textContent='';updateSessionSummary();show('home')}catch(e){$('#configErr').textContent=e.message}};
@@ -604,7 +636,7 @@ function displayQ(){if(index>=session.questions.length||activeMs>=session.durati
 function flashWrong(remaining){wrongFlash=true;renderInput();let el=$('#question');el.classList.remove('shake');void el.offsetWidth;el.classList.add('shake');$('#feedback').textContent=remaining>0?`Essaie encore · ${remaining} essai${remaining>1?'s':''}`:'';setTimeout(()=>{wrongFlash=false;input='';renderInput();},520)}
 async function submit(){let q=session.questions[index],ms=Math.round(performance.now()-qStart);correction=true;let r=await api('/api/session/'+session.sessionId+'/answer',{method:'POST',body:JSON.stringify({questionId:q.id,answer:Number(input),responseMs:ms})});attempts=r.attempts;if(r.correct){soundSuccess();correction=false;index++;displayQ();return}soundFail();if(attempts<3){correction=false;flashWrong(3-attempts);return}wrongFlash=true;renderInput();$('#feedback').innerHTML=`La réponse était <strong>${r.expected}</strong>`;setTimeout(()=>{correction=false;index++;displayQ()},2400)}
 function tick(t){if(!ticking)return;if(!correction){if(lastTick)activeMs+=t-lastTick}lastTick=t;let left=Math.max(0,session.duration*1000-activeMs),sec=Math.ceil(left/1000);$('#timer').textContent=String(Math.floor(sec/60)).padStart(2,'0')+':'+String(sec%60).padStart(2,'0');if(left<=0&&!correction){finish();return}timerHandle=requestAnimationFrame(tick)}
-async function finish(){if(!session)return;ticking=false;if(timerHandle)cancelAnimationFrame(timerHandle);let sid=session.sessionId,finishedMode=session.mode;session=null;let r=await api('/api/session/'+sid+'/finish',{method:'POST',body:JSON.stringify({activeMs:Math.round(activeMs),localDate:localDateKey()})});if(r.challenge){challengeState={...challengeState,...r.challenge};if(finishedMode==='challenge')challengeState.doneToday=true;renderChallenge()}show('celebration');applause();if(finishedMode==='challenge'&&r.starAwarded){let p=document.querySelector('#celebration p');if(p)p.textContent='⭐ Une étoile gagnée !'}animateCoins(r.coinsEarned||0,r.balance||0,r.dailyBonus||0)}
+async function finish(){if(!session)return;ticking=false;if(timerHandle)cancelAnimationFrame(timerHandle);let sid=session.sessionId,finishedMode=session.mode;session=null;let r=await api('/api/session/'+sid+'/finish',{method:'POST',body:JSON.stringify({activeMs:Math.round(activeMs),localDate:localDateKey()})});if(r.challenge){challengeState={...challengeState,...r.challenge};if(finishedMode==='challenge')challengeState.doneToday=true;if(finishedMode==='challenge'){try{await refreshChallenge()}catch(e){renderChallenge()}}else renderChallenge()}show('celebration');applause();if(finishedMode==='challenge'&&r.starAwarded){let p=document.querySelector('#celebration p');if(p)p.textContent='⭐ Une étoile gagnée !'}animateCoins(r.coinsEarned||0,r.balance||0,r.dailyBonus||0)}
 $('#stop').onclick=async()=>{if(!session)return;ticking=false;if(timerHandle)cancelAnimationFrame(timerHandle);let sid=session.sessionId;session=null;await api('/api/session/'+sid,{method:'DELETE'});show('home')};
 async function startTest(mode){session=await api('/api/session/start/'+profile.id+'?mode='+mode,{method:'POST'});session.mode=mode;index=0;activeMs=0;lastTick=0;ticking=true;show('exercise');makeKeypad();displayQ();timerHandle=requestAnimationFrame(tick)}
 $('#start').onclick=()=>startTest('learning');

@@ -740,9 +740,18 @@ def finish(sid):
         p=c.execute('SELECT school_class,challenge_level,challenge_level_id,challenge_stars FROM profiles WHERE id=?',(s['profile_id'],)).fetchone()
         # L'étoile ne compte que si le profil est toujours sur le même palier que le défi joué.
         same_level=(p['challenge_level_id']==s['challenge_level_id']) if s['challenge_level_id'] is not None else (p['challenge_level']==s['challenge_level']);
-        if correct>2 and p['school_class']==s['challenge_class'] and same_level and p['challenge_stars']<3:
-            c.execute('UPDATE profiles SET challenge_stars=challenge_stars+1 WHERE id=?',(s['profile_id'],))
+        if correct>45 and p['school_class']==s['challenge_class'] and same_level and p['challenge_stars']<3:
+            new_stars=p['challenge_stars']+1
+            c.execute('UPDATE profiles SET challenge_stars=? WHERE id=?',(new_stars,s['profile_id']))
             star_awarded=True
+            # La 3e étoile valide immédiatement le niveau et débloque le suivant.
+            if new_stars>=3:
+                levels=challenge_levels_for(c,p['school_class'])
+                next_row=next((x for x in levels if x['position']==p['challenge_level']+1),None)
+                if next_row:
+                    clear_challenge_stats(c,s['profile_id'])
+                    c.execute('UPDATE profiles SET challenge_level=?,challenge_level_id=?,challenge_stars=0 WHERE id=?',
+                              (next_row['position'],next_row['id'],s['profile_id']))
         c.execute('UPDATE sessions SET star_awarded=1 WHERE id=?',(sid,))
     pstate=c.execute('SELECT coins,challenge_level,challenge_level_id,challenge_stars,school_class FROM profiles WHERE id=?',(s['profile_id'],)).fetchone()
     balance=pstate['coins']
