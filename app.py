@@ -762,7 +762,7 @@ def finish(sid):
         p=c.execute('SELECT school_class,challenge_level,challenge_level_id,challenge_stars FROM profiles WHERE id=?',(s['profile_id'],)).fetchone()
         # L'étoile ne compte que si le profil est toujours sur le même palier que le défi joué.
         same_level=(p['challenge_level_id']==s['challenge_level_id']) if s['challenge_level_id'] is not None else (p['challenge_level']==s['challenge_level']);
-        if correct>2 and p['school_class']==s['challenge_class'] and same_level and p['challenge_stars']<3:
+        if correct>45 and p['school_class']==s['challenge_class'] and same_level and p['challenge_stars']<3:
             new_stars=p['challenge_stars']+1
             c.execute('UPDATE profiles SET challenge_stars=? WHERE id=?',(new_stars,s['profile_id']))
             star_awarded=True
