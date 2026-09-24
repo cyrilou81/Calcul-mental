@@ -1,5 +1,39 @@
 <!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Administration · Calcul mental</title><style>
 :root{font-family:system-ui,-apple-system,sans-serif;color:#17384d;background:#eef8fc}*{box-sizing:border-box}body{margin:0;padding:24px}main{max-width:1000px;margin:auto}.card{background:#fff;border-radius:22px;padding:24px;box-shadow:0 8px 28px #174b6920;margin-bottom:20px}.hidden{display:none!important}h1,h2{margin-top:0}.top{display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap}button{border:2px solid #147fc1;border-radius:16px;background:#269ee8;color:white;padding:11px 16px;font-weight:800;font-size:16px;box-shadow:0 4px 0 #116da5;cursor:pointer}button.secondary{background:white;color:#245d80;border-color:#b8d8e8;box-shadow:none}.classes{display:flex;gap:12px;flex-wrap:wrap}.classes button{min-width:100px}.level-list{display:flex;flex-direction:column;gap:10px;margin-top:18px}.level-item{display:flex;align-items:center;gap:8px}.level-open{flex:1;text-align:left}.move{width:44px;padding:10px}.manager-row{display:grid;grid-template-columns:1fr 1fr auto;gap:12px;align-items:end;margin:14px 0}.manager-row label,.session-settings label{display:flex;flex-direction:column;gap:5px;font-weight:700}input,select{font:inherit;padding:9px;border:1px solid #b9d3df;border-radius:10px}.error{color:#b12626;font-weight:700;margin-top:10px}.session-settings{display:flex;gap:16px;flex-wrap:wrap;margin:16px 0}.config-row{border-top:1px solid #dcebf2;padding:15px 0;display:grid;grid-template-columns:minmax(180px,1fr) 110px 2fr;gap:12px;align-items:start}.params{display:flex;gap:9px;flex-wrap:wrap;align-items:center}.params label{font-size:14px}.params input[type=text]{width:70px}.tables{display:flex;gap:5px;flex-wrap:wrap}.tables label{font-weight:500}.config-actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap}.total{font-weight:800}.danger{background:#fff;color:#b12626;border-color:#e4aaaa;box-shadow:none}@media(max-width:650px){body{padding:12px}.card{padding:16px}.manager-row{grid-template-columns:1fr}.config-row{grid-template-columns:1fr}.level-item{flex-wrap:wrap}}
+
+/* Liste des niveaux : compacte, centrée et lisible */
+#levelsView{max-width:820px;margin-left:auto;margin-right:auto}
+#levelsView #manageList{display:block;margin:16px auto 4px}
+#levelList{max-width:600px;margin:18px auto 0}
+#levelList .level-item{
+  width:100%;box-sizing:border-box;padding:7px;
+  border:1px solid #d8e7ef;border-radius:14px;background:#fafdff;
+  box-shadow:0 2px 8px rgba(30,80,110,.06);gap:7px
+}
+#levelList .level-open{
+  min-width:0;padding:10px 14px;border-radius:10px;
+  font-size:16px;text-align:center
+}
+#levelList .move{
+  flex:0 0 38px;width:38px;height:38px;padding:0;
+  display:grid;place-items:center;border-radius:10px
+}
+#levelList .move:disabled{opacity:.32;box-shadow:none}
+#managerView{max-width:820px;margin-left:auto;margin-right:auto}
+#managerList{max-width:600px;margin-left:auto;margin-right:auto}
+#managerList .level-item{
+  width:100%;box-sizing:border-box;padding:7px;
+  border:1px solid #d8e7ef;border-radius:14px;background:#fafdff;
+  box-shadow:0 2px 8px rgba(30,80,110,.06)
+}
+#managerList .level-open{text-align:center;min-width:0}
+@media(max-width:650px){
+  #levelList,#managerList{max-width:100%}
+  #levelList .level-item,#managerList .level-item{flex-wrap:nowrap}
+  #levelList .level-open{font-size:15px;padding:9px 7px}
+  #levelList .move{flex-basis:34px;width:34px;height:34px}
+}
+
 </style></head><body><main>
 <section id="adminHome" class="card"><h1>Administration</h1><button id="manageLevels">Gérer les niveaux</button></section>
 <section id="classesView" class="card hidden"><div class="top"><h2>Gérer les niveaux</h2><button class="secondary" data-back="home">Retour</button></div><div id="classes" class="classes"></div></section>
