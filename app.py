@@ -47,6 +47,7 @@ def init_db():
     if 'daily_bonus_awarded' not in scols: c.execute("ALTER TABLE sessions ADD COLUMN daily_bonus_awarded INTEGER NOT NULL DEFAULT 0")
     c.executescript('''
     CREATE TABLE IF NOT EXISTS reward_progress(profile_id INTEGER PRIMARY KEY, current_card TEXT, revealed TEXT NOT NULL DEFAULT '[]', completed TEXT NOT NULL DEFAULT '[]', FOREIGN KEY(profile_id) REFERENCES profiles(id));
+    CREATE TABLE IF NOT EXISTS challenge_levels(id INTEGER PRIMARY KEY AUTOINCREMENT, school_class TEXT NOT NULL, name TEXT NOT NULL, position INTEGER NOT NULL, data TEXT NOT NULL, UNIQUE(school_class, position));
     ''')
     c.commit(); c.close()
 
@@ -70,9 +71,13 @@ DEFAULT={
 # Défis centralisés : 5 paliers par classe.
 # Les réglages sont volontairement côté serveur : aucun bouton de configuration
 # n'est exposé à l'enfant dans le mode Défi.
-def challenge_cfg(school_class, level):
+def challenge_cfg(school_class, level, use_db=True):
     school_class=(school_class or 'CP').upper()
-    level=max(1,min(5,int(level or 1)))
+    level=max(1,int(level or 1))
+    if use_db:
+        c=db(); row=c.execute('SELECT data FROM challenge_levels WHERE school_class=? ORDER BY position LIMIT 1 OFFSET ?',(school_class,level-1)).fetchone(); c.close()
+        if row: return merged_cfg(json.loads(row['data']))
+    level=max(1,min(5,level))
     cfg=copy.deepcopy(DEFAULT)
     cfg['duration']=300
     cfg['count']=50
@@ -160,16 +165,17 @@ def challenge_cfg(school_class, level):
         on('decimal_division',5,divisors=[10,100,1000],min=1,max=1000,decimals=1)
     return cfg
 
-def get_cfg(pid):
-    c=db(); r=c.execute('SELECT data FROM configs WHERE profile_id=?',(pid,)).fetchone(); c.close()
+def merged_cfg(saved):
     cfg=copy.deepcopy(DEFAULT)
-    if not r: return cfg
-    saved=json.loads(r['data'])
-    cfg.update({k:v for k,v in saved.items() if k!='categories'})
-    for kind, values in saved.get('categories',{}).items():
+    cfg.update({k:v for k,v in (saved or {}).items() if k!='categories'})
+    for kind, values in (saved or {}).get('categories',{}).items():
         if kind in cfg['categories'] and isinstance(values,dict): cfg['categories'][kind].update(values)
         else: cfg['categories'][kind]=values
     return cfg
+
+def get_cfg(pid):
+    c=db(); r=c.execute('SELECT data FROM configs WHERE profile_id=?',(pid,)).fetchone(); c.close()
+    return merged_cfg(json.loads(r['data'])) if r else copy.deepcopy(DEFAULT)
 
 def allocate(n,cats):
     vals=[]; used=0
@@ -343,6 +349,62 @@ def auth_login():
     session.clear(); session['account_id']=a['id']; session.permanent=True; return {'ok':True,'username':a['username']}
 @app.post('/api/auth/logout')
 def auth_logout(): session.clear(); return {'ok':True}
+@app.get('/admin')
+def admin_page(): return send_from_directory(ROOT/'static','admin.html')
+
+CLASSES=('CP','CE1','CE2','CM1','CM2')
+def validate_cfg_data(data):
+    data=merged_cfg(data or {}); data['duration']=max(60,min(3600,int(data.get('duration',300)))); data['count']=max(1,min(500,int(data.get('count',50))))
+    total=sum(int(v.get('pct',0) or 0) for v in data['categories'].values() if v.get('enabled'))
+    if total!=100: raise ValueError(f'Le total doit être 100 % (actuellement {total} %).')
+    return data
+
+@app.get('/api/admin/levels')
+def admin_levels():
+    if (e:=require_auth()): return e
+    c=db(); rows=[dict(r) for r in c.execute('SELECT id,school_class,name,position FROM challenge_levels ORDER BY CASE school_class WHEN "CP" THEN 1 WHEN "CE1" THEN 2 WHEN "CE2" THEN 3 WHEN "CM1" THEN 4 ELSE 5 END,position')]; c.close(); return jsonify(rows)
+@app.get('/api/admin/levels/<int:lid>')
+def admin_level(lid):
+    if (e:=require_auth()): return e
+    c=db(); r=c.execute('SELECT * FROM challenge_levels WHERE id=?',(lid,)).fetchone(); c.close()
+    if not r:return {'error':'Niveau introuvable'},404
+    return {'id':r['id'],'school_class':r['school_class'],'name':r['name'],'position':r['position'],'config':merged_cfg(json.loads(r['data']))}
+@app.post('/api/admin/levels')
+def admin_level_create():
+    if (e:=require_auth()): return e
+    d=request.json or {}; school=(d.get('school_class') or '').upper(); name=(d.get('name') or '').strip(); source=d.get('copy_from')
+    if school not in CLASSES or not name:return {'error':'Classe et nom requis.'},400
+    c=db(); pos=c.execute('SELECT COALESCE(MAX(position),0)+1 n FROM challenge_levels WHERE school_class=?',(school,)).fetchone()['n']
+    cfg=copy.deepcopy(DEFAULT)
+    for v in cfg['categories'].values():v['enabled']=False;v['pct']=0
+    if source:
+        r=c.execute('SELECT data FROM challenge_levels WHERE id=?',(int(source),)).fetchone()
+        if r:cfg=merged_cfg(json.loads(r['data']))
+    cur=c.execute('INSERT INTO challenge_levels(school_class,name,position,data) VALUES(?,?,?,?)',(school,name,pos,json.dumps(cfg))); c.commit(); lid=cur.lastrowid;c.close();return {'ok':True,'id':lid}
+@app.put('/api/admin/levels/<int:lid>')
+def admin_level_save(lid):
+    if (e:=require_auth()): return e
+    d=request.json or {}; c=db(); old=c.execute('SELECT id FROM challenge_levels WHERE id=?',(lid,)).fetchone()
+    if not old:c.close();return {'error':'Niveau introuvable'},404
+    try: cfg=validate_cfg_data(d.get('config',{}))
+    except ValueError as ex:c.close();return {'error':str(ex)},400
+    name=(d.get('name') or '').strip() or 'Niveau'; c.execute('UPDATE challenge_levels SET name=?,data=? WHERE id=?',(name,json.dumps(cfg),lid));c.commit();c.close();return {'ok':True}
+@app.post('/api/admin/levels/<int:lid>/move')
+def admin_level_move(lid):
+    if (e:=require_auth()): return e
+    direction=(request.json or {}).get('direction'); c=db(); r=c.execute('SELECT school_class,position FROM challenge_levels WHERE id=?',(lid,)).fetchone()
+    if not r:c.close();return {'error':'Niveau introuvable'},404
+    target=r['position']+(-1 if direction=='up' else 1); other=c.execute('SELECT id FROM challenge_levels WHERE school_class=? AND position=?',(r['school_class'],target)).fetchone()
+    if other:
+        c.execute('UPDATE challenge_levels SET position=-1 WHERE id=?',(lid,));c.execute('UPDATE challenge_levels SET position=? WHERE id=?',(r['position'],other['id']));c.execute('UPDATE challenge_levels SET position=? WHERE id=?',(target,lid));c.commit()
+    c.close();return {'ok':True}
+@app.delete('/api/admin/levels/<int:lid>')
+def admin_level_delete(lid):
+    if (e:=require_auth()): return e
+    c=db(); r=c.execute('SELECT school_class,position FROM challenge_levels WHERE id=?',(lid,)).fetchone()
+    if not r:c.close();return {'error':'Niveau introuvable'},404
+    c.execute('DELETE FROM challenge_levels WHERE id=?',(lid,));c.execute('UPDATE challenge_levels SET position=position-1 WHERE school_class=? AND position>?',(r['school_class'],r['position']));c.commit();c.close();return {'ok':True}
+
 @app.get('/api/profiles')
 def profiles():
     if (e:=require_auth()): return e
@@ -423,11 +485,12 @@ def challenge_status(pid):
     if not owns_profile(pid): return {'error':'Profil introuvable'},404
     day=(request.args.get('date') or '')[:10]
     c=db(); p=c.execute('SELECT school_class,challenge_level,challenge_stars FROM profiles WHERE id=?',(pid,)).fetchone()
+    school=p['school_class'] or 'CP'; levels=c.execute('SELECT id,name,position FROM challenge_levels WHERE school_class=? ORDER BY position',(school,)).fetchall(); max_level=max(1,len(levels)); current=min(max(1,p['challenge_level']),max_level); level_name=(levels[current-1]['name'] if levels else f'Niveau {current}')
     done_today=False
     if re.fullmatch(r'\\d{4}-\\d{2}-\\d{2}',day):
         done_today=bool(c.execute("SELECT 1 FROM sessions WHERE profile_id=? AND mode='challenge' AND rewarded=1 AND challenge_day=? LIMIT 1",(pid,day)).fetchone())
     c.close()
-    return {'schoolClass':p['school_class'] or 'CP','level':p['challenge_level'],'stars':p['challenge_stars'],'maxLevel':5,'threshold':46,'doneToday':done_today}
+    return {'schoolClass':school,'level':current,'levelName':level_name,'stars':p['challenge_stars'],'maxLevel':max_level,'threshold':46,'doneToday':done_today}
 
 @app.post('/api/challenge/<int:pid>/promote')
 def challenge_promote(pid):
@@ -436,8 +499,10 @@ def challenge_promote(pid):
     c=db(); p=c.execute('SELECT challenge_level,challenge_stars FROM profiles WHERE id=?',(pid,)).fetchone()
     if p['challenge_stars']<3:
         c.close(); return {'error':'Il faut 3 étoiles pour passer au niveau suivant.'},400
-    if p['challenge_level']>=5:
-        c.close(); return {'error':'Le niveau 5 est déjà le dernier niveau de cette classe.'},400
+    school=c.execute('SELECT school_class FROM profiles WHERE id=?',(pid,)).fetchone()['school_class'] or 'CP'
+    max_level=c.execute('SELECT COUNT(*) n FROM challenge_levels WHERE school_class=?',(school,)).fetchone()['n'] or 1
+    if p['challenge_level']>=max_level:
+        c.close(); return {'error':'C’est déjà le dernier niveau de cette classe.'},400
     level=p['challenge_level']+1
     c.execute('UPDATE profiles SET challenge_level=?,challenge_stars=0 WHERE id=?',(level,pid)); c.commit(); c.close()
     return {'ok':True,'level':level,'stars':0}
@@ -635,4 +700,13 @@ def session_stats(sid):
     c.close(); return result
 
 init_db()
+def seed_challenge_levels():
+    c=db(); n=c.execute('SELECT COUNT(*) n FROM challenge_levels').fetchone()['n']
+    if n==0:
+        for school in CLASSES:
+            for level in range(1,6):
+                c.execute('INSERT INTO challenge_levels(school_class,name,position,data) VALUES(?,?,?,?)',(school,f'{school}-{level}',level,json.dumps(challenge_cfg(school,level,use_db=False))))
+        c.commit()
+    c.close()
+seed_challenge_levels()
 if __name__=='__main__': app.run(host='127.0.0.1',port=5050,debug=True)
