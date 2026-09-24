@@ -302,6 +302,34 @@ input,select{background:#fffdf7;border:2px solid #9bd8f5;}
   #home .mode-shell{padding-top:4px}
 }
 
+
+/* V114 — placement adaptatif par rapport au bas de l'écran */
+#home{
+  min-height:100dvh;
+  height:100dvh;
+  display:flex;
+  flex-direction:column;
+  padding-bottom:max(12px,env(safe-area-inset-bottom));
+  overflow:hidden;
+}
+#home.hidden{display:none}
+#home .home-top{
+  position:absolute;
+  top:14px;left:18px;right:18px;
+}
+#home .mode-shell{
+  margin-top:auto;
+  margin-bottom:0;
+  flex:0 0 auto;
+  width:100%;
+  max-height:calc(100dvh - max(12px,env(safe-area-inset-bottom)));
+}
+@media(max-width:650px){
+  #home .home-top{top:8px;left:8px;right:8px}
+  #home{padding-bottom:max(10px,env(safe-area-inset-bottom))}
+  #home .mode-shell{max-height:calc(100dvh - max(10px,env(safe-area-inset-bottom)))}
+}
+
 </style>
 </head><body><div class="app">
 <section id="auth">
