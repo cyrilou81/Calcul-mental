@@ -757,9 +757,36 @@ def answer(sid):
 def mark_help(sid):
     if (e:=require_auth()): return e
     qid=int((request.json or {}).get('questionId',0))
-    c=db(); own=c.execute('SELECT 1 FROM questions q JOIN sessions s ON s.id=q.session_id JOIN profiles p ON p.id=s.profile_id WHERE q.id=? AND s.id=? AND p.account_id=?',(qid,sid,current_account_id())).fetchone()
-    if not own: c.close(); return {'error':'Question inconnue'},404
-    c.execute('UPDATE questions SET help_used=1 WHERE id=? AND session_id=?',(qid,sid)); c.commit(); c.close(); return {'ok':True}
+    c=db()
+    row=c.execute('''SELECT q.id,q.kind,q.display,s.profile_id,s.mode,s.challenge_level_id
+                     FROM questions q JOIN sessions s ON s.id=q.session_id
+                     JOIN profiles p ON p.id=s.profile_id
+                     WHERE q.id=? AND s.id=? AND p.account_id=?''',(qid,sid,current_account_id())).fetchone()
+    if not row: c.close(); return {'error':'Question inconnue'},404
+    c.execute('UPDATE questions SET help_used=1 WHERE id=? AND session_id=?',(qid,sid)); c.commit()
+
+    # L'exemple d'aide est un VRAI nouveau tirage du même générateur et avec la
+    # même configuration que la séance. Il n'est donc pas dérivé des nombres de
+    # la question courante et respecte les bornes/tables choisies par le parent.
+    if row['mode']=='challenge' and row['challenge_level_id']:
+        level=c.execute('SELECT data FROM challenge_levels WHERE id=?',(row['challenge_level_id'],)).fetchone()
+        cfg=merged_cfg(json.loads(level['data'])) if level else copy.deepcopy(DEFAULT)
+    else:
+        cfg=get_cfg(row['profile_id'])
+    c.close()
+    kind=row['kind']; cat=cfg.get('categories',{}).get(kind)
+    if not cat: return {'error':'Configuration de la catégorie introuvable'},400
+    example=None
+    for _ in range(40):
+        payload,display,expected=gen(kind,cat)
+        if display != row['display']:
+            example={'kind':kind,'payload':payload,'display':display,'expected':expected}
+            break
+    if example is None:
+        # Cas rarissime d'une configuration qui ne permet qu'un seul calcul.
+        payload,display,expected=gen(kind,cat)
+        example={'kind':kind,'payload':payload,'display':display,'expected':expected}
+    return {'ok':True,'example':example}
 
 @app.delete('/api/session/<int:sid>')
 def cancel_session(sid):
