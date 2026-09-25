@@ -476,34 +476,6 @@ def validate_cfg_data(data):
         raise ValueError('Choisis au moins un diviseur décimal.')
     return data
 
-def balanced_question_order(items):
-    """Répartit les catégories sur toute la séance en évitant les séries quand c'est possible."""
-    if len(items) < 2:
-        return list(items)
-    buckets={}
-    for item in items:
-        buckets.setdefault(item['kind'], []).append(item)
-    for bucket in buckets.values():
-        random.shuffle(bucket)
-    totals={k:len(v) for k,v in buckets.items()}
-    remaining=dict(totals)
-    result=[]; previous=None
-    while sum(remaining.values()):
-        available=[k for k,n in remaining.items() if n>0]
-        alternatives=[k for k in available if k!=previous]
-        pool=alternatives or available
-        # Catégorie la plus en retard sur sa progression idéale. Un léger aléa départage les égalités.
-        done=len(result); total=sum(totals.values())
-        def priority(k):
-            used=totals[k]-remaining[k]
-            expected=(done+1)*totals[k]/total
-            return (expected-used, remaining[k]/totals[k], random.random()*0.01)
-        chosen=max(pool,key=priority)
-        result.append(buckets[chosen].pop())
-        remaining[chosen]-=1
-        previous=chosen
-    return result
-
 @app.post('/api/config/preview')
 def config_preview():
     if (e:=require_auth()): return e
@@ -516,11 +488,11 @@ def config_preview():
             for _ in range(n):
                 try:
                     _,display,_=gen(kind,cfg['categories'][kind])
-                    questions.append({'kind':kind,'display':display})
+                    questions.append(display)
                 except ValueError as ex:
                     return {'error':str(ex)},400
-        questions=balanced_question_order(questions)
-        return {'questions':[q['display'] for q in questions[:count]]}
+        random.shuffle(questions)
+        return {'questions':questions[:count]}
     except (ValueError,TypeError,KeyError) as ex:
         return {'error':str(ex)},400
 
@@ -752,7 +724,7 @@ def start(pid):
             seen.add(key)
             qs.append({'kind':kind,'payload':payload,'display':display,'expected':expected,'source':'GENERATED','retry_from':None})
             added+=1
-    qs=balanced_question_order(qs)
+    random.shuffle(qs)
     c=db(); cur=c.execute('INSERT INTO sessions(profile_id,mode,challenge_class,challenge_level,challenge_level_id) VALUES(?,?,?,?,?)',(pid,mode,challenge_class,challenge_level,challenge_level_id)); sid=cur.lastrowid
     for i,q in enumerate(qs): c.execute('INSERT INTO questions(session_id,position,kind,payload,display,expected,status,source,retry_from) VALUES(?,?,?,?,?,?,\'UNANSWERED\',?,?)',(sid,i,q['kind'],json.dumps(q['payload']),q['display'],q['expected'],q['source'],q['retry_from']))
     c.commit()
