@@ -475,6 +475,26 @@ def validate_cfg_data(data):
         raise ValueError('Choisis au moins un diviseur décimal.')
     return data
 
+@app.post('/api/config/preview')
+def config_preview():
+    if (e:=require_auth()): return e
+    try:
+        cfg=validate_cfg_data(request.get_json(silent=True) or {})
+        count=max(1,min(500,int(cfg.get('count',50))))
+        alloc=allocate(count,cfg['categories'])
+        questions=[]
+        for kind,n in alloc.items():
+            for _ in range(n):
+                try:
+                    _,display,_=gen(kind,cfg['categories'][kind])
+                    questions.append(display)
+                except ValueError as ex:
+                    return {'error':str(ex)},400
+        random.shuffle(questions)
+        return {'questions':questions[:count]}
+    except (ValueError,TypeError,KeyError) as ex:
+        return {'error':str(ex)},400
+
 @app.get('/api/admin/levels')
 def admin_levels():
     if (e:=require_admin()): return e
