@@ -63,3 +63,8 @@ En local, sans `DB_PATH`, l'application continue d'utiliser `calcul_mental.db` �
 Après `pip install -r requirements.txt` :
 
 `python tests/smoke_v99.py`
+
+
+## V145
+- Multiplications : ajout de 1000 dans les choix de tables.
+- Aide des doubles à deux chiffres : décomposition explicite de n+n en double des dizaines + double des unités.
