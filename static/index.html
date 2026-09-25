@@ -823,7 +823,7 @@ function contextualHelp(q){
   }
   if(k==='multiplication'){
     let x=a,y=b; if(x>y){let t=x;x=y;y=t} // x = petit facteur / stratégie
-    if(x===10||y===10)return helpBox(`<div class="help-step">${a} × ${b} <span class="help-arrow">→</span> ${a*b}</div>`,`Multiplier un entier par 10 fait passer chaque chiffre au rang supérieur.`);
+    if([10,100,1000].includes(x)||[10,100,1000].includes(y)){let m=[10,100,1000].includes(x)?x:y,base=m===x?y:x,steps=Math.round(Math.log10(m)),zeros='0'.repeat(steps);return helpBox(`<div class="help-step">${hfmt(base)} × ${m}</div><div class="decimal-track">${hfmt(base)} <span class="help-arrow">→</span> ${hfmt(base*m)}</div><div class="help-note">Ajoute ${steps} zéro${steps>1?'s':''} à droite.</div>`,`Pour multiplier un entier par ${m}, ajoute ${steps} zéro${steps>1?'s':''} à droite.`)};
     if(x===9){return helpBox(`<div class="help-step">10 × ${y} = ${10*y}</div><div class="help-step">${10*y} − ${y} <span class="help-arrow">→</span> ${9*y}</div>`,`× 9, c’est × 10 puis enlever une fois le nombre.`)}
     if(x===5){return helpBox(`<div class="help-step">10 × ${y} = ${10*y}</div><div class="help-step">Moitié de ${10*y} <span class="help-arrow">→</span> ${5*y}</div>`,`× 5, c’est la moitié de × 10.`)}
     if(x===4){return helpBox(`<div class="help-step">Double de ${y} = ${2*y}</div><div class="help-step">Double de ${2*y} <span class="help-arrow">→</span> ${4*y}</div>`,`× 4, c’est doubler deux fois.`)}
@@ -835,8 +835,11 @@ function contextualHelp(q){
   }
   if(k==='decimal_multiplication'){
     let m=b,steps=Math.round(Math.log10(m)); if([10,100,1000].includes(m)){
+      if(Number.isInteger(a)){
+        return helpBox(`<div class="help-step">${hfmt(a)} × ${m}</div><div class="decimal-track">${hfmt(a)} <span class="help-arrow">→</span> ${hfmt(a*m)}</div><div class="help-note">Ajoute ${steps} zéro${steps>1?'s':''} à droite.</div>`,`Pour multiplier un entier par ${m}, ajoute ${steps} zéro${steps>1?'s':''} à droite.`)
+      }
       let vals=[a];for(let i=0;i<steps;i++)vals.push(vals[vals.length-1]*10);
-      return helpBox(`<div class="decimal-track">${vals.map(hfmt).join('  →  ')}</div><div class="decimal-arrow">${'→ '.repeat(steps)}</div><div class="help-note">${steps} déplacement${steps>1?'s':''} vers la droite</div>`,`Multiplier par ${m}, c’est déplacer la virgule de ${steps} rang${steps>1?'s':''} vers la droite.`)
+      return helpBox(`<div class="decimal-track">${vals.map(hfmt).join('  →  ')}</div><div class="decimal-arrow">${'→ '.repeat(steps)}</div><div class="help-note">Déplace la virgule ${steps} fois vers la droite.</div>`,`Pour multiplier un nombre décimal par ${m}, déplace la virgule ${steps} fois vers la droite.`)
     }
   }
   if(k==='decimal_division'){
