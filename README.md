@@ -65,6 +65,7 @@ Après `pip install -r requirements.txt` :
 `python tests/smoke_v99.py`
 
 
-## V145
-- Multiplications : ajout de 1000 dans les choix de tables.
-- Aide des doubles à deux chiffres : décomposition explicite de n+n en double des dizaines + double des unités.
+## V145b (rebase V144 utilisateur)
+- Multiplications : ajout de 1000 aux choix de tables.
+- Aide doubles 10–100 : décomposition explicite en dizaines et unités (ex. 15+15).
+- Repart strictement de la V144 fournie par l’utilisateur pour éviter les régressions de V145.
