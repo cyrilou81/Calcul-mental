@@ -35,6 +35,7 @@ def init_db():
     if 'had_error' not in cols: c.execute('ALTER TABLE questions ADD COLUMN had_error INTEGER NOT NULL DEFAULT 0')
     if 'first_wrong_answer' not in cols: c.execute('ALTER TABLE questions ADD COLUMN first_wrong_answer REAL')
     if 'last_answer' not in cols: c.execute('ALTER TABLE questions ADD COLUMN last_answer REAL')
+    if 'help_used' not in cols: c.execute('ALTER TABLE questions ADD COLUMN help_used INTEGER NOT NULL DEFAULT 0')
     pcols={r['name'] for r in c.execute('PRAGMA table_info(profiles)')}
     if 'account_id' not in pcols: c.execute('ALTER TABLE profiles ADD COLUMN account_id INTEGER NOT NULL DEFAULT 1')
     if 'color' not in pcols: c.execute("ALTER TABLE profiles ADD COLUMN color TEXT NOT NULL DEFAULT '#8fdff7'")
@@ -475,6 +476,34 @@ def validate_cfg_data(data):
         raise ValueError('Choisis au moins un diviseur décimal.')
     return data
 
+def balanced_question_order(items):
+    """Répartit les catégories sur toute la séance en évitant les séries quand c'est possible."""
+    if len(items) < 2:
+        return list(items)
+    buckets={}
+    for item in items:
+        buckets.setdefault(item['kind'], []).append(item)
+    for bucket in buckets.values():
+        random.shuffle(bucket)
+    totals={k:len(v) for k,v in buckets.items()}
+    remaining=dict(totals)
+    result=[]; previous=None
+    while sum(remaining.values()):
+        available=[k for k,n in remaining.items() if n>0]
+        alternatives=[k for k in available if k!=previous]
+        pool=alternatives or available
+        # Catégorie la plus en retard sur sa progression idéale. Un léger aléa départage les égalités.
+        done=len(result); total=sum(totals.values())
+        def priority(k):
+            used=totals[k]-remaining[k]
+            expected=(done+1)*totals[k]/total
+            return (expected-used, remaining[k]/totals[k], random.random()*0.01)
+        chosen=max(pool,key=priority)
+        result.append(buckets[chosen].pop())
+        remaining[chosen]-=1
+        previous=chosen
+    return result
+
 @app.post('/api/config/preview')
 def config_preview():
     if (e:=require_auth()): return e
@@ -487,11 +516,11 @@ def config_preview():
             for _ in range(n):
                 try:
                     _,display,_=gen(kind,cfg['categories'][kind])
-                    questions.append(display)
+                    questions.append({'kind':kind,'display':display})
                 except ValueError as ex:
                     return {'error':str(ex)},400
-        random.shuffle(questions)
-        return {'questions':questions[:count]}
+        questions=balanced_question_order(questions)
+        return {'questions':[q['display'] for q in questions[:count]]}
     except (ValueError,TypeError,KeyError) as ex:
         return {'error':str(ex)},400
 
@@ -723,10 +752,17 @@ def start(pid):
             seen.add(key)
             qs.append({'kind':kind,'payload':payload,'display':display,'expected':expected,'source':'GENERATED','retry_from':None})
             added+=1
-    random.shuffle(qs)
+    qs=balanced_question_order(qs)
     c=db(); cur=c.execute('INSERT INTO sessions(profile_id,mode,challenge_class,challenge_level,challenge_level_id) VALUES(?,?,?,?,?)',(pid,mode,challenge_class,challenge_level,challenge_level_id)); sid=cur.lastrowid
     for i,q in enumerate(qs): c.execute('INSERT INTO questions(session_id,position,kind,payload,display,expected,status,source,retry_from) VALUES(?,?,?,?,?,?,\'UNANSWERED\',?,?)',(sid,i,q['kind'],json.dumps(q['payload']),q['display'],q['expected'],q['source'],q['retry_from']))
-    c.commit(); rows=[dict(x) for x in c.execute('SELECT id,position,kind,display,source FROM questions WHERE session_id=? ORDER BY position',(sid,))]; c.close(); return {'sessionId':sid,'duration':cfg.get('duration',300),'questions':rows}
+    c.commit()
+    rows=[]
+    for x in c.execute('SELECT id,position,kind,payload,display,source FROM questions WHERE session_id=? ORDER BY position',(sid,)):
+        row=dict(x)
+        try: row['payload']=json.loads(row.get('payload') or '{}')
+        except (TypeError,ValueError): row['payload']={}
+        rows.append(row)
+    c.close(); return {'sessionId':sid,'duration':cfg.get('duration',300),'questions':rows}
 @app.post('/api/session/<int:sid>/answer')
 def answer(sid):
     if (e:=require_auth()): return e
@@ -743,8 +779,58 @@ def answer(sid):
     first_wrong=oldq['first_wrong_answer']
     if not ok and first_wrong is None: first_wrong=given
     # Une question reste statistiquement en erreur dès le premier essai faux, même si elle est corrigée ensuite.
-    status=('INCORRECT' if had_error else 'CORRECT') if ok or attempts>=3 else 'UNANSWERED'
-    c.execute('UPDATE questions SET given_answer=?,last_answer=?,first_wrong_answer=?,status=?,response_ms=?,attempts=?,had_error=? WHERE id=?',(first_answer,given,first_wrong,status,ms,attempts,1 if had_error else 0,qid)); c.commit(); c.close(); return {'correct':ok,'expected':oldq['expected'],'attempts':attempts,'remaining':max(0,3-attempts)}
+    status=('INCORRECT' if had_error else 'CORRECT') if ok or attempts>=2 else 'UNANSWERED'
+    c.execute('UPDATE questions SET given_answer=?,last_answer=?,first_wrong_answer=?,status=?,response_ms=?,attempts=?,had_error=? WHERE id=?',(first_answer,given,first_wrong,status,ms,attempts,1 if had_error else 0,qid)); c.commit(); c.close(); return {'correct':ok,'expected':oldq['expected'],'attempts':attempts,'remaining':max(0,2-attempts)}
+@app.post('/api/session/<int:sid>/help')
+def mark_help(sid):
+    if (e:=require_auth()): return e
+    qid=int((request.json or {}).get('questionId',0))
+    c=db()
+    row=c.execute('''SELECT q.id,q.kind,q.display,q.payload,s.profile_id,s.mode,s.challenge_level_id
+                     FROM questions q JOIN sessions s ON s.id=q.session_id
+                     JOIN profiles p ON p.id=s.profile_id
+                     WHERE q.id=? AND s.id=? AND p.account_id=?''',(qid,sid,current_account_id())).fetchone()
+    if not row: c.close(); return {'error':'Question inconnue'},404
+    c.execute('UPDATE questions SET help_used=1 WHERE id=? AND session_id=?',(qid,sid)); c.commit()
+
+    # L'exemple d'aide est un VRAI nouveau tirage du même générateur et avec la
+    # même configuration que la séance. Il n'est donc pas dérivé des nombres de
+    # la question courante et respecte les bornes/tables choisies par le parent.
+    if row['mode']=='challenge' and row['challenge_level_id']:
+        level=c.execute('SELECT data FROM challenge_levels WHERE id=?',(row['challenge_level_id'],)).fetchone()
+        cfg=merged_cfg(json.loads(level['data'])) if level else copy.deepcopy(DEFAULT)
+    else:
+        cfg=get_cfg(row['profile_id'])
+    c.close()
+    kind=row['kind']; cat=cfg.get('categories',{}).get(kind)
+    if not cat: return {'error':'Configuration de la catégorie introuvable'},400
+
+    # Pour ×10/×100/×1000 et ÷10/÷100/÷1000, l'exemple doit entraîner
+    # exactement le même déplacement de virgule que la question courante.
+    # On garde donc le multiplicateur/diviseur courant, tout en retirant un
+    # nouveau nombre au hasard avec le générateur normal de la catégorie.
+    example_cat=copy.deepcopy(cat)
+    try:
+        current_payload=json.loads(row['payload'] or '{}')
+    except (TypeError,ValueError,KeyError):
+        current_payload={}
+    if kind=='decimal_multiplication' and current_payload.get('b') in (10,100,1000):
+        example_cat['multipliers']=[current_payload['b']]
+    elif kind=='decimal_division' and current_payload.get('divisor') in (10,100,1000):
+        example_cat['divisors']=[current_payload['divisor']]
+
+    example=None
+    for _ in range(40):
+        payload,display,expected=gen(kind,example_cat)
+        if display != row['display']:
+            example={'kind':kind,'payload':payload,'display':display,'expected':expected}
+            break
+    if example is None:
+        # Cas rarissime d'une configuration qui ne permet qu'un seul calcul.
+        payload,display,expected=gen(kind,example_cat)
+        example={'kind':kind,'payload':payload,'display':display,'expected':expected}
+    return {'ok':True,'example':example}
+
 @app.delete('/api/session/<int:sid>')
 def cancel_session(sid):
     if (e:=require_auth()): return e
@@ -861,8 +947,8 @@ def stats(pid):
         cats=[]
         for kind in dict.fromkeys(q['kind'] for q in qs):
             kqs=[q for q in qs if q['kind']==kind]; kc=sum(1 for q in kqs if q['status']=='CORRECT')
-            kt=[q['response_ms'] for q in kqs if q['response_ms'] is not None]; cats.append({'kind':kind,'attempted':len(kqs),'correct':kc,'accuracy':round(100*kc/len(kqs),1) if kqs else 0,'medianMs':int(statistics.median(kt)) if kt else None})
-        out.append({'id':s['id'],'date':s['started_at'],'activeMs':s['active_ms'],'attempted':len(qs),'correct':len(correct),'incorrect':len(qs)-len(correct),'accuracy':round(100*len(correct)/len(qs),1) if qs else 0,'medianMs':int(statistics.median(times)) if times else None,'avgMs':int(sum(times)/len(times)) if times else None,'categories':cats})
+            kt=[q['response_ms'] for q in kqs if q['response_ms'] is not None]; cats.append({'kind':kind,'attempted':len(kqs),'correct':kc,'accuracy':round(100*kc/len(kqs),1) if kqs else 0,'medianMs':int(statistics.median(kt)) if kt else None,'helpUsed':sum(1 for q in kqs if q.get('help_used'))})
+        out.append({'id':s['id'],'date':s['started_at'],'activeMs':s['active_ms'],'attempted':len(qs),'correct':len(correct),'incorrect':len(qs)-len(correct),'accuracy':round(100*len(correct)/len(qs),1) if qs else 0,'medianMs':int(statistics.median(times)) if times else None,'avgMs':int(sum(times)/len(times)) if times else None,'helpUsed':sum(1 for q in qs if q.get('help_used')),'categories':cats})
     c.close(); return {'sessions':out,'mode':mode}
 
 @app.get('/api/session/<int:sid>/stats')
@@ -871,13 +957,13 @@ def session_stats(sid):
     c=db(); s=c.execute('SELECT id,profile_id,started_at,active_ms FROM sessions WHERE id=?',(sid,)).fetchone()
     if not s: c.close(); return {'error':'Séance inconnue'},404
     if not owns_profile(s['profile_id']): c.close(); return {'error':'Séance inconnue'},404
-    qs=[dict(x) for x in c.execute("SELECT id,position,kind,display,expected,given_answer,last_answer,first_wrong_answer,status,response_ms,source,attempts,had_error FROM questions WHERE session_id=? AND status!='UNANSWERED' ORDER BY position",(sid,))]
+    qs=[dict(x) for x in c.execute("SELECT id,position,kind,display,expected,given_answer,last_answer,first_wrong_answer,status,response_ms,source,attempts,had_error,help_used FROM questions WHERE session_id=? AND status!='UNANSWERED' ORDER BY position",(sid,))]
     correct=[q for q in qs if q['status']=='CORRECT']; times=[q['response_ms'] for q in correct if q['response_ms'] is not None]
     kinds=[]
     for kind in dict.fromkeys(q['kind'] for q in qs):
         kqs=[q for q in qs if q['kind']==kind]; kc=sum(1 for q in kqs if q['status']=='CORRECT')
-        kinds.append({'kind':kind,'attempted':len(kqs),'correct':kc,'incorrect':len(kqs)-kc,'accuracy':round(100*kc/len(kqs),1) if kqs else 0})
-    result={'id':s['id'],'date':s['started_at'],'activeMs':s['active_ms'],'attempted':len(qs),'correct':len(correct),'incorrect':len(qs)-len(correct),'accuracy':round(100*len(correct)/len(qs),1) if qs else 0,'medianMs':int(statistics.median(times)) if times else None,'categories':kinds,'questions':qs}
+        kinds.append({'kind':kind,'attempted':len(kqs),'correct':kc,'incorrect':len(kqs)-kc,'accuracy':round(100*kc/len(kqs),1) if kqs else 0,'helpUsed':sum(1 for q in kqs if q.get('help_used'))})
+    result={'id':s['id'],'date':s['started_at'],'activeMs':s['active_ms'],'attempted':len(qs),'correct':len(correct),'incorrect':len(qs)-len(correct),'accuracy':round(100*len(correct)/len(qs),1) if qs else 0,'medianMs':int(statistics.median(times)) if times else None,'helpUsed':sum(1 for q in qs if q.get('help_used')),'categories':kinds,'questions':qs}
     c.close(); return result
 
 init_db()
