@@ -726,7 +726,14 @@ def start(pid):
     random.shuffle(qs)
     c=db(); cur=c.execute('INSERT INTO sessions(profile_id,mode,challenge_class,challenge_level,challenge_level_id) VALUES(?,?,?,?,?)',(pid,mode,challenge_class,challenge_level,challenge_level_id)); sid=cur.lastrowid
     for i,q in enumerate(qs): c.execute('INSERT INTO questions(session_id,position,kind,payload,display,expected,status,source,retry_from) VALUES(?,?,?,?,?,?,\'UNANSWERED\',?,?)',(sid,i,q['kind'],json.dumps(q['payload']),q['display'],q['expected'],q['source'],q['retry_from']))
-    c.commit(); rows=[dict(x) for x in c.execute('SELECT id,position,kind,display,source FROM questions WHERE session_id=? ORDER BY position',(sid,))]; c.close(); return {'sessionId':sid,'duration':cfg.get('duration',300),'questions':rows}
+    c.commit()
+    rows=[]
+    for x in c.execute('SELECT id,position,kind,payload,display,source FROM questions WHERE session_id=? ORDER BY position',(sid,)):
+        row=dict(x)
+        try: row['payload']=json.loads(row.get('payload') or '{}')
+        except (TypeError,ValueError): row['payload']={}
+        rows.append(row)
+    c.close(); return {'sessionId':sid,'duration':cfg.get('duration',300),'questions':rows}
 @app.post('/api/session/<int:sid>/answer')
 def answer(sid):
     if (e:=require_auth()): return e
