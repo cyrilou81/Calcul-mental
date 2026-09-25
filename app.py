@@ -776,15 +776,30 @@ def mark_help(sid):
     c.close()
     kind=row['kind']; cat=cfg.get('categories',{}).get(kind)
     if not cat: return {'error':'Configuration de la catégorie introuvable'},400
+
+    # Pour ×10/×100/×1000 et ÷10/÷100/÷1000, l'exemple doit entraîner
+    # exactement le même déplacement de virgule que la question courante.
+    # On garde donc le multiplicateur/diviseur courant, tout en retirant un
+    # nouveau nombre au hasard avec le générateur normal de la catégorie.
+    example_cat=copy.deepcopy(cat)
+    try:
+        current_payload=json.loads(c.execute('SELECT payload FROM questions WHERE id=?',(qid,)).fetchone()['payload'] or '{}')
+    except (TypeError,ValueError,KeyError):
+        current_payload={}
+    if kind=='decimal_multiplication' and current_payload.get('b') in (10,100,1000):
+        example_cat['multipliers']=[current_payload['b']]
+    elif kind=='decimal_division' and current_payload.get('divisor') in (10,100,1000):
+        example_cat['divisors']=[current_payload['divisor']]
+
     example=None
     for _ in range(40):
-        payload,display,expected=gen(kind,cat)
+        payload,display,expected=gen(kind,example_cat)
         if display != row['display']:
             example={'kind':kind,'payload':payload,'display':display,'expected':expected}
             break
     if example is None:
         # Cas rarissime d'une configuration qui ne permet qu'un seul calcul.
-        payload,display,expected=gen(kind,cat)
+        payload,display,expected=gen(kind,example_cat)
         example={'kind':kind,'payload':payload,'display':display,'expected':expected}
     return {'ok':True,'example':example}
 
