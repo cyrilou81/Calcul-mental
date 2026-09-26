@@ -66,6 +66,9 @@ def init_db():
                      FROM profiles_legacy_v99''')
         c.execute('DROP TABLE profiles_legacy_v99')
     c.execute('CREATE UNIQUE INDEX IF NOT EXISTS ux_profiles_account_name ON profiles(account_id,name COLLATE NOCASE)')
+    # V152: politique de départ des défis (une classe sous la classe réelle).
+    pcols={r['name'] for r in c.execute('PRAGMA table_info(profiles)')}
+    if 'challenge_start_policy' not in pcols: c.execute('ALTER TABLE profiles ADD COLUMN challenge_start_policy INTEGER NOT NULL DEFAULT 0')
     scols={r['name'] for r in c.execute('PRAGMA table_info(sessions)')}
     if 'rewarded' not in scols: c.execute('ALTER TABLE sessions ADD COLUMN rewarded INTEGER NOT NULL DEFAULT 0')
     if 'mode' not in scols: c.execute("ALTER TABLE sessions ADD COLUMN mode TEXT NOT NULL DEFAULT 'learning'")
@@ -438,29 +441,76 @@ def admin_page():
 
 CLASSES=('CP','CE1','CE2','CM1','CM2')
 
+def class_rank(school):
+    try: return CLASSES.index((school or 'CP').upper())
+    except ValueError: return 0
+
+def initial_challenge_school(real_school):
+    i=class_rank(real_school)
+    return CLASSES[max(0,i-1)]
+
+def required_stars_for(challenge_school, real_school):
+    # Tout palier inférieur à la classe réelle sert de validation rapide : 1 étoile.
+    return 1 if class_rank(challenge_school) < class_rank(real_school) else 3
+
+def color_name_fr(hex_color):
+    """Nom simple de la couleur configurée, par proximité RGB, pour le message enfant."""
+    palette={'rouge':'#ef5350','orange':'#f28c28','jaune':'#f5c542','verte':'#2fbd68','bleue':'#3189dc','violette':'#8b4de3','rose':'#e85aa6','turquoise':'#22b8b2'}
+    try:
+        h=(hex_color or '').lstrip('#'); rgb=tuple(int(h[i:i+2],16) for i in (0,2,4))
+        def dist(v):
+            x=v.lstrip('#'); q=tuple(int(x[i:i+2],16) for i in (0,2,4)); return sum((a-b)**2 for a,b in zip(rgb,q))
+        return min(palette,key=lambda k:dist(palette[k]))
+    except Exception: return 'suivante'
+
 def challenge_levels_for(c, school):
-    return c.execute('SELECT id,name,position,data FROM challenge_levels WHERE school_class=? ORDER BY position',(school,)).fetchall()
+    return c.execute('SELECT id,school_class,name,position,data FROM challenge_levels WHERE school_class=? ORDER BY position',(school,)).fetchall()
+
+def first_level_for(c, school):
+    return c.execute('SELECT id,school_class,name,position,data FROM challenge_levels WHERE school_class=? ORDER BY position LIMIT 1',(school,)).fetchone()
 
 def resolve_profile_level(c, profile):
-    school=(profile['school_class'] or 'CP').upper()
-    levels=challenge_levels_for(c,school)
-    if not levels:
-        return school,None,1,'Niveau 1'
+    real_school=(profile['school_class'] or 'CP').upper()
     keys=profile.keys()
     level_id=profile['challenge_level_id'] if 'challenge_level_id' in keys else None
-    row=next((x for x in levels if x['id']==level_id),None)
+    row=c.execute('SELECT id,school_class,name,position,data FROM challenge_levels WHERE id=?',(level_id,)).fetchone() if level_id else None
     if row is None:
+        challenge_school=initial_challenge_school(real_school)
+        levels=challenge_levels_for(c,challenge_school)
+        if not levels:
+            return challenge_school,None,1,'Niveau 1'
         legacy=max(1,int(profile['challenge_level'] or 1)) if 'challenge_level' in keys else 1
         row=levels[min(legacy-1,len(levels)-1)]
-    return school,row,row['position'],row['name']
+    return row['school_class'],row,row['position'],row['name']
+
+def ensure_challenge_start_policy(c,pid):
+    p=c.execute('SELECT id,school_class,challenge_start_policy FROM profiles WHERE id=?',(pid,)).fetchone()
+    if not p or p['challenge_start_policy']: return
+    school=initial_challenge_school(p['school_class'])
+    first=first_level_for(c,school)
+    c.execute('UPDATE profiles SET challenge_level=1,challenge_level_id=?,challenge_stars=0,challenge_start_policy=1 WHERE id=?',
+              (first['id'] if first else None,pid))
 
 def sync_profile_level(c, pid):
+    ensure_challenge_start_policy(c,pid)
     p=c.execute('SELECT id,school_class,challenge_level,challenge_level_id FROM profiles WHERE id=?',(pid,)).fetchone()
     if not p: return None
     school,row,pos,name=resolve_profile_level(c,p)
     if row and (p['challenge_level_id']!=row['id'] or p['challenge_level']!=pos):
         c.execute('UPDATE profiles SET challenge_level_id=?,challenge_level=? WHERE id=?',(row['id'],pos,pid))
     return row
+
+def next_challenge_level(c, row):
+    """Niveau suivant, y compris le passage à la couleur/classe suivante."""
+    if not row: return None
+    nxt=c.execute('SELECT id,school_class,name,position,data FROM challenge_levels WHERE school_class=? AND position>? ORDER BY position LIMIT 1',
+                  (row['school_class'],row['position'])).fetchone()
+    if nxt: return nxt
+    i=class_rank(row['school_class'])
+    for school in CLASSES[i+1:]:
+        nxt=first_level_for(c,school)
+        if nxt: return nxt
+    return None
 
 def validate_cfg_data(data):
     data=merged_cfg(data or {})
@@ -612,7 +662,7 @@ def create_profile():
     if c.execute('SELECT 1 FROM profiles WHERE account_id=? AND name=? COLLATE NOCASE',(current_account_id(),name)).fetchone():
         c.close(); return {'error':'Ce profil existe déjà'},409
     try:
-        cur=c.execute('INSERT INTO profiles(name,account_id,color,school_class) VALUES(?,?,?,?)',(name,current_account_id(),color,school_class)); pid=cur.lastrowid; c.execute('INSERT INTO configs(profile_id,data) VALUES(?,?)',(pid,json.dumps(DEFAULT))); c.commit(); c.close(); return {'id':pid,'name':name,'color':color,'school_class':school_class}
+        start_school=initial_challenge_school(school_class); first=first_level_for(c,start_school); first_id=first['id'] if first else None; cur=c.execute('INSERT INTO profiles(name,account_id,color,school_class,challenge_level,challenge_level_id,challenge_stars,challenge_start_policy) VALUES(?,?,?,?,1,?,0,1)',(name,current_account_id(),color,school_class,first_id)); pid=cur.lastrowid; c.execute('INSERT INTO configs(profile_id,data) VALUES(?,?)',(pid,json.dumps(DEFAULT))); c.commit(); c.close(); return {'id':pid,'name':name,'color':color,'school_class':school_class}
     except sqlite3.IntegrityError: return {'error':'Ce profil existe déjà'},409
 @app.put('/api/profiles/<int:pid>')
 def update_profile(pid):
@@ -631,7 +681,7 @@ def update_profile(pid):
         old_class=c.execute('SELECT school_class FROM profiles WHERE id=?',(pid,)).fetchone()['school_class']
         if old_class != school_class:
             clear_challenge_stats(c,pid)
-            first=c.execute('SELECT id FROM challenge_levels WHERE school_class=? ORDER BY position LIMIT 1',(school_class,)).fetchone(); first_id=first['id'] if first else None; c.execute('UPDATE profiles SET name=?,color=?,school_class=?,challenge_level=1,challenge_level_id=?,challenge_stars=0 WHERE id=?',(name,color,school_class,first_id,pid))
+            start_school=initial_challenge_school(school_class); first=first_level_for(c,start_school); first_id=first['id'] if first else None; c.execute('UPDATE profiles SET name=?,color=?,school_class=?,challenge_level=1,challenge_level_id=?,challenge_stars=0,challenge_start_policy=1 WHERE id=?',(name,color,school_class,first_id,pid))
         else:
             c.execute('UPDATE profiles SET name=?,color=?,school_class=? WHERE id=?',(name,color,school_class,pid))
         c.commit()
@@ -673,24 +723,30 @@ def challenge_status(pid):
     if (e:=require_auth()): return e
     if not owns_profile(pid): return {'error':'Profil introuvable'},404
     day=(request.args.get('date') or '')[:10]
-    c=db(); p=c.execute('SELECT school_class,challenge_level,challenge_level_id,challenge_stars FROM profiles WHERE id=?',(pid,)).fetchone()
-    school,row,current,level_name=resolve_profile_level(c,p); levels=challenge_levels_for(c,school); max_level=max(1,len(levels))
-    cr=c.execute('SELECT color FROM class_settings WHERE school_class=?',(school,)).fetchone(); class_color=cr['color'] if cr else '#3189dc'
-    # Répare aussi les profils déjà arrivés à 3 étoiles avant l'avancement automatique.
-    if row and p['challenge_stars']>=3:
-        next_row=next((x for x in levels if x['position']==current+1),None)
+    c=db(); ensure_challenge_start_policy(c,pid)
+    p=c.execute('SELECT school_class,challenge_level,challenge_level_id,challenge_stars FROM profiles WHERE id=?',(pid,)).fetchone()
+    challenge_school,row,current,level_name=resolve_profile_level(c,p)
+    levels=challenge_levels_for(c,challenge_school); max_level=max(1,len(levels))
+    cr=c.execute('SELECT color FROM class_settings WHERE school_class=?',(challenge_school,)).fetchone(); class_color=cr['color'] if cr else '#3189dc'
+    needed=required_stars_for(challenge_school,p['school_class'])
+    # Auto-réparation : si le nombre d'étoiles requis est déjà atteint, avancer proprement.
+    if row and p['challenge_stars']>=needed:
+        next_row=next_challenge_level(c,row)
         if next_row:
             c.execute('UPDATE profiles SET challenge_level=?,challenge_level_id=?,challenge_stars=0 WHERE id=?',
                       (next_row['position'],next_row['id'],pid)); c.commit()
-            row=next_row; current=next_row['position']; level_name=next_row['name']
+            row=next_row; challenge_school=row['school_class']; current=row['position']; level_name=row['name']
+            levels=challenge_levels_for(c,challenge_school); max_level=max(1,len(levels))
+            cr=c.execute('SELECT color FROM class_settings WHERE school_class=?',(challenge_school,)).fetchone(); class_color=cr['color'] if cr else '#3189dc'
             p=c.execute('SELECT school_class,challenge_level,challenge_level_id,challenge_stars FROM profiles WHERE id=?',(pid,)).fetchone()
+            needed=required_stars_for(challenge_school,p['school_class'])
     if row and (p['challenge_level_id']!=row['id'] or p['challenge_level']!=current):
         c.execute('UPDATE profiles SET challenge_level_id=?,challenge_level=? WHERE id=?',(row['id'],current,pid)); c.commit()
     done_today=False
     if re.fullmatch(r'\d{4}-\d{2}-\d{2}',day):
         done_today=bool(c.execute("SELECT 1 FROM sessions WHERE profile_id=? AND mode='challenge' AND rewarded=1 AND challenge_day=? LIMIT 1",(pid,day)).fetchone())
     c.close()
-    return {'schoolClass':school,'classColor':class_color,'level':current,'levelName':level_name,'stars':p['challenge_stars'],'maxLevel':max_level,'threshold':46,'doneToday':done_today,'levels':[{'id':x['id'],'name':x['name'],'position':x['position']} for x in levels]}
+    return {'schoolClass':challenge_school,'realSchoolClass':p['school_class'],'classColor':class_color,'level':current,'levelName':level_name,'stars':p['challenge_stars'],'requiredStars':needed,'maxLevel':max_level,'threshold':46,'doneToday':done_today,'levels':[{'id':x['id'],'name':x['name'],'position':x['position']} for x in levels]}
 
 def clear_challenge_stats(c,pid):
     # Les questions n'ont pas de cascade FK garantie dans les anciennes BDD :
@@ -725,7 +781,7 @@ def start(pid):
     if mode not in ('learning','challenge'): mode='learning'
     challenge_class=None; challenge_level=None; challenge_level_id=None
     if mode=='challenge':
-        c0=db(); p0=c0.execute('SELECT school_class,challenge_level,challenge_level_id FROM profiles WHERE id=?',(pid,)).fetchone()
+        c0=db(); ensure_challenge_start_policy(c0,pid); p0=c0.execute('SELECT school_class,challenge_level,challenge_level_id FROM profiles WHERE id=?',(pid,)).fetchone()
         challenge_class,row,challenge_level,_=resolve_profile_level(c0,p0); challenge_level_id=row['id'] if row else None
         if row:
             c0.execute('UPDATE profiles SET challenge_level=?,challenge_level_id=? WHERE id=?',(challenge_level,challenge_level_id,pid)); c0.commit()
@@ -898,22 +954,37 @@ def finish(sid):
             daily_bonus=10
             c.execute('UPDATE profiles SET coins=coins+10 WHERE id=?',(s['profile_id'],))
             c.execute('UPDATE sessions SET daily_bonus_awarded=1 WHERE id=?',(sid,))
+    star_bonus=0
+    level_bonus=0
+    class_completed=False
+    completed_class=None
+    next_class=None
+    completed_color=None
+    next_color=None
     if s['mode']=='challenge' and not s['star_awarded']:
         correct=c.execute("SELECT COUNT(*) n FROM questions WHERE session_id=? AND status='CORRECT'",(sid,)).fetchone()['n']
         p=c.execute('SELECT school_class,challenge_level,challenge_level_id,challenge_stars FROM profiles WHERE id=?',(s['profile_id'],)).fetchone()
-        # L'étoile ne compte que si le profil est toujours sur le même palier que le défi joué.
-        same_level=(p['challenge_level_id']==s['challenge_level_id']) if s['challenge_level_id'] is not None else (p['challenge_level']==s['challenge_level']);
-        if correct>45 and p['school_class']==s['challenge_class'] and same_level and p['challenge_stars']<3:
+        current_row=c.execute('SELECT id,school_class,name,position,data FROM challenge_levels WHERE id=?',(s['challenge_level_id'],)).fetchone() if s['challenge_level_id'] else None
+        same_level=(p['challenge_level_id']==s['challenge_level_id']) if s['challenge_level_id'] is not None else (p['challenge_level']==s['challenge_level'])
+        challenge_school=current_row['school_class'] if current_row else (s['challenge_class'] or p['school_class'])
+        needed=required_stars_for(challenge_school,p['school_class'])
+        if correct>45 and same_level and p['challenge_stars']<needed:
             new_stars=p['challenge_stars']+1
             c.execute('UPDATE profiles SET challenge_stars=? WHERE id=?',(new_stars,s['profile_id']))
             star_awarded=True
-            # La 3e étoile valide immédiatement le niveau et débloque le suivant.
-            if new_stars>=3:
-                levels=challenge_levels_for(c,p['school_class'])
-                next_row=next((x for x in levels if x['position']==p['challenge_level']+1),None)
+            star_bonus=10
+            c.execute('UPDATE profiles SET coins=coins+10 WHERE id=?',(s['profile_id'],))
+            if new_stars>=needed:
+                next_row=next_challenge_level(c,current_row)
                 if next_row:
-                    c.execute('UPDATE profiles SET challenge_level=?,challenge_level_id=?,challenge_stars=0 WHERE id=?',
+                    level_bonus=20
+                    c.execute('UPDATE profiles SET coins=coins+20,challenge_level=?,challenge_level_id=?,challenge_stars=0 WHERE id=?',
                               (next_row['position'],next_row['id'],s['profile_id']))
+                    if current_row and next_row['school_class']!=current_row['school_class']:
+                        class_completed=True; completed_class=current_row['school_class']; next_class=next_row['school_class']
+                        cc=c.execute('SELECT color FROM class_settings WHERE school_class=?',(completed_class,)).fetchone()
+                        nc=c.execute('SELECT color FROM class_settings WHERE school_class=?',(next_class,)).fetchone()
+                        completed_color=cc['color'] if cc else '#3189dc'; next_color=nc['color'] if nc else '#3189dc'
         c.execute('UPDATE sessions SET star_awarded=1 WHERE id=?',(sid,))
     pstate=c.execute('SELECT coins,challenge_level,challenge_level_id,challenge_stars,school_class FROM profiles WHERE id=?',(s['profile_id'],)).fetchone()
     balance=pstate['coins']
@@ -921,7 +992,7 @@ def finish(sid):
     if s['mode']=='challenge' and pstate['challenge_level_id'] and pstate['challenge_level_id']!=s['challenge_level_id']:
         nr=c.execute('SELECT name FROM challenge_levels WHERE id=?',(pstate['challenge_level_id'],)).fetchone()
         promoted_level_name=nr['name'] if nr else f"{pstate['school_class']}-{pstate['challenge_level']}"
-    c.commit(); c.close(); return {'ok':True,'coinsEarned':earned,'dailyBonus':daily_bonus,'balance':balance,'starAwarded':star_awarded,'levelUnlocked':bool(promoted_level_name),'unlockedLevelName':promoted_level_name,'challenge':{'schoolClass':pstate['school_class'],'level':pstate['challenge_level'],'stars':pstate['challenge_stars']}}
+    c.commit(); c.close(); return {'ok':True,'coinsEarned':earned,'dailyBonus':daily_bonus,'starBonus':star_bonus,'levelBonus':level_bonus,'balance':balance,'starAwarded':star_awarded,'levelUnlocked':bool(promoted_level_name),'unlockedLevelName':promoted_level_name,'classCompleted':class_completed,'completedClass':completed_class,'nextClass':next_class,'completedColor':completed_color,'nextColor':next_color,'completedColorName':color_name_fr(completed_color) if completed_color else None,'nextColorName':color_name_fr(next_color) if next_color else None,'challenge':{'level':pstate['challenge_level'],'stars':pstate['challenge_stars']}}
 
 @app.get('/api/rewards/<int:pid>')
 def rewards(pid):

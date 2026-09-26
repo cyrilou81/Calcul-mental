@@ -87,3 +87,10 @@ Après `pip install -r requirements.txt` :
 - Administration : couleur configurable indépendamment pour CP, CE1, CE2, CM1 et CM2.
 - Récompenses : un seul toucher sur l'image agrandie dépense automatiquement jusqu'à 10 pièces par case et révèle toutes les cases finançables, sans dépasser les cases restantes. Le reliquat de pièces est conservé.
 - Si le solde est inférieur à 10 pièces, toucher l'image agrandie ferme immédiatement la vue et revient aux images en cours / révélées.
+
+## V152
+- Défis enfant : simples ronds colorés numérotés (plus de badges/médailles).
+- Départ défi : une classe sous la classe réelle (CP reste CP), y compris migration unique des profils existants.
+- Un niveau situé sous la classe réelle ne demande qu'une étoile ; à partir de la classe réelle, trois étoiles.
+- +10 pièces pour une étoile, +20 pièces supplémentaires lors d'un changement de niveau, avec barres dédiées à l'écran de fin.
+- Passage de couleur : fenêtre de victoire avec les deux couleurs et le message de transition.
