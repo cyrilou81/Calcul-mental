@@ -94,3 +94,7 @@ Après `pip install -r requirements.txt` :
 - Un niveau situé sous la classe réelle ne demande qu'une étoile ; à partir de la classe réelle, trois étoiles.
 - +10 pièces pour une étoile, +20 pièces supplémentaires lors d'un changement de niveau, avec barres dédiées à l'écran de fin.
 - Passage de couleur : fenêtre de victoire avec les deux couleurs et le message de transition.
+
+
+## V153
+- Admin : dans « Gérer les niveaux », les boutons CP/CE1/CE2/CM1/CM2 utilisent la couleur configurée pour chaque classe. Ce changement est limité à cette fenêtre.
