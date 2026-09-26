@@ -81,3 +81,9 @@ Après `pip install -r requirements.txt` :
 - Une question fausse au premier essai reste comptée comme une erreur, même si le deuxième essai est correct.
 - Le détail des statistiques indique désormais « 2e essai réussi » ou « 2e essai échoué » pour ces erreurs.
 - Suppression de la colonne « Essais » dans les tableaux de détail des statistiques.
+
+## V151
+- Défis enfant : les noms scolaires sont remplacés par des médailles numérotées ; toutes les médailles d'une même classe utilisent la même couleur.
+- Administration : couleur configurable indépendamment pour CP, CE1, CE2, CM1 et CM2.
+- Récompenses : un seul toucher sur l'image agrandie dépense automatiquement jusqu'à 10 pièces par case et révèle toutes les cases finançables, sans dépasser les cases restantes. Le reliquat de pièces est conservé.
+- Si le solde est inférieur à 10 pièces, toucher l'image agrandie ferme immédiatement la vue et revient aux images en cours / révélées.

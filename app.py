@@ -78,7 +78,10 @@ def init_db():
     c.executescript('''
     CREATE TABLE IF NOT EXISTS reward_progress(profile_id INTEGER PRIMARY KEY, current_card TEXT, revealed TEXT NOT NULL DEFAULT '[]', completed TEXT NOT NULL DEFAULT '[]', FOREIGN KEY(profile_id) REFERENCES profiles(id));
     CREATE TABLE IF NOT EXISTS challenge_levels(id INTEGER PRIMARY KEY AUTOINCREMENT, school_class TEXT NOT NULL, name TEXT NOT NULL, position INTEGER NOT NULL, data TEXT NOT NULL, UNIQUE(school_class, position));
+    CREATE TABLE IF NOT EXISTS class_settings(school_class TEXT PRIMARY KEY, color TEXT NOT NULL);
     ''')
+    class_defaults={'CP':'#ef5350','CE1':'#f5b82e','CE2':'#2fbd68','CM1':'#3189dc','CM2':'#8b4de3'}
+    for school,color in class_defaults.items(): c.execute('INSERT OR IGNORE INTO class_settings(school_class,color) VALUES(?,?)',(school,color))
     c.commit(); c.close()
 
 DEFAULT={
@@ -524,6 +527,22 @@ def config_preview():
     except (ValueError,TypeError,KeyError) as ex:
         return {'error':str(ex)},400
 
+@app.get('/api/admin/class-colors')
+def admin_class_colors():
+    if (e:=require_admin()): return e
+    c=db(); rows=c.execute('SELECT school_class,color FROM class_settings').fetchall(); c.close()
+    return {r['school_class']:r['color'] for r in rows}
+
+@app.put('/api/admin/class-colors/<school>')
+def admin_class_color_save(school):
+    if (e:=require_admin()): return e
+    school=(school or '').upper()
+    if school not in ('CP','CE1','CE2','CM1','CM2'): return {'error':'Classe inconnue'},400
+    color=str((request.json or {}).get('color') or '')
+    if not re.fullmatch(r'#[0-9a-fA-F]{6}',color): return {'error':'Couleur invalide'},400
+    c=db(); c.execute('INSERT INTO class_settings(school_class,color) VALUES(?,?) ON CONFLICT(school_class) DO UPDATE SET color=excluded.color',(school,color)); c.commit(); c.close()
+    return {'ok':True,'schoolClass':school,'color':color}
+
 @app.get('/api/admin/levels')
 def admin_levels():
     if (e:=require_admin()): return e
@@ -656,6 +675,7 @@ def challenge_status(pid):
     day=(request.args.get('date') or '')[:10]
     c=db(); p=c.execute('SELECT school_class,challenge_level,challenge_level_id,challenge_stars FROM profiles WHERE id=?',(pid,)).fetchone()
     school,row,current,level_name=resolve_profile_level(c,p); levels=challenge_levels_for(c,school); max_level=max(1,len(levels))
+    cr=c.execute('SELECT color FROM class_settings WHERE school_class=?',(school,)).fetchone(); class_color=cr['color'] if cr else '#3189dc'
     # Répare aussi les profils déjà arrivés à 3 étoiles avant l'avancement automatique.
     if row and p['challenge_stars']>=3:
         next_row=next((x for x in levels if x['position']==current+1),None)
@@ -670,7 +690,7 @@ def challenge_status(pid):
     if re.fullmatch(r'\d{4}-\d{2}-\d{2}',day):
         done_today=bool(c.execute("SELECT 1 FROM sessions WHERE profile_id=? AND mode='challenge' AND rewarded=1 AND challenge_day=? LIMIT 1",(pid,day)).fetchone())
     c.close()
-    return {'schoolClass':school,'level':current,'levelName':level_name,'stars':p['challenge_stars'],'maxLevel':max_level,'threshold':46,'doneToday':done_today,'levels':[{'id':x['id'],'name':x['name'],'position':x['position']} for x in levels]}
+    return {'schoolClass':school,'classColor':class_color,'level':current,'levelName':level_name,'stars':p['challenge_stars'],'maxLevel':max_level,'threshold':46,'doneToday':done_today,'levels':[{'id':x['id'],'name':x['name'],'position':x['position']} for x in levels]}
 
 def clear_challenge_stats(c,pid):
     # Les questions n'ont pas de cascade FK garantie dans les anciennes BDD :
@@ -939,6 +959,7 @@ def choose_reward(pid):
 
 @app.post('/api/rewards/<int:pid>/reveal')
 def reveal_reward(pid):
+    """Révèle en une fois autant de cases que le solde le permet (10 pièces par case)."""
     if (e:=require_auth()): return e
     if not owns_profile(pid): return {'error':'Profil introuvable'},404
     c=db(); p=c.execute('SELECT coins FROM profiles WHERE id=?',(pid,)).fetchone(); r=c.execute('SELECT current_card,revealed,completed FROM reward_progress WHERE profile_id=?',(pid,)).fetchone()
@@ -946,13 +967,18 @@ def reveal_reward(pid):
     if p['coins']<10: c.close(); return {'error':'Il faut 10 pièces.'},400
     revealed=json.loads(r['revealed'] or '[]'); remaining=[i for i in range(20) if i not in revealed]
     if not remaining: c.close(); return {'error':'Carte déjà terminée.'},400
-    piece=random.choice(remaining); revealed.append(piece); completed=json.loads(r['completed'] or '[]'); card=r['current_card']; done=len(revealed)>=20
-    c.execute('UPDATE profiles SET coins=coins-10 WHERE id=?',(pid,))
+    count=min(len(remaining),p['coins']//10)
+    pieces=random.sample(remaining,count)
+    revealed.extend(pieces); completed=json.loads(r['completed'] or '[]'); card=r['current_card']; done=len(revealed)>=20
+    cost=count*10
+    c.execute('UPDATE profiles SET coins=coins-? WHERE id=?',(cost,pid))
     if done:
         if card not in completed: completed.append(card)
         c.execute("UPDATE reward_progress SET current_card=NULL,revealed='[]',completed=? WHERE profile_id=?",(json.dumps(completed),pid))
     else: c.execute('UPDATE reward_progress SET revealed=? WHERE profile_id=?',(json.dumps(revealed),pid))
-    balance=p['coins']-10; c.commit(); c.close(); return {'ok':True,'piece':piece,'done':done,'coins':balance,'revealed':([] if done else revealed),'completed':completed}
+    balance=p['coins']-cost; c.commit(); c.close()
+    return {'ok':True,'pieces':pieces,'piece':pieces[0] if pieces else None,'revealedCount':count,'spent':cost,'done':done,'coins':balance,'revealed':([] if done else revealed),'completed':completed}
+
 @app.get('/api/stats/<int:pid>')
 def stats(pid):
     if (e:=require_auth()): return e
