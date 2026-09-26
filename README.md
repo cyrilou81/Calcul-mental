@@ -69,3 +69,15 @@ Après `pip install -r requirements.txt` :
 - Multiplications : ajout de 1000 aux choix de tables.
 - Aide doubles 10–100 : décomposition explicite en dizaines et unités (ex. 15+15).
 - Repart strictement de la V144 fournie par l’utilisateur pour éviter les régressions de V145.
+
+
+## V148
+- Statistiques : une bonne réponse obtenue au 2e essai est indiquée explicitement.
+- Récompenses : fenêtre de victoire quand une image est terminée, avec son nom et l'image débloquée.
+- Pavé numérique : ordre 1-2-3 / 4-5-6 / 7-8-9.
+- Aide double de dizaines : « Calcule le double pour les dizaines et ajoute le zéro des unités. »
+
+### V149
+- Une question fausse au premier essai reste comptée comme une erreur, même si le deuxième essai est correct.
+- Le détail des statistiques indique désormais « 2e essai réussi » ou « 2e essai échoué » pour ces erreurs.
+- Suppression de la colonne « Essais » dans les tableaux de détail des statistiques.
