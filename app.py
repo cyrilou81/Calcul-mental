@@ -812,9 +812,12 @@ def start(pid):
     # Un Défi doit rester standardisé : aucune reprise d'erreur d'une séance précédente.
     retries=[] if mode=='challenge' else [r for r in previous_errors(pid) if r['kind'] in active_kinds][:count]
     remaining=count-len(retries); alloc=allocate(remaining,cfg['categories']) if remaining else {}
-    # Une même opération ne doit apparaître qu'une seule fois dans une séance.
-    # La clé ignore le mode d'affichage des doubles : « Double de 8 » et « 8 + 8 »
-    # représentent le même fait numérique et ne peuvent donc pas coexister.
+    # Répartition des répétitions par type d'opération :
+    # 1) toutes les opérations distinctes possibles avant un doublon ;
+    # 2) si le quota l'impose, chaque opération passe au maximum une 2e fois
+    #    avant qu'une opération puisse apparaître une 3e fois ; etc.
+    # Ainsi on évite d'abord les doublons, puis les triplons, tout en garantissant
+    # toujours le nombre de questions demandé.
     def operation_key(kind, payload):
         if kind in ('double','half'): return (kind, payload.get('n'))
         if kind in ('addition', 'subtraction', 'multiplication', 'decimal_multiplication', 'tens', 'tens_sub'): return (kind, payload.get('a'), payload.get('b'))
@@ -823,34 +826,37 @@ def start(pid):
         if kind == 'complement10': return (kind, payload.get('a'))
         return (kind, json.dumps(payload, sort_keys=True))
 
-    qs=[]; seen=set()
-    # Les reprises sont prioritaires. Si une ancienne séance contenait par hasard
-    # deux fois le même calcul, on ne le remet qu'une fois.
+    qs=[]; usage={}
     for r in retries:
         payload=json.loads(r['payload']); key=operation_key(r['kind'],payload)
-        if key in seen: continue
-        seen.add(key)
+        usage[key]=usage.get(key,0)+1
         qs.append({'kind':r['kind'],'payload':payload,'display':r['display'],'expected':r['expected'],'source':'RETRY','retry_from':r['id']})
 
-    # Pour chaque nouvelle question, on privilégie des opérations uniques.
-    # Si la configuration ne contient pas assez de combinaisons distinctes pour
-    # atteindre le nombre demandé (ex. 50), on autorise ensuite des répétitions.
-    # Une séance demandée à 50 questions contient donc TOUJOURS 50 questions.
+    def generate_least_used(kind, cat_cfg):
+        # Cherche d'abord une opération appartenant à la fréquence d'utilisation
+        # la plus basse déjà rencontrée pour cette catégorie.
+        best=None; best_count=None
+        for _ in range(500):
+            payload,display,expected=gen(kind,cat_cfg)
+            key=operation_key(kind,payload); cnt=usage.get(key,0)
+            if best_count is None or cnt<best_count:
+                best=(payload,display,expected,key); best_count=cnt
+                if cnt==0: break
+        payload,display,expected,key=best
+        usage[key]=usage.get(key,0)+1
+        return {'kind':kind,'payload':payload,'display':display,'expected':expected,'source':'GENERATED','retry_from':None}
+
     for kind,n in alloc.items():
-        added=0; tries=0; max_tries=max(500,n*100)
-        while added<n and tries<max_tries:
-            tries+=1
-            payload,display,expected=gen(kind,cfg['categories'][kind]); key=operation_key(kind,payload)
-            if key in seen: continue
-            seen.add(key)
-            qs.append({'kind':kind,'payload':payload,'display':display,'expected':expected,'source':'GENERATED','retry_from':None})
-            added+=1
-        # Complète le quota même si toutes les opérations uniques possibles ont
-        # déjà été utilisées. Mieux vaut une répétition qu'une séance tronquée.
-        while added<n:
-            payload,display,expected=gen(kind,cfg['categories'][kind])
-            qs.append({'kind':kind,'payload':payload,'display':display,'expected':expected,'source':'GENERATED','retry_from':None})
-            added+=1
+        for _ in range(n):
+            qs.append(generate_least_used(kind,cfg['categories'][kind]))
+
+    # Garde-fou : complète toujours le quota, en appliquant la même règle
+    # de fréquence minimale plutôt qu'en répétant arbitrairement un calcul.
+    if len(qs) < count:
+        enabled=[k for k,v in cfg['categories'].items() if v.get('enabled') and v.get('pct',0)>0]
+        while len(qs) < count:
+            kind=random.choice(enabled)
+            qs.append(generate_least_used(kind,cfg['categories'][kind]))
     qs=balanced_question_order(qs)
     # Garde-fou : le moteur ne doit jamais créer moins de questions que prévu.
     if len(qs) < count:

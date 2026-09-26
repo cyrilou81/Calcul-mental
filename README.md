@@ -106,3 +106,8 @@ Après `pip install -r requirements.txt` :
 
 ## V155
 - Admin : case « Actif » par niveau, cochée par défaut. Un niveau inactif conserve toute sa configuration mais est ignoré par les joueurs et par la progression des défis.
+
+
+## V156
+- Génération : évite les doublons par type d’opération ; si les possibilités sont épuisées, répartit les doublons avant d’autoriser des triplons, etc.
+- Admin : bouton Supprimer restauré directement dans la liste des niveaux, en plus de la case Actif.
