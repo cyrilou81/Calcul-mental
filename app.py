@@ -740,9 +740,10 @@ def start(pid):
         seen.add(key)
         qs.append({'kind':r['kind'],'payload':payload,'display':r['display'],'expected':r['expected'],'source':'RETRY','retry_from':r['id']})
 
-    # Pour chaque nouvelle question, on régénère si le calcul existe déjà.
-    # La limite évite toute boucle infinie lorsque la configuration contient
-    # moins de combinaisons possibles que le nombre de questions demandé.
+    # Pour chaque nouvelle question, on privilégie des opérations uniques.
+    # Si la configuration ne contient pas assez de combinaisons distinctes pour
+    # atteindre le nombre demandé (ex. 50), on autorise ensuite des répétitions.
+    # Une séance demandée à 50 questions contient donc TOUJOURS 50 questions.
     for kind,n in alloc.items():
         added=0; tries=0; max_tries=max(500,n*100)
         while added<n and tries<max_tries:
@@ -752,7 +753,21 @@ def start(pid):
             seen.add(key)
             qs.append({'kind':kind,'payload':payload,'display':display,'expected':expected,'source':'GENERATED','retry_from':None})
             added+=1
+        # Complète le quota même si toutes les opérations uniques possibles ont
+        # déjà été utilisées. Mieux vaut une répétition qu'une séance tronquée.
+        while added<n:
+            payload,display,expected=gen(kind,cfg['categories'][kind])
+            qs.append({'kind':kind,'payload':payload,'display':display,'expected':expected,'source':'GENERATED','retry_from':None})
+            added+=1
     qs=balanced_question_order(qs)
+    # Garde-fou : le moteur ne doit jamais créer moins de questions que prévu.
+    if len(qs) < count:
+        enabled=[k for k,v in cfg['categories'].items() if v.get('enabled') and v.get('pct',0)>0]
+        while len(qs) < count:
+            kind=random.choice(enabled)
+            payload,display,expected=gen(kind,cfg['categories'][kind])
+            qs.append({'kind':kind,'payload':payload,'display':display,'expected':expected,'source':'GENERATED','retry_from':None})
+        qs=balanced_question_order(qs)
     c=db(); cur=c.execute('INSERT INTO sessions(profile_id,mode,challenge_class,challenge_level,challenge_level_id) VALUES(?,?,?,?,?)',(pid,mode,challenge_class,challenge_level,challenge_level_id)); sid=cur.lastrowid
     for i,q in enumerate(qs): c.execute('INSERT INTO questions(session_id,position,kind,payload,display,expected,status,source,retry_from) VALUES(?,?,?,?,?,?,\'UNANSWERED\',?,?)',(sid,i,q['kind'],json.dumps(q['payload']),q['display'],q['expected'],q['source'],q['retry_from']))
     c.commit()

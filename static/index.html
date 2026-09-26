@@ -809,8 +809,11 @@ function contextualHelp(q){
     return helpBox(`<div class="help-step"><span class="help-split">${b} = ${tens} + ${units}</span></div><div class="help-step">${a} − ${tens} <span class="help-arrow">→</span> ${a-tens}</div>${units?`<div class="help-step">${a-tens} − ${units} <span class="help-arrow">→</span> ${r}</div>`:''}`,`Enlève d’abord les dizaines, puis les unités.`)
   }
   if(k==='double'||k==='double_tens'){
-    let x=k==='double'?n:n, tens=Math.floor(x/10)*10, units=x-tens;
+    let x=Number(n), tens=Math.floor(x/10)*10, units=x-tens;
+    // Une seule pédagogie, déterminée par le nombre affiché et non par la catégorie
+    // technique qui l'a généré. Ainsi un même type de double reçoit toujours la même aide.
     if(x>=10&&units){return helpBox(`<div class="help-step">${x} + ${x}</div><div class="help-step">= (${tens} + ${units}) + (${tens} + ${units})</div><div class="help-step">= ${tens} + ${tens} + ${units} + ${units}</div><div class="help-step">= double de ${tens} + double de ${units}</div><div class="help-step">= ${tens*2} + ${units*2} <span class="help-arrow">→</span> ${x*2}</div>`,`Sépare les dizaines et les unités : double les dizaines, double les unités, puis additionne les deux résultats.`)}
+    if(x>=10){let d=x/10;return helpBox(`<div class="help-step">${x} = ${d} dizaine${d>1?'s':''}</div><div class="help-step">Double de ${d} dizaine${d>1?'s':''} = ${d*2} dizaines</div><div class="help-step">${d*2} dizaines <span class="help-arrow">→</span> ${x*2}</div>`,`Pour doubler une dizaine entière, double le nombre de dizaines.`)}
     return helpBox(`<div class="help-step">${x} + ${x} <span class="help-arrow">→</span> ${x*2}</div>`,`Un double, c’est deux fois le même nombre.`)
   }
   if(k==='half'||k==='half_tens'){
