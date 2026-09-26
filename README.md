@@ -98,3 +98,11 @@ Après `pip install -r requirements.txt` :
 
 ## V153
 - Admin : dans « Gérer les niveaux », les boutons CP/CE1/CE2/CM1/CM2 utilisent la couleur configurée pour chaque classe. Ce changement est limité à cette fenêtre.
+
+
+## V154
+- Fenêtre de changement de niveau : suppression de la classe (ex. CP-2). Seul le numéro du niveau est affiché dans un rond de la couleur de sa classe/palier.
+
+
+## V155
+- Admin : case « Actif » par niveau, cochée par défaut. Un niveau inactif conserve toute sa configuration mais est ignoré par les joueurs et par la progression des défis.

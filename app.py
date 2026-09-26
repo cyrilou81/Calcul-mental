@@ -83,6 +83,9 @@ def init_db():
     CREATE TABLE IF NOT EXISTS challenge_levels(id INTEGER PRIMARY KEY AUTOINCREMENT, school_class TEXT NOT NULL, name TEXT NOT NULL, position INTEGER NOT NULL, data TEXT NOT NULL, UNIQUE(school_class, position));
     CREATE TABLE IF NOT EXISTS class_settings(school_class TEXT PRIMARY KEY, color TEXT NOT NULL);
     ''')
+    level_cols=[r['name'] for r in c.execute("PRAGMA table_info(challenge_levels)").fetchall()]
+    if 'active' not in level_cols:
+        c.execute("ALTER TABLE challenge_levels ADD COLUMN active INTEGER NOT NULL DEFAULT 1")
     class_defaults={'CP':'#ef5350','CE1':'#f5b82e','CE2':'#2fbd68','CM1':'#3189dc','CM2':'#8b4de3'}
     for school,color in class_defaults.items(): c.execute('INSERT OR IGNORE INTO class_settings(school_class,color) VALUES(?,?)',(school,color))
     c.commit(); c.close()
@@ -464,16 +467,16 @@ def color_name_fr(hex_color):
     except Exception: return 'suivante'
 
 def challenge_levels_for(c, school):
-    return c.execute('SELECT id,school_class,name,position,data FROM challenge_levels WHERE school_class=? ORDER BY position',(school,)).fetchall()
+    return c.execute('SELECT id,school_class,name,position,data FROM challenge_levels WHERE school_class=? AND active=1 ORDER BY position',(school,)).fetchall()
 
 def first_level_for(c, school):
-    return c.execute('SELECT id,school_class,name,position,data FROM challenge_levels WHERE school_class=? ORDER BY position LIMIT 1',(school,)).fetchone()
+    return c.execute('SELECT id,school_class,name,position,data FROM challenge_levels WHERE school_class=? AND active=1 ORDER BY position LIMIT 1',(school,)).fetchone()
 
 def resolve_profile_level(c, profile):
     real_school=(profile['school_class'] or 'CP').upper()
     keys=profile.keys()
     level_id=profile['challenge_level_id'] if 'challenge_level_id' in keys else None
-    row=c.execute('SELECT id,school_class,name,position,data FROM challenge_levels WHERE id=?',(level_id,)).fetchone() if level_id else None
+    row=c.execute('SELECT id,school_class,name,position,data FROM challenge_levels WHERE id=? AND active=1',(level_id,)).fetchone() if level_id else None
     if row is None:
         challenge_school=initial_challenge_school(real_school)
         levels=challenge_levels_for(c,challenge_school)
@@ -503,7 +506,7 @@ def sync_profile_level(c, pid):
 def next_challenge_level(c, row):
     """Niveau suivant, y compris le passage à la couleur/classe suivante."""
     if not row: return None
-    nxt=c.execute('SELECT id,school_class,name,position,data FROM challenge_levels WHERE school_class=? AND position>? ORDER BY position LIMIT 1',
+    nxt=c.execute('SELECT id,school_class,name,position,data FROM challenge_levels WHERE school_class=? AND active=1 AND position>? ORDER BY position LIMIT 1',
                   (row['school_class'],row['position'])).fetchone()
     if nxt: return nxt
     i=class_rank(row['school_class'])
@@ -596,13 +599,13 @@ def admin_class_color_save(school):
 @app.get('/api/admin/levels')
 def admin_levels():
     if (e:=require_admin()): return e
-    c=db(); rows=[dict(r) for r in c.execute('SELECT id,school_class,name,position FROM challenge_levels ORDER BY CASE school_class WHEN "CP" THEN 1 WHEN "CE1" THEN 2 WHEN "CE2" THEN 3 WHEN "CM1" THEN 4 ELSE 5 END,position')]; c.close(); return jsonify(rows)
+    c=db(); rows=[dict(r) for r in c.execute('SELECT id,school_class,name,position,active FROM challenge_levels ORDER BY CASE school_class WHEN "CP" THEN 1 WHEN "CE1" THEN 2 WHEN "CE2" THEN 3 WHEN "CM1" THEN 4 ELSE 5 END,position')]; c.close(); return jsonify(rows)
 @app.get('/api/admin/levels/<int:lid>')
 def admin_level(lid):
     if (e:=require_admin()): return e
     c=db(); r=c.execute('SELECT * FROM challenge_levels WHERE id=?',(lid,)).fetchone(); c.close()
     if not r:return {'error':'Niveau introuvable'},404
-    return {'id':r['id'],'school_class':r['school_class'],'name':r['name'],'position':r['position'],'config':merged_cfg(json.loads(r['data']))}
+    return {'id':r['id'],'school_class':r['school_class'],'name':r['name'],'position':r['position'],'active':bool(r['active']),'config':merged_cfg(json.loads(r['data']))}
 @app.post('/api/admin/levels')
 def admin_level_create():
     if (e:=require_admin()): return e
@@ -623,6 +626,19 @@ def admin_level_save(lid):
     try: cfg=validate_cfg_data(d.get('config',{}))
     except ValueError as ex:c.close();return {'error':str(ex)},400
     name=(d.get('name') or '').strip() or 'Niveau'; c.execute('UPDATE challenge_levels SET name=?,data=? WHERE id=?',(name,json.dumps(cfg),lid));c.commit();c.close();return {'ok':True}
+@app.put('/api/admin/levels/<int:lid>/active')
+def admin_level_active(lid):
+    if (e:=require_admin()): return e
+    d=request.json or {}
+    active=1 if bool(d.get('active',True)) else 0
+    c=db()
+    r=c.execute('SELECT id FROM challenge_levels WHERE id=?',(lid,)).fetchone()
+    if not r:
+        c.close(); return {'error':'Niveau introuvable'},404
+    c.execute('UPDATE challenge_levels SET active=? WHERE id=?',(active,lid))
+    c.commit(); c.close()
+    return {'ok':True,'active':bool(active)}
+
 @app.post('/api/admin/levels/<int:lid>/move')
 def admin_level_move(lid):
     if (e:=require_admin()): return e
