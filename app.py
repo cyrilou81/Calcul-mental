@@ -1406,6 +1406,20 @@ def stats(pid):
         out.append({'id':s['id'],'date':s['started_at'],'activeMs':s['active_ms'],'attempted':len(qs),'correct':len(correct),'incorrect':len(qs)-len(correct),'accuracy':round(100*len(correct)/len(qs),1) if qs else 0,'medianMs':int(statistics.median(times)) if times else None,'avgMs':int(sum(times)/len(times)) if times else None,'helpUsed':sum(1 for q in qs if q.get('help_used')),'categories':cats})
     c.close(); return {'sessions':out,'mode':mode}
 
+@app.delete('/api/session/<int:sid>/stats')
+def delete_session_stats(sid):
+    if (e:=require_auth()): return e
+    c=db()
+    s=c.execute('SELECT id,profile_id FROM sessions WHERE id=?',(sid,)).fetchone()
+    if not s or not owns_profile(s['profile_id']):
+        c.close(); return {'error':'Séance inconnue'},404
+    # Suppression complète de la séance statistique. Les anciennes BDD ne
+    # garantissent pas toutes le ON DELETE CASCADE sur questions.
+    c.execute('DELETE FROM questions WHERE session_id=?',(sid,))
+    c.execute('DELETE FROM sessions WHERE id=?',(sid,))
+    c.commit(); c.close()
+    return {'ok':True}
+
 @app.get('/api/session/<int:sid>/stats')
 def session_stats(sid):
     if (e:=require_auth()): return e

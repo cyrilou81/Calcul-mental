@@ -306,3 +306,10 @@ V161
 - Multiplications : ajout des tables 20, 30, 40 et 50 entre 10 et 100.
 - Administration : après création d'un niveau, la liste locale est rechargée avant d'ouvrir le nouveau niveau.
 - Administration : le bouton Retour depuis la configuration recharge automatiquement les niveaux et reconstruit la liste, sans refresh navigateur.
+
+
+## V188
+- Détail d'une séance : bouton rouge « Supprimer la séance » sous « Toutes les séances ».
+- Une confirmation est demandée avant suppression.
+- La suppression efface la séance et ses questions de la base ; elle disparaît donc des statistiques et graphiques comme si elle n'avait jamais existé.
+- Après suppression, retour automatique à la liste des séances recalculée.
