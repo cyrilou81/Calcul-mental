@@ -597,6 +597,59 @@ input,select{background:#fffdf7;border:2px solid #9bd8f5;}
   color:#fff;font-size:48px;font-weight:900;line-height:1;
   border:4px solid currentColor;box-shadow:0 7px 0 rgba(0,0,0,.18),0 10px 18px rgba(0,0,0,.12);
 }
+
+/* V159 — victoires Défi : centrage et adaptation sans défilement */
+#levelVictory.level-victory{
+  height:min(94dvh,760px)!important;
+  max-height:94dvh!important;
+  overflow:hidden!important;
+  justify-content:flex-start!important;
+}
+#levelVictory .level-victory-header{
+  flex:0 0 auto!important;
+  padding-bottom:clamp(5px,1.2dvh,10px)!important;
+}
+#levelVictory .unlocked-level-name.level-number-circle{
+  display:flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  position:static!important;
+  float:none!important;
+  margin:clamp(4px,.9dvh,8px) auto clamp(6px,1.2dvh,10px)!important;
+}
+#levelVictory .level-victory-art{
+  flex:1 1 auto!important;
+  min-height:0!important;
+  width:min(760px,92%)!important;
+  max-height:none!important;
+  margin:0 auto clamp(5px,1dvh,9px)!important;
+  overflow:hidden!important;
+}
+#levelVictory .level-victory-art img{
+  width:100%!important;
+  height:100%!important;
+  max-height:100%!important;
+  object-fit:contain!important;
+}
+#levelVictory #levelVictoryBack{
+  flex:0 0 auto!important;
+  margin:0 auto!important;
+}
+#levelVictory.class-victory-mode .unlocked-level-name{
+  display:none!important;
+}
+#levelVictory.class-victory-mode .class-transition-colors{
+  margin:clamp(5px,1dvh,9px) auto clamp(7px,1.2dvh,11px)!important;
+}
+@media(max-height:760px){
+  #levelVictory.level-victory{padding:9px 13px 11px!important}
+  #levelVictory .level-victory-header h2{font-size:clamp(31px,5.2dvh,46px)!important}
+  #levelVictory .level-victory-header p{font-size:clamp(17px,2.8dvh,24px)!important;line-height:1.08!important}
+  #levelVictory .unlocked-level-name.level-number-circle{
+    width:clamp(62px,10dvh,82px)!important;height:clamp(62px,10dvh,82px)!important;
+    min-width:0!important;padding:0!important;font-size:clamp(30px,5dvh,42px)!important;
+  }
+}
 </style>
 </head><body><div class="app">
 <section id="auth">
@@ -967,7 +1020,7 @@ async function animateRewardPiece(viewer,piece,delay=0){if(delay)await new Promi
 async function revealAvailablePieces(viewer,card){if(!rewardState||rewardState.coins<10||card.dataset.busy)return;card.dataset.busy='1';try{let finishedCard=rewardCardMap[rewardState.currentCard];let r=await api('/api/rewards/'+profile.id+'/reveal',{method:'POST'});let pieces=r.pieces||([]);for(let i=0;i<pieces.length;i++){let actual=viewer.querySelector(`[data-piece="${pieces[i]}"]`);await animateRewardPiece(viewer,actual,i?45:0)}profile.coins=r.coins;$('#coinCount').textContent=r.coins;$('#rewardCoinCount').textContent=r.coins;if(r.done){viewer.remove();await openRewards();if(finishedCard)showRewardVictory(finishedCard.label,finishedCard.image);return}rewardState=await api('/api/rewards/'+profile.id);viewer.remove();renderRewards(rewardState)}catch(e){card.dataset.busy=''}}
 $('#rewardBtn').onclick=openRewards;$('#rewardBack').onclick=()=>show('home');
 $('#statsBtn').onclick=async()=>{await renderStats();show('stats')};
-$('#celebrationHome').onclick=()=>{if(pendingClassVictory){$('#levelVictoryTitle').textContent='Bravo !';$('#levelVictoryText').textContent=`Tu as complété la couleur ${pendingClassVictory.completedColorName||''} et tu passes maintenant à la couleur ${pendingClassVictory.nextColorName||''} !`;$('#unlockedLevelName').textContent='';$('#classTransitionColors').classList.remove('hidden');$('#completedColorDot').style.background=pendingClassVictory.completedColor||'#999';$('#nextColorDot').style.background=pendingClassVictory.nextColor||'#999';show('levelVictory');applause();pendingClassVictory=null;pendingLevelVictory=null}else if(pendingLevelVictory){$('#levelVictoryTitle').textContent='Bravo !';$('#levelVictoryText').textContent='Tu es passé au niveau';let raw=pendingLevelVictory.name||'';let num=(raw.match(/(?:-|\s)(\d+)$/)||raw.match(/(\d+)$/)||[])[1]||raw;let col=pendingLevelVictory.color||(challengeState&&challengeState.color)||'#3189dc';let u=$('#unlockedLevelName');u.textContent=num;u.style.background=col;u.style.borderColor=col;u.classList.add('level-number-circle');$('#classTransitionColors').classList.add('hidden');show('levelVictory');applause();pendingLevelVictory=null}else show('home')};
+$('#celebrationHome').onclick=()=>{if(pendingClassVictory){$('#levelVictory').classList.add('class-victory-mode');$('#levelVictoryTitle').textContent='Bravo !';$('#levelVictoryText').textContent=`Tu as complété la couleur ${pendingClassVictory.completedColorName||''} et tu passes maintenant à la couleur ${pendingClassVictory.nextColorName||''} !`;$('#unlockedLevelName').textContent='';$('#classTransitionColors').classList.remove('hidden');$('#completedColorDot').style.background=pendingClassVictory.completedColor||'#999';$('#nextColorDot').style.background=pendingClassVictory.nextColor||'#999';show('levelVictory');applause();pendingClassVictory=null;pendingLevelVictory=null}else if(pendingLevelVictory){$('#levelVictory').classList.remove('class-victory-mode');$('#levelVictoryTitle').textContent='Bravo !';$('#levelVictoryText').textContent='Tu es passé au niveau';let raw=pendingLevelVictory.name||'';let num=(raw.match(/(?:-|\s)(\d+)$/)||raw.match(/(\d+)$/)||[])[1]||raw;let col=pendingLevelVictory.color||(challengeState&&challengeState.color)||'#3189dc';let u=$('#unlockedLevelName');u.textContent=num;u.style.background=col;u.style.borderColor=col;u.classList.add('level-number-circle');$('#classTransitionColors').classList.add('hidden');show('levelVictory');applause();pendingLevelVictory=null}else show('home')};
 $('#levelVictoryBack').onclick=()=>{selectMode('challenge');show('home')};
 $('#accountLogout').onclick=async()=>{await api('/api/auth/logout',{method:'POST'});profile=null;$('#authPassword').value='';show('auth')};
 $('#playerLogout').onclick=async()=>{await api('/api/auth/logout',{method:'POST'});profile=null;$('#authPassword').value='';show('auth')};

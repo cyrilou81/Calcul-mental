@@ -120,3 +120,9 @@ Après `pip install -r requirements.txt` :
 - Compléments de dizaines : cibles 10 à 100 et 1000, deux formulations.
 - Valeur de position : m/c/d/u, probabilité d'absence 0–80 % par pas de 10.
 - Addition à 3 termes, triple, quadruple, tiers et quart.
+
+
+## V159
+- Victoire de niveau : numéro du nouveau niveau centré.
+- Victoire de couleur : suppression du rond de niveau, transition de couleurs uniquement.
+- Fenêtre de victoire : hauteur adaptative sans barre de défilement ; illustration et espacements se réduisent selon la hauteur disponible.
