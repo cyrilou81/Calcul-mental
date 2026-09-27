@@ -265,3 +265,22 @@ V161
 - Le 2e terme hors dizaines a sa plage dédiée (1 à 9 par défaut).
 - Le 2e terme dizaines a aussi sa propre plage (10 à 100 par défaut).
 - En mode Les deux, les deux plages sont visibles et utilisées.
+
+
+## V181
+- Ajout à dizaine ronde corrigé selon le modèle final.
+- 1er terme : toujours une dizaine ronde, réglée par une plage min/max (10 à 90 par défaut).
+- Le bloc du 1er terme utilise la même présentation structurée que le type du 2e terme.
+- 2e terme : Hors dizaines / Dizaines / Les deux.
+- Hors dizaines : plage min/max.
+- Dizaines : cases individuelles 10,20,...,100, et non une plage.
+- Les deux : affiche à la fois la plage hors dizaines et les cases de dizaines.
+
+
+## V182
+- Addition à 3 termes : ajout du réglage Résultat max.
+- Additions de dizaines : option Avec retenue.
+- Soustractions : option Avec retenue ; décochée = uniquement des soustractions sans emprunt.
+- Soustractions de dizaines : même option et même logique sans emprunt.
+- Valeur de position : ordre m/c/d/u mélangé aléatoirement à chaque opération.
+- Suppression de « Moitiés de dizaines », désormais couverte par « Moitiés ».
