@@ -100,7 +100,6 @@ DEFAULT={
   'decimal':{'enabled':False,'pct':0,'min':0,'max':20,'decimals':1,'withCarry':True},
   'multiplication':{'enabled':True,'pct':15,'tables':[2,3],'factorMin':1,'factorMax':10},
   'division':{'enabled':True,'pct':10,'tables':[2,3,4],'quotientMin':1,'quotientMax':10},
-  'complement10':{'enabled':True,'pct':10},
   'complement_tens':{'enabled':False,'pct':0,'targets':[10,20,30,40,50,60,70,80,90,100,1000],'gapMin':5,'gapMax':20},
   'place_value':{'enabled':False,'pct':0,'places':['u'],'absenceProbability':50},
   'addition3':{'enabled':False,'pct':0},
@@ -136,7 +135,7 @@ def seed_challenge_cfg(school_class, level):
     if school_class=='CP':
         if level==1:
             on('addition',50,aMin=0,aMax=5,bMin=0,bMax=5,maxResult=10,withCarry=False)
-            on('complement10',25); on('double',25,min=1,max=5,display='both')
+            on('complement_tens',25,targets=[10],gapMin=1,gapMax=9); on('double',25,min=1,max=5,display='both')
         elif level==2:
             on('addition',45,aMin=0,aMax=10,bMin=0,bMax=10,maxResult=20,withCarry=False)
             on('subtraction',30,aMin=0,aMax=20,bMin=0,bMax=10,nonNegative=True)
@@ -144,7 +143,7 @@ def seed_challenge_cfg(school_class, level):
         elif level==3:
             on('addition',40,aMin=0,aMax=20,bMin=0,bMax=10,maxResult=30,withCarry=True)
             on('subtraction',35,aMin=0,aMax=30,bMin=0,bMax=10,nonNegative=True)
-            on('complement10',25)
+            on('complement_tens',25,targets=[10],gapMin=1,gapMax=9)
         elif level==4:
             on('addition',40,aMin=0,aMax=30,bMin=0,bMax=20,maxResult=50,withCarry=True)
             on('subtraction',35,aMin=0,aMax=50,bMin=0,bMax=20,nonNegative=True)
@@ -157,7 +156,7 @@ def seed_challenge_cfg(school_class, level):
         if level==1:
             on('addition',30,aMin=1,aMax=30,bMin=1,bMax=20,maxResult=50,withCarry=True)
             on('subtraction',25,aMin=10,aMax=50,bMin=1,bMax=30,nonNegative=True)
-            on('double',20,min=1,max=10,display='both'); on('complement10',10)
+            on('double',20,min=1,max=10,display='both'); on('complement_tens',10,targets=[10],gapMin=1,gapMax=9)
             on('tens',15,startMin=10,startMax=89,mode='10',multiples=[10],maxResult=100)
         elif level==2:
             on('addition',30,aMin=1,aMax=60,bMin=1,bMax=40,maxResult=100,withCarry=True)
@@ -357,8 +356,6 @@ def gen(kind,cfg):
         divisor=random.choice(divisors); q=random.randint(int(cfg.get('min',1)),int(cfg.get('max',10))); n=q*divisor
         word='Tiers' if divisor==3 else 'Quart'
         return {'n':n,'divisor':divisor},f'{word} de {n} = __',q
-    if kind=='complement10':
-        a=random.randint(1,9); return {'a':a},f'{a} + __ = 10',10-a
     if kind=='tens':
         for _ in range(100):
             a=random.randint(cfg['startMin'],cfg['startMax']); choices=[10] if cfg.get('mode')=='10' else cfg.get('multiples',[10])
@@ -905,7 +902,6 @@ def start(pid):
         if kind in ('addition', 'subtraction', 'multiplication', 'decimal_multiplication', 'tens', 'tens_sub'): return (kind, payload.get('a'), payload.get('b'))
         if kind in ('decimal','decimal_sub'): return (kind, payload.get('a'), payload.get('b'), payload.get('op'))
         if kind in ('division','decimal_division'): return (kind, payload.get('dividend'), payload.get('divisor'))
-        if kind == 'complement10': return (kind, payload.get('a'))
         if kind == 'complement_tens': return (kind,payload.get('a'),payload.get('target'))
         if kind == 'place_value': return (kind,json.dumps(payload.get('factors',{}),sort_keys=True))
         if kind == 'addition3': return (kind,tuple(payload.get('numbers',[])))

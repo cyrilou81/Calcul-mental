@@ -150,3 +150,9 @@ V161
 - Compléments de dizaines : suppression de l'option Affichage ; format unique `X + __ = cible`, comme Compléments à 10.
 - Nouvelle option compacte `Écart de [min] à [max]`, valeurs par défaut 5 à 20.
 - La génération respecte cet écart pour toutes les cibles sélectionnées.
+
+
+## V164
+- Suppression de l'ancienne catégorie `Compléments à 10`.
+- `Compléments de dizaines` est renommé `Complément`.
+- Les anciens niveaux intégrés qui utilisaient `complement10` utilisent désormais `complement_tens` avec cible 10 et écart 1 à 9.

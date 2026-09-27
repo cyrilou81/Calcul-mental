@@ -812,9 +812,9 @@ input,select{background:#fffdf7;border:2px solid #9bd8f5;}
 })();
 </script><script>
 window.ConfigForm=(()=>{
-const names={double:'Doubles',half:'Moitiés',addition:'Additions',addition3:'Addition à 3 termes',subtraction:'Soustractions',decimal:'Additions de décimaux',multiplication:'Multiplications',division:'Divisions',complement10:'Compléments à 10',complement_tens:'Compléments de dizaines',place_value:'Valeur de position',tens:'Ajout de dizaines',tens_sub:'Soustraction de dizaines',double_tens:'Double de dizaines',half_tens:'Moitié de dizaine',decimal_sub:'Soustractions de décimaux',decimal_multiplication:'Multiplication de décimaux',decimal_division:'Division de décimaux',multiple_of:'Multiple de',fraction:'Fraction'};
-const order=['addition','addition3','subtraction','double','half','complement10','place_value','multiplication','tens','tens_sub','double_tens','half_tens','complement_tens','division','decimal','decimal_sub','decimal_multiplication','decimal_division','multiple_of','fraction'];
-const icons={addition:'＋',addition3:'＋＋',subtraction:'−',double:'×2',half:'÷2',complement10:'10',complement_tens:'→',place_value:'mdu',multiplication:'×',tens:'+10',tens_sub:'−10',double_tens:'×2',half_tens:'÷2',division:'÷',decimal:'＋',decimal_sub:'−',decimal_multiplication:'×',decimal_division:'÷',multiple_of:'×n',fraction:'⅓'};
+const names={double:'Doubles',half:'Moitiés',addition:'Additions',addition3:'Addition à 3 termes',subtraction:'Soustractions',decimal:'Additions de décimaux',multiplication:'Multiplications',division:'Divisions',complement_tens:'Complément',place_value:'Valeur de position',tens:'Ajout de dizaines',tens_sub:'Soustraction de dizaines',double_tens:'Double de dizaines',half_tens:'Moitié de dizaine',decimal_sub:'Soustractions de décimaux',decimal_multiplication:'Multiplication de décimaux',decimal_division:'Division de décimaux',multiple_of:'Multiple de',fraction:'Fraction'};
+const order=['addition','addition3','subtraction','double','half','place_value','multiplication','tens','tens_sub','double_tens','half_tens','complement_tens','division','decimal','decimal_sub','decimal_multiplication','decimal_division','multiple_of','fraction'];
+const icons={addition:'＋',addition3:'＋＋',subtraction:'−',double:'×2',half:'÷2',complement_tens:'→',place_value:'mdu',multiplication:'×',tens:'+10',tens_sub:'−10',double_tens:'×2',half_tens:'÷2',division:'÷',decimal:'＋',decimal_sub:'−',decimal_multiplication:'×',decimal_division:'÷',multiple_of:'×n',fraction:'⅓'};
 const palette=['cyan','violet','orange','pink','green','blue'];
 const nval=v=>{let n=Number(String(v).trim().replace(',','.'));return Number.isFinite(n)?n:0};
 const clone=x=>JSON.parse(JSON.stringify(x));
@@ -966,9 +966,6 @@ function contextualHelp(q){
   if(k==='fraction'){
     let divisor=Number(p.divisor)||(/Quart/i.test(q.display)?4:3), qn=n/divisor, word=divisor===3?'tiers':'quart';return helpBox(`<div class="help-step">${n} ÷ ${divisor} <span class="help-arrow">→</span> ${qn}</div>`,`Le ${word} d’un nombre, c’est le partager en ${divisor} parts égales.`)
   }
-  if(k==='complement10'){
-    let missing=10-a;return helpBox(`<div class="help-step">${a} <span class="help-arrow">→</span> 10</div><div class="help-step">Il manque <span class="help-split">${missing}</span></div><div class="help-step">${a} + ${missing} = 10</div>`,`Compte combien il manque pour arriver à 10.`)
-  }
   if(k==='multiplication'){
     let x=a,y=b; if(x>y){let t=x;x=y;y=t} // x = petit facteur / stratégie
     if([10,100,1000].includes(x)||[10,100,1000].includes(y)){let m=[10,100,1000].includes(x)?x:y,base=m===x?y:x,steps=Math.round(Math.log10(m)),zeros='0'.repeat(steps);return helpBox(`<div class="help-step">${hfmt(base)} × ${m}</div><div class="decimal-track">${hfmt(base)} <span class="help-arrow">→</span> ${hfmt(base*m)}</div><div class="help-note">Ajoute ${steps} zéro${steps>1?'s':''} à droite.</div>`,`Pour multiplier un entier par ${m}, ajoute ${steps} zéro${steps>1?'s':''} à droite.`)};
@@ -1010,7 +1007,6 @@ function helpExample(q){
   else if(k==='division'){let quotient=Math.max(2,Math.round(Number(p.dividend)/Number(p.divisor))+1);p.dividend=Number(p.divisor)*quotient;display=`${hfmt(p.dividend)} : ${hfmt(p.divisor)} = __`}
   else if(k==='double'||k==='double_tens'){p.n=Number(p.n)+(k==='double_tens'?10:2);display=`Double de ${hfmt(p.n)} = __`}
   else if(k==='half'||k==='half_tens'){p.n=Number(p.n)+(k==='half_tens'?20:2);display=`Moitié de ${hfmt(p.n)} = __`}
-  else if(k==='complement10'){p.a=Number(p.a)>=8?6:Number(p.a)+1;display=`${p.a} + __ = 10`}
   else if(k==='complement_tens'){let gap=Math.max(1,Number(p.target)-Number(p.a));gap=gap>1?gap-1:gap+1;p.a=Math.max(1,Number(p.target)-gap);display=`${p.a} + __ = ${p.target}`}
   else if(k==='addition3'){p.numbers=(p.numbers||[1,2,3]).map((x,i)=>Math.max(1,Math.min(9,Number(x)+(i===0?1:0))));display=`${p.numbers.join(' + ')} = __`}
   else if(k==='multiple_of'){let f=Number(p.factor)||3;p.n=Math.max(1,Number(p.n)+1);p.factor=f;display=`${f===3?'Triple':'Quadruple'} de ${p.n} = __`}
