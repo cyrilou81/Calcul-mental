@@ -215,7 +215,19 @@ def merged_cfg(saved):
     saved_cats=(saved or {}).get('categories',{})
     for kind, values in saved_cats.items():
         if kind in cfg['categories'] and isinstance(values,dict): cfg['categories'][kind].update(values)
-        elif kind not in ('triple','quadruple','third','quarter'): cfg['categories'][kind]=values
+        elif kind not in ('triple','quadruple','third','quarter','complement10'): cfg['categories'][kind]=values
+    # Migration des anciennes configs/niveaux qui utilisaient encore `complement10`.
+    # La catégorie a été absorbée par `complement_tens` (cible 10).
+    old_c10=saved_cats.get('complement10')
+    if isinstance(old_c10,dict) and old_c10.get('enabled'):
+        # Si le nouveau complément n'était pas explicitement configuré, on reprend l'ancien.
+        if 'complement_tens' not in saved_cats:
+            v=cfg['categories']['complement_tens']
+            v.update({'enabled':True,'targets':[10],'gapMin':1,'gapMax':9,
+                      'pct':int(old_c10.get('pct',0) or 0)})
+            if old_c10.get('weight') is not None:
+                v['weight']=old_c10.get('weight')
+        # Si les deux existent, l'ancien identifiant est simplement ignoré : la nouvelle config prime.
     # Migration transparente V159 -> V160 : les quatre anciennes catégories
     # deviennent deux catégories configurables sans perdre les réglages existants.
     if 'multiple_of' not in saved_cats:
@@ -442,8 +454,8 @@ def gen(kind,cfg):
         fmt=lambda v: (f'{v:.{decimals}f}'.rstrip('0').rstrip('.')).replace('.',',')
         return {'a':xv,'b':yv,'op':'subtraction','decimals':decimals},f'{fmt(xv)} − {fmt(yv)} = __',(x-y)/scale
 
-def previous_errors(pid):
-    c=db(); s=c.execute('SELECT id FROM sessions WHERE profile_id=? ORDER BY id DESC LIMIT 1',(pid,)).fetchone()
+def previous_errors(pid, mode='learning'):
+    c=db(); s=c.execute('SELECT id FROM sessions WHERE profile_id=? AND mode=? ORDER BY id DESC LIMIT 1',(pid,mode)).fetchone()
     if not s: c.close(); return []
     rows=c.execute("SELECT id,kind,payload,display,expected FROM questions WHERE session_id=? AND status='INCORRECT' ORDER BY position",(s['id'],)).fetchall(); c.close(); return [dict(x) for x in rows]
 
@@ -936,10 +948,16 @@ def start(pid):
         c0.close()
     else:
         cfg=get_cfg(pid)
+    # Valide et normalise aussi au démarrage : les anciennes configs sauvegardées
+    # (pct/weight, catégories migrées) ne doivent jamais bloquer silencieusement une séance.
+    try:
+        cfg=validate_cfg_data(cfg)
+    except (ValueError,TypeError,KeyError) as ex:
+        return {'error':str(ex)},400
     count=cfg.get('count',50)
-    active_kinds={k for k,v in cfg['categories'].items() if v.get('enabled') and v.get('pct',0)>0}
+    active_kinds={k for k,v in cfg['categories'].items() if v.get('enabled') and int(v.get('weight',0) or 0)>0}
     # Un Défi doit rester standardisé : aucune reprise d'erreur d'une séance précédente.
-    retries=[] if mode=='challenge' else [r for r in previous_errors(pid) if r['kind'] in active_kinds][:count]
+    retries=[] if mode=='challenge' else [r for r in previous_errors(pid,'learning') if r['kind'] in active_kinds][:count]
     remaining=count-len(retries); alloc=allocate(remaining,cfg['categories']) if remaining else {}
     # Répartition des répétitions par type d'opération :
     # 1) toutes les opérations distinctes possibles avant un doublon ;

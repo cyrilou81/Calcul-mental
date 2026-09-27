@@ -179,3 +179,16 @@ V161
 
 ## V168
 - Basée sur V167. Correction des aperçus : une carte est prévisualisée seule, sans validation parasite des autres catégories.
+
+
+## V169
+- Correction des anciens niveaux enregistrés contenant encore `complement10`.
+- Migration automatique de `complement10` vers `complement_tens` avec cible 10.
+- L'aperçu isolé désactive désormais toutes les catégories présentes dans la config, y compris les anciens identifiants qui ne figurent plus dans l'interface.
+
+
+## V170
+- Correction du démarrage Entraînement après un Défi.
+- Le report des erreurs cherche désormais uniquement la dernière séance d'entraînement, jamais le dernier Défi.
+- La configuration est validée/normalisée au démarrage d'une séance.
+- Une erreur de démarrage est désormais affichée au lieu de donner l'impression que le bouton ne fait rien.
