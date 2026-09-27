@@ -256,3 +256,12 @@ V161
 - En mode Dizaines ou Les deux, choix individuel des dizaines 10 à 100.
 - Réglages affichés dynamiquement selon le mode.
 - Migration des anciennes configurations « Double de dizaines » vers « Doubles ».
+
+
+## V180
+- Correction du modèle « Ajout à dizaine ronde ».
+- Le 1er terme est toujours une dizaine ronde, choisie parmi 10 à 90.
+- Hors dizaines / Dizaines / Les deux concerne uniquement le 2e terme.
+- Le 2e terme hors dizaines a sa plage dédiée (1 à 9 par défaut).
+- Le 2e terme dizaines a aussi sa propre plage (10 à 100 par défaut).
+- En mode Les deux, les deux plages sont visibles et utilisées.

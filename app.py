@@ -106,7 +106,7 @@ DEFAULT={
   'multiple_of':{'enabled':False,'pct':0,'min':1,'max':10,'factors':[3,4]},
   'fraction':{'enabled':False,'pct':0,'min':1,'max':10,'divisors':[3,4]},
   'tens':{'enabled':True,'pct':15,'startMin':10,'startMax':99,'mode':'10','multiples':[10,20,30,40,50,60,70,80,90],'maxResult':100},
-  'round_tens_add':{'enabled':False,'pct':0,'firstMode':'tens','aMin':1,'aMax':99,'tens':[10,20,30,40,50,60,70,80,90],'bMin':1,'bMax':9},
+  'round_tens_add':{'enabled':False,'pct':0,'tens':[10,20,30,40,50,60,70,80,90],'secondMode':'non_tens','bMin':1,'bMax':9,'bTensMin':10,'bTensMax':100},
   'tens_sub':{'enabled':False,'pct':0,'startMin':20,'startMax':100,'mode':'10','multiples':[10,20,30,40,50,60,70,80,90],'nonNegative':True},
   'half_tens':{'enabled':False,'pct':0,'min':20,'max':100},
   'decimal_sub':{'enabled':False,'pct':0,'min':0,'max':20,'decimals':1,'withBorrow':True},
@@ -438,18 +438,21 @@ def gen(kind,cfg):
             if not cfg.get('maxResult') or a+b<=cfg['maxResult']: break
         return {'a':a,'b':b},f'{a} + {b} = __',a+b
     if kind=='round_tens_add':
-        mode=cfg.get('firstMode','tens')
-        choices=[]
+        first=[int(x) for x in cfg.get('tens',[10,20,30,40,50,60,70,80,90])]
+        if not first: raise ValueError("Choisis au moins une dizaine ronde pour le premier terme.")
+        mode=cfg.get('secondMode','non_tens')
+        second=[]
         if mode in ('non_tens','both'):
-            a_min=int(cfg.get('aMin',1)); a_max=int(cfg.get('aMax',99))
-            if a_min>a_max: a_min,a_max=a_max,a_min
-            choices += [x for x in range(a_min,a_max+1) if x%10!=0]
+            b_min=int(cfg.get('bMin',1)); b_max=int(cfg.get('bMax',9))
+            if b_min>b_max: b_min,b_max=b_max,b_min
+            second += [x for x in range(b_min,b_max+1) if x%10!=0]
         if mode in ('tens','both'):
-            choices += [int(x) for x in cfg.get('tens',[10,20,30,40,50,60,70,80,90])]
-        choices=list(dict.fromkeys(choices))
-        if not choices: raise ValueError("Aucun premier terme possible avec ces réglages.")
-        b_min=int(cfg.get('bMin',1)); b_max=max(b_min,int(cfg.get('bMax',9)))
-        a=random.choice(choices); b=random.randint(b_min,b_max)
+            bt_min=int(cfg.get('bTensMin',10)); bt_max=int(cfg.get('bTensMax',100))
+            if bt_min>bt_max: bt_min,bt_max=bt_max,bt_min
+            second += [x for x in range(bt_min,bt_max+1) if x%10==0]
+        second=list(dict.fromkeys(second))
+        if not second: raise ValueError("Aucun second terme possible avec ces réglages.")
+        a=random.choice(first); b=random.choice(second)
         return {'a':a,'b':b},f'{a} + {b} = __',a+b
     if kind=='tens_sub':
         choices=[10] if cfg.get('mode')=='10' else cfg.get('multiples',[10])
@@ -699,18 +702,21 @@ def validate_cfg_data(data):
             raise ValueError('Aucune moitié hors dizaine possible dans cette plage.')
     if cats.get('round_tens_add',{}).get('enabled'):
         rta=cats['round_tens_add']
-        mode=rta.get('firstMode','tens')
-        if mode not in ('non_tens','tens','both'): mode='tens'
-        rta['firstMode']=mode
-        rta['aMin']=int(rta.get('aMin',1)); rta['aMax']=int(rta.get('aMax',99))
-        if rta['aMin']>rta['aMax']: raise ValueError('La plage du premier terme est invalide.')
         tens=[int(x) for x in rta.get('tens',[]) if int(x) in (10,20,30,40,50,60,70,80,90)]
+        if not tens: raise ValueError('Choisis au moins une dizaine ronde pour le premier terme.')
         rta['tens']=tens
-        if mode in ('tens','both') and not tens: raise ValueError('Choisis au moins une dizaine ronde.')
-        if mode in ('non_tens','both') and not any(x%10!=0 for x in range(rta['aMin'],rta['aMax']+1)):
-            raise ValueError('Aucune valeur hors dizaine dans la plage du premier terme.')
+        mode=rta.get('secondMode','non_tens')
+        if mode not in ('non_tens','tens','both'): mode='non_tens'
+        rta['secondMode']=mode
+        rta.pop('firstMode',None); rta.pop('aMin',None); rta.pop('aMax',None)
         rta['bMin']=int(rta.get('bMin',1)); rta['bMax']=int(rta.get('bMax',9))
-        if rta['bMin']>rta['bMax']: raise ValueError('Le minimum du second terme doit être inférieur ou égal au maximum.')
+        rta['bTensMin']=int(rta.get('bTensMin',10)); rta['bTensMax']=int(rta.get('bTensMax',100))
+        if rta['bMin']>rta['bMax']: raise ValueError('La plage hors dizaine du second terme est invalide.')
+        if rta['bTensMin']>rta['bTensMax']: raise ValueError('La plage des dizaines du second terme est invalide.')
+        if mode in ('non_tens','both') and not any(x%10!=0 for x in range(rta['bMin'],rta['bMax']+1)):
+            raise ValueError('Aucune valeur hors dizaine dans la plage du second terme.')
+        if mode in ('tens','both') and not any(x%10==0 for x in range(rta['bTensMin'],rta['bTensMax']+1)):
+            raise ValueError('Aucune dizaine dans la plage du second terme.')
     if cats.get('complement_tens',{}).get('enabled') and not cats['complement_tens'].get('targets'):
         raise ValueError('Choisis au moins une dizaine cible pour les compléments.')
     if cats.get('place_value',{}).get('enabled'):
@@ -1067,13 +1073,14 @@ def start(pid):
                     p={'n':n,'mode':mode}; d=f'Double de {n} = __' if mode=='word' else f'{n} + {n} = __'
                     pool.setdefault(operation_key(kind,p),(p,d,n*2))
         elif kind=='round_tens_add':
-            mode=cat_cfg.get('firstMode','tens'); first=[]
+            first=[int(x) for x in cat_cfg.get('tens',[])]
+            mode=cat_cfg.get('secondMode','non_tens'); second=[]
             if mode in ('non_tens','both'):
-                first += [x for x in range(int(cat_cfg.get('aMin',1)),int(cat_cfg.get('aMax',99))+1) if x%10!=0]
+                second += [x for x in range(int(cat_cfg.get('bMin',1)),int(cat_cfg.get('bMax',9))+1) if x%10!=0]
             if mode in ('tens','both'):
-                first += [int(x) for x in cat_cfg.get('tens',[])]
+                second += [x for x in range(int(cat_cfg.get('bTensMin',10)),int(cat_cfg.get('bTensMax',100))+1) if x%10==0]
             for a in dict.fromkeys(first):
-                for b in range(int(cat_cfg.get('bMin',1)),int(cat_cfg.get('bMax',9))+1):
+                for b in dict.fromkeys(second):
                     p={'a':a,'b':b}; pool[operation_key(kind,p)]=(p,f'{a} + {b} = __',a+b)
         elif kind=='complement_tens':
             g0=max(1,int(cat_cfg.get('gapMin',5))); g1=max(g0,int(cat_cfg.get('gapMax',20)))
