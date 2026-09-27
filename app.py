@@ -94,7 +94,7 @@ DEFAULT={
  'duration':300,'count':50,
  'categories':{
   'double':{'enabled':True,'pct':15,'min':1,'max':10,'display':'both'},
-  'half':{'enabled':False,'pct':0,'min':2,'max':10,'halfMode':'non_tens'},
+  'half':{'enabled':False,'pct':0,'min':2,'max':10,'halfMode':'non_tens','tensValues':[10,20,30,40,50,60,70,80,90,100]},
   'addition':{'enabled':True,'pct':20,'aMin':1,'aMax':10,'bMin':1,'bMax':10,'maxResult':100,'withCarry':True},
   'subtraction':{'enabled':True,'pct':15,'aMin':1,'aMax':10,'bMin':1,'bMax':10,'nonNegative':True},
   'decimal':{'enabled':False,'pct':0,'min':0,'max':20,'decimals':1,'withCarry':True},
@@ -654,6 +654,9 @@ def validate_cfg_data(data):
         mode=h.get('halfMode') or ('both' if h.get('tens',False) else 'non_tens')
         if mode not in ('non_tens','tens','both'): mode='non_tens'
         h['halfMode']=mode; h.pop('tens',None)
+        h['tensValues']=[int(x) for x in h.get('tensValues',[10,20,30,40,50,60,70,80,90,100]) if int(x) in (10,20,30,40,50,60,70,80,90,100)]
+        if mode in ('tens','both') and not h['tensValues']:
+            raise ValueError('Choisis au moins une dizaine pour les moitiés.')
         h['min']=int(h.get('min',2)); h['max']=int(h.get('max',10))
         if h['min']>h['max']: raise ValueError('La plage des moitiés est invalide.')
         if mode in ('non_tens','both') and not any(n%2==0 and n%10!=0 for n in range(max(2,h['min']),h['max']+1)):
@@ -1007,7 +1010,7 @@ def start(pid):
             mode=cat_cfg.get('halfMode') or ('both' if cat_cfg.get('tens',False) else 'non_tens')
             vals=[]
             if mode in ('non_tens','both'): vals += [n for n in range(max(2,lo),hi+1) if n%2==0 and n%10!=0]
-            if mode in ('tens','both'): vals += [10,20,30,40,50,60,70,80,90,100]
+            if mode in ('tens','both'): vals += [int(x) for x in cat_cfg.get('tensValues',[10,20,30,40,50,60,70,80,90,100])]
             for n in dict.fromkeys(vals):
                 p={'n':n}; pool[operation_key(kind,p)]=(p,f'Moitié de {n} = __',n//2)
         elif kind=='double':

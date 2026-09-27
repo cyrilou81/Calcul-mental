@@ -210,3 +210,10 @@ V161
 - Les exercices non sélectionnés disposent maintenant eux aussi du bouton Configurer.
 - La configuration d'un exercice dans « Autres exercices » ne l'ajoute pas automatiquement : Ajouter reste une action séparée.
 - Correction du masquage dynamique de la plage des Moitiés dans la vraie fenêtre `.cf-params`.
+
+
+## V174
+- Moitiés : en mode Dizaines ou Les deux, choix individuel des dizaines 10 à 100.
+- Toutes les dizaines sont cochées par défaut.
+- Le sélecteur de dizaines est masqué en mode Hors dizaines.
+- En mode Dizaines, la plage hors dizaines reste masquée ; en mode Les deux, les deux réglages sont visibles.
