@@ -296,3 +296,7 @@ V161
 - L'exemple d'aide Multiple reste dans le même registre : un triple donne un autre triple, jamais un quadruple.
 - L'opération pédagogique est affichée sous la forme 3 × X (ou 4 × X), et non X × 3.
 - Multiplications : plage du 2e facteur clairement nommée, avec défaut 1 à 9.
+
+## V185
+- Sauvegarde automatique de la configuration entraînement et des niveaux admin.
+- Suppression des boutons Enregistrer des écrans de configuration ; Retour reste disponible.
