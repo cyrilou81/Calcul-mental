@@ -232,3 +232,27 @@ V161
 - Correction du preview des Moitiés : les dizaines décochées ne peuvent plus réapparaître dans l'aperçu.
 - L'aperçu de la fenêtre de configuration utilise immédiatement la sélection courante des cases 10 à 100.
 - L'aperçu de configuration affiche désormais lui aussi 4 exemples.
+
+
+## V177
+- Correction réelle du bug des dizaines dans Moitiés : le générateur standard utilisait encore en dur 10,20,...,100.
+- Il utilise maintenant exclusivement `tensValues`, donc uniquement les dizaines cochées.
+- Le catalogue anti-doublons utilisait déjà `tensValues`; les deux chemins de génération sont désormais cohérents.
+
+
+## V178
+- Ajout à dizaine ronde : le premier terme propose Hors dizaines / Dizaines / Les deux.
+- Hors dizaines affiche une plage configurable (1 à 99 par défaut) et exclut les multiples de 10.
+- Dizaines conserve le choix individuel 10 à 90.
+- Les deux affiche la plage hors dizaines et les cases de dizaines.
+- Les options sont affichées/masquées dynamiquement.
+- Le générateur et l'anti-doublons respectent ce nouveau réglage.
+
+
+## V179
+- Suppression de la catégorie séparée « Double de dizaines ».
+- « Doubles » propose maintenant Hors dizaines / Dizaines / Les deux.
+- Défaut : Hors dizaines, plage 1 à 9.
+- En mode Dizaines ou Les deux, choix individuel des dizaines 10 à 100.
+- Réglages affichés dynamiquement selon le mode.
+- Migration des anciennes configurations « Double de dizaines » vers « Doubles ».
