@@ -163,3 +163,15 @@ V161
 - Valeur de position déplacée juste sous Moitiés de dizaines.
 - Nouvelle catégorie `round_tens_add` : Ajout à dizaine ronde.
 - Premier terme sélectionnable parmi 10,20,...,90 ; second terme configurable par intervalle min/max.
+
+
+## V166
+- Correction de l'aperçu des catégories : un aperçu isolé force désormais la catégorie testée à 100 %, ce qui supprime le faux `Réglages à vérifier`.
+- Validation explicite de `Ajout à dizaine ronde` (au moins une dizaine cochée et intervalle du second terme cohérent).
+
+
+## V167
+- Les points de fréquence (`weight`, 1 à 5) deviennent la source de vérité de la répartition.
+- Le serveur normalise automatiquement les poids ; `pct` n'est plus qu'une valeur dérivée de compatibilité.
+- Suppression de la validation historique imposant un total manuel de 100 %.
+- Le nombre exact de questions est réparti directement au prorata des points.

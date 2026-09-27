@@ -240,11 +240,46 @@ def get_cfg(pid):
     c=db(); r=c.execute('SELECT data FROM configs WHERE profile_id=?',(pid,)).fetchone(); c.close()
     return merged_cfg(json.loads(r['data'])) if r else copy.deepcopy(DEFAULT)
 
+def normalize_category_weights(cats):
+    """Les points de fréquence (weight 1..5) sont la source de vérité.
+    pct n'est qu'une valeur dérivée, conservée pour compatibilité avec les anciennes configs.
+    """
+    active=[(k,v) for k,v in cats.items() if v.get('enabled')]
+    if not active:
+        return cats
+    weights=[]
+    for k,v in active:
+        try: w=int(v.get('weight') or 0)
+        except (TypeError,ValueError): w=0
+        if w < 1 or w > 5:
+            # Migration des anciennes configs basées sur pct.
+            try: p=max(0,float(v.get('pct',0) or 0))
+            except (TypeError,ValueError): p=0
+            w=max(1,min(5,round(p/20))) if p else 3
+        v['weight']=w
+        weights.append((k,v,w))
+    total=sum(w for _,_,w in weights)
+    parts=[]; used=0
+    for k,v,w in weights:
+        exact=100*w/total; base=int(exact)
+        parts.append([k,v,base,exact-base]); used+=base
+    parts.sort(key=lambda x:x[3],reverse=True)
+    for i in range(100-used):
+        parts[i%len(parts)][2]+=1
+    for k,v,p,_ in parts: v['pct']=p
+    for v in cats.values():
+        if not v.get('enabled'): v['pct']=0
+    return cats
+
 def allocate(n,cats):
+    normalize_category_weights(cats)
+    active=[(k,v) for k,v in cats.items() if v.get('enabled')]
+    if not active: return {}
+    total=sum(int(v.get('weight',3)) for _,v in active)
     vals=[]; used=0
-    for k,v in cats.items():
-        if v.get('enabled') and v.get('pct',0)>0:
-            exact=n*v['pct']/100; base=int(exact); vals.append([k,base,exact-base]); used+=base
+    for k,v in active:
+        exact=n*int(v.get('weight',3))/total
+        base=int(exact); vals.append([k,base,exact-base]); used+=base
     vals.sort(key=lambda x:x[2], reverse=True)
     for i in range(n-used): vals[i%len(vals)][1]+=1
     return {k:b for k,b,_ in vals}
@@ -586,8 +621,9 @@ def validate_cfg_data(data):
     data['duration']=max(60,min(3600,int(data.get('duration',300))))
     data['count']=max(1,min(500,int(data.get('count',50))))
     cats=data['categories']
-    total=sum(int(v.get('pct',0) or 0) for v in cats.values() if v.get('enabled'))
-    if total!=100: raise ValueError(f'Le total doit être 100 % (actuellement {total} %).')
+    normalize_category_weights(cats)
+    if not any(v.get('enabled') for v in cats.values()):
+        raise ValueError('Choisis au moins un exercice.')
     if cats.get('multiplication',{}).get('enabled') and not cats['multiplication'].get('tables'):
         raise ValueError('Choisis au moins une table de multiplication.')
     if cats.get('division',{}).get('enabled') and not cats['division'].get('tables'):
@@ -596,6 +632,13 @@ def validate_cfg_data(data):
         raise ValueError('Choisis au moins un multiplicateur décimal.')
     if cats.get('decimal_division',{}).get('enabled') and not cats['decimal_division'].get('divisors'):
         raise ValueError('Choisis au moins un diviseur décimal.')
+    if cats.get('round_tens_add',{}).get('enabled'):
+        rta=cats['round_tens_add']
+        tens=[int(x) for x in rta.get('tens',[]) if int(x) in (10,20,30,40,50,60,70,80,90)]
+        if not tens: raise ValueError('Choisis au moins une dizaine ronde.')
+        rta['tens']=tens
+        rta['bMin']=int(rta.get('bMin',1)); rta['bMax']=int(rta.get('bMax',9))
+        if rta['bMin']>rta['bMax']: raise ValueError('Le minimum du second terme doit être inférieur ou égal au maximum.')
     if cats.get('complement_tens',{}).get('enabled') and not cats['complement_tens'].get('targets'):
         raise ValueError('Choisis au moins une dizaine cible pour les compléments.')
     if cats.get('place_value',{}).get('enabled'):
