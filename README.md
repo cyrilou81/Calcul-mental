@@ -217,3 +217,18 @@ V161
 - Toutes les dizaines sont cochées par défaut.
 - Le sélecteur de dizaines est masqué en mode Hors dizaines.
 - En mode Dizaines, la plage hors dizaines reste masquée ; en mode Les deux, les deux réglages sont visibles.
+
+
+## V175
+- Les cartes d'exercices affichent désormais 4 exemples au lieu de 5.
+- La zone « Autres exercices » utilise toute la largeur disponible.
+- Les cartes « Autres exercices » sont disposées sur 2 colonnes sur grand écran.
+- Dans chaque carte non sélectionnée, les 4 exemples sont affichés en grille 2 × 2 sous le titre/configuration.
+- Les titres des cartes « Autres exercices » restent sur une seule ligne sur grand écran.
+- Sur petit écran, retour automatique à une carte par ligne.
+
+
+## V176
+- Correction du preview des Moitiés : les dizaines décochées ne peuvent plus réapparaître dans l'aperçu.
+- L'aperçu de la fenêtre de configuration utilise immédiatement la sélection courante des cases 10 à 100.
+- L'aperçu de configuration affiche désormais lui aussi 4 exemples.
