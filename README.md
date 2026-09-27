@@ -139,3 +139,8 @@ V161
 - Écran de fin réorganisé en deux colonnes sur écran large : illustration à gauche, jauges de récompense à droite.
 - Les jauges utilisent désormais la largeur disponible au lieu de s’empiler sous l’illustration.
 - Retour automatique à une colonne sur mobile ; adaptation supplémentaire pour les écrans peu hauts.
+
+
+## V162
+- Correction V160/V161 : `multiple_of` et `fraction` sont maintenant réellement présents dans `DEFAULT.categories`, donc visibles dans « Autres exercices ».
+- Suppression des quatre anciennes catégories techniques du DEFAULT ; leur migration reste prise en charge par `merged_cfg`.
