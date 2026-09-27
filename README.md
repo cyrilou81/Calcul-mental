@@ -288,3 +288,11 @@ V161
 ## V183
 - Ajout à dizaine ronde : ajout du réglage Résultat max (100 par défaut).
 - Le générateur et l'anti-doublons excluent les opérations dépassant cette limite.
+
+
+## V184
+- Aide Valeur de position : rappelle d'abord c=centaines, d=dizaines, u=unités et 1c=100, 1d=10, 1u=1.
+- Aide Triple/Quadruple : explique explicitement que tripler = multiplier par 3 (quadrupler = multiplier par 4).
+- L'exemple d'aide Multiple reste dans le même registre : un triple donne un autre triple, jamais un quadruple.
+- L'opération pédagogique est affichée sous la forme 3 × X (ou 4 × X), et non X × 3.
+- Multiplications : plage du 2e facteur clairement nommée, avec défaut 1 à 9.

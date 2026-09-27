@@ -98,7 +98,7 @@ DEFAULT={
   'addition':{'enabled':True,'pct':20,'aMin':1,'aMax':10,'bMin':1,'bMax':10,'maxResult':100,'withCarry':True},
   'subtraction':{'enabled':True,'pct':15,'aMin':1,'aMax':10,'bMin':1,'bMax':10,'nonNegative':True,'withCarry':True},
   'decimal':{'enabled':False,'pct':0,'min':0,'max':20,'decimals':1,'withCarry':True},
-  'multiplication':{'enabled':True,'pct':15,'tables':[2,3],'factorMin':1,'factorMax':10},
+  'multiplication':{'enabled':True,'pct':15,'tables':[2,3],'factorMin':1,'factorMax':9},
   'division':{'enabled':True,'pct':10,'tables':[2,3,4],'quotientMin':1,'quotientMax':10},
   'complement_tens':{'enabled':False,'pct':0,'targets':[10,20,30,40,50,60,70,80,90,100,1000],'gapMin':5,'gapMax':20},
   'place_value':{'enabled':False,'pct':0,'places':['u'],'absenceProbability':50},
@@ -1231,6 +1231,10 @@ def mark_help(sid):
         example_cat['multipliers']=[current_payload['b']]
     elif kind=='decimal_division' and current_payload.get('divisor') in (10,100,1000):
         example_cat['divisors']=[current_payload['divisor']]
+    elif kind=='multiple_of' and current_payload.get('factor') in (3,4):
+        # L'aide reste strictement dans le même registre :
+        # Triple -> autre triple ; Quadruple -> autre quadruple.
+        example_cat['factors']=[current_payload['factor']]
 
     example=None
     for _ in range(40):
