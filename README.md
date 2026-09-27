@@ -111,3 +111,12 @@ Après `pip install -r requirements.txt` :
 ## V156
 - Génération : évite les doublons par type d’opération ; si les possibilités sont épuisées, répartit les doublons avant d’autoriser des triplons, etc.
 - Admin : bouton Supprimer restauré directement dans la liste des niveaux, en plus de la case Actif.
+
+## V157
+- Stats Défi : lors d'un passage au niveau suivant, l'historique statistique du niveau précédent est remis à zéro. Les stats Entraînement sont conservées.
+- La séance qui déclenche la promotion est conservée uniquement comme marqueur du défi quotidien, mais n'apparaît pas dans les stats du nouveau niveau.
+
+## V158
+- Compléments de dizaines : cibles 10 à 100 et 1000, deux formulations.
+- Valeur de position : m/c/d/u, probabilité d'absence 0–80 % par pas de 10.
+- Addition à 3 termes, triple, quadruple, tiers et quart.

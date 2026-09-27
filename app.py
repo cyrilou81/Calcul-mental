@@ -101,6 +101,13 @@ DEFAULT={
   'multiplication':{'enabled':True,'pct':15,'tables':[2,3],'factorMin':1,'factorMax':10},
   'division':{'enabled':True,'pct':10,'tables':[2,3,4],'quotientMin':1,'quotientMax':10},
   'complement10':{'enabled':True,'pct':10},
+  'complement_tens':{'enabled':False,'pct':0,'targets':[10,20,30,40,50,60,70,80,90,100,1000],'display':'both'},
+  'place_value':{'enabled':False,'pct':0,'places':['u'],'absenceProbability':50},
+  'addition3':{'enabled':False,'pct':0},
+  'triple':{'enabled':False,'pct':0,'min':1,'max':10},
+  'quadruple':{'enabled':False,'pct':0,'min':1,'max':10},
+  'third':{'enabled':False,'pct':0,'min':1,'max':10},
+  'quarter':{'enabled':False,'pct':0,'min':1,'max':10},
   'tens':{'enabled':True,'pct':15,'startMin':10,'startMax':99,'mode':'10','multiples':[10,20,30,40,50,60,70,80,90],'maxResult':100},
   'tens_sub':{'enabled':False,'pct':0,'startMin':20,'startMax':100,'mode':'10','multiples':[10,20,30,40,50,60,70,80,90],'nonNegative':True},
   'double_tens':{'enabled':False,'pct':0,'min':10,'max':100},
@@ -295,6 +302,37 @@ def gen(kind,cfg):
         ai=random.randint(lo,hi); x=ai/scale; expected=x/d
         fmt=lambda v: (f'{v:.{dec}f}'.rstrip('0').rstrip('.')).replace('.',',')
         return {'dividend':x,'divisor':d},f'{fmt(x)} : {d} = __',expected
+    if kind=='complement_tens':
+        targets=[int(x) for x in cfg.get('targets',[10,20,30,40,50,60,70,80,90,100,1000])]
+        if not targets: raise ValueError("Choisis au moins une dizaine cible.")
+        target=random.choice(targets); a=random.randint(1,target-1)
+        mode=cfg.get('display','both'); mode=random.choice(['complement','gap']) if mode=='both' else mode
+        display=f'Écart de {a} à {target} = __' if mode=='gap' else f'{a} + __ = {target}'
+        return {'a':a,'target':target,'mode':mode},display,target-a
+    if kind=='place_value':
+        places=[p for p in cfg.get('places',['u']) if p in ('m','c','d','u')]
+        if not places: raise ValueError("Choisis au moins un terme parmi m, c, d et u.")
+        absent=max(0,min(80,int(cfg.get('absenceProbability',50))))/100
+        present=[]
+        for _ in range(20):
+            present=[p for p in places if random.random()>=absent]
+            if present: break
+        if not present: present=[random.choice(places)]
+        factors={p:random.randint(1,9) for p in present}; mult={'m':1000,'c':100,'d':10,'u':1}
+        expected=sum(factors[p]*mult[p] for p in present)
+        display=' '.join(f'{factors[p]}{p}' for p in ('m','c','d','u') if p in factors)+' = __'
+        return {'factors':factors},display,expected
+    if kind=='addition3':
+        nums=[random.randint(1,9) for _ in range(3)]
+        return {'numbers':nums},f'{nums[0]} + {nums[1]} + {nums[2]} = __',sum(nums)
+    if kind in ('triple','quadruple'):
+        n=random.randint(int(cfg.get('min',1)),int(cfg.get('max',10))); factor=3 if kind=='triple' else 4
+        word='Triple' if kind=='triple' else 'Quadruple'
+        return {'n':n},f'{word} de {n} = __',n*factor
+    if kind in ('third','quarter'):
+        q=random.randint(int(cfg.get('min',1)),int(cfg.get('max',10))); divisor=3 if kind=='third' else 4; n=q*divisor
+        word='Tiers' if kind=='third' else 'Quart'
+        return {'n':n},f'{word} de {n} = __',q
     if kind=='complement10':
         a=random.randint(1,9); return {'a':a},f'{a} + __ = 10',10-a
     if kind=='tens':
@@ -530,6 +568,12 @@ def validate_cfg_data(data):
         raise ValueError('Choisis au moins un multiplicateur décimal.')
     if cats.get('decimal_division',{}).get('enabled') and not cats['decimal_division'].get('divisors'):
         raise ValueError('Choisis au moins un diviseur décimal.')
+    if cats.get('complement_tens',{}).get('enabled') and not cats['complement_tens'].get('targets'):
+        raise ValueError('Choisis au moins une dizaine cible pour les compléments.')
+    if cats.get('place_value',{}).get('enabled'):
+        pv=cats['place_value']; places=[p for p in pv.get('places',[]) if p in ('m','c','d','u')]
+        if not places: raise ValueError('Choisis au moins un terme parmi m, c, d et u.')
+        pv['places']=places; pv['absenceProbability']=max(0,min(80,(int(pv.get('absenceProbability',50))//10)*10))
     return data
 
 def balanced_question_order(items):
@@ -764,11 +808,17 @@ def challenge_status(pid):
     c.close()
     return {'schoolClass':challenge_school,'realSchoolClass':p['school_class'],'classColor':class_color,'level':current,'levelName':level_name,'stars':p['challenge_stars'],'requiredStars':needed,'maxLevel':max_level,'threshold':46,'doneToday':done_today,'levels':[{'id':x['id'],'name':x['name'],'position':x['position']} for x in levels]}
 
-def clear_challenge_stats(c,pid):
-    # Les questions n'ont pas de cascade FK garantie dans les anciennes BDD :
-    # supprimer explicitement avant les séances.
-    c.execute("DELETE FROM questions WHERE session_id IN (SELECT id FROM sessions WHERE profile_id=? AND mode='challenge')",(pid,))
-    c.execute("DELETE FROM sessions WHERE profile_id=? AND mode='challenge'",(pid,))
+def clear_challenge_stats(c,pid,keep_session_id=None):
+    # Les questions n'ont pas de cascade FK garantie dans les anciennes BDD.
+    # Lors d'une promotion automatique, on conserve uniquement la séance qui vient
+    # de se terminer comme marqueur du défi quotidien ; elle appartient à l'ancien
+    # niveau et n'est plus affichée dans les stats du nouveau niveau.
+    if keep_session_id is None:
+        c.execute("DELETE FROM questions WHERE session_id IN (SELECT id FROM sessions WHERE profile_id=? AND mode='challenge')",(pid,))
+        c.execute("DELETE FROM sessions WHERE profile_id=? AND mode='challenge'",(pid,))
+    else:
+        c.execute("DELETE FROM questions WHERE session_id IN (SELECT id FROM sessions WHERE profile_id=? AND mode='challenge' AND id<>?)",(pid,keep_session_id))
+        c.execute("DELETE FROM sessions WHERE profile_id=? AND mode='challenge' AND id<>?",(pid,keep_session_id))
 
 @app.post('/api/challenge/<int:pid>/promote')
 def challenge_promote(pid):
@@ -824,6 +874,10 @@ def start(pid):
         if kind in ('decimal','decimal_sub'): return (kind, payload.get('a'), payload.get('b'), payload.get('op'))
         if kind in ('division','decimal_division'): return (kind, payload.get('dividend'), payload.get('divisor'))
         if kind == 'complement10': return (kind, payload.get('a'))
+        if kind == 'complement_tens': return (kind,payload.get('a'),payload.get('target'),payload.get('mode'))
+        if kind == 'place_value': return (kind,json.dumps(payload.get('factors',{}),sort_keys=True))
+        if kind == 'addition3': return (kind,tuple(payload.get('numbers',[])))
+        if kind in ('triple','quadruple','third','quarter'): return (kind,payload.get('n'))
         return (kind, json.dumps(payload, sort_keys=True))
 
     qs=[]; usage={}
@@ -1002,6 +1056,10 @@ def finish(sid):
                     level_bonus=20
                     c.execute('UPDATE profiles SET coins=coins+20,challenge_level=?,challenge_level_id=?,challenge_stars=0 WHERE id=?',
                               (next_row['position'],next_row['id'],s['profile_id']))
+                    # Nouveau niveau = nouveau référentiel statistique. On efface
+                    # l'historique Défi précédent, sans toucher aux Entraînements.
+                    # La séance courante reste seulement comme marqueur du défi du jour.
+                    clear_challenge_stats(c,s['profile_id'],keep_session_id=sid)
                     if current_row and next_row['school_class']!=current_row['school_class']:
                         class_completed=True; completed_class=current_row['school_class']; next_class=next_row['school_class']
                         cc=c.execute('SELECT color FROM class_settings WHERE school_class=?',(completed_class,)).fetchone()
@@ -1078,7 +1136,14 @@ def stats(pid):
     if not owns_profile(pid): return {'error':'Profil introuvable'},404
     mode=(request.args.get('mode') or 'learning').lower()
     if mode not in ('learning','challenge'): mode='learning'
-    c=db(); ss=[dict(x) for x in c.execute('SELECT id,started_at,active_ms,mode FROM sessions WHERE profile_id=? AND mode=? ORDER BY id DESC',(pid,mode))]
+    c=db()
+    if mode=='challenge':
+        # Les stats Défi décrivent uniquement le niveau actuellement travaillé.
+        p=c.execute('SELECT challenge_level_id FROM profiles WHERE id=?',(pid,)).fetchone()
+        current_level_id=p['challenge_level_id'] if p else None
+        ss=[dict(x) for x in c.execute('SELECT id,started_at,active_ms,mode FROM sessions WHERE profile_id=? AND mode=? AND challenge_level_id=? ORDER BY id DESC',(pid,mode,current_level_id))] if current_level_id else []
+    else:
+        ss=[dict(x) for x in c.execute('SELECT id,started_at,active_ms,mode FROM sessions WHERE profile_id=? AND mode=? ORDER BY id DESC',(pid,mode))]
     out=[]
     for s in ss:
         qs=[dict(x) for x in c.execute("SELECT * FROM questions WHERE session_id=? AND status!='UNANSWERED'",(s['id'],))]
