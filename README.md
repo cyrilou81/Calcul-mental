@@ -284,3 +284,7 @@ V161
 - Soustractions de dizaines : même option et même logique sans emprunt.
 - Valeur de position : ordre m/c/d/u mélangé aléatoirement à chaque opération.
 - Suppression de « Moitiés de dizaines », désormais couverte par « Moitiés ».
+
+## V183
+- Ajout à dizaine ronde : ajout du réglage Résultat max (100 par défaut).
+- Le générateur et l'anti-doublons excluent les opérations dépassant cette limite.
