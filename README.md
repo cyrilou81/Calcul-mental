@@ -144,3 +144,9 @@ V161
 ## V162
 - Correction V160/V161 : `multiple_of` et `fraction` sont maintenant réellement présents dans `DEFAULT.categories`, donc visibles dans « Autres exercices ».
 - Suppression des quatre anciennes catégories techniques du DEFAULT ; leur migration reste prise en charge par `merged_cfg`.
+
+
+## V163
+- Compléments de dizaines : suppression de l'option Affichage ; format unique `X + __ = cible`, comme Compléments à 10.
+- Nouvelle option compacte `Écart de [min] à [max]`, valeurs par défaut 5 à 20.
+- La génération respecte cet écart pour toutes les cibles sélectionnées.

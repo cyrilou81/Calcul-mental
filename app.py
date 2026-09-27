@@ -101,7 +101,7 @@ DEFAULT={
   'multiplication':{'enabled':True,'pct':15,'tables':[2,3],'factorMin':1,'factorMax':10},
   'division':{'enabled':True,'pct':10,'tables':[2,3,4],'quotientMin':1,'quotientMax':10},
   'complement10':{'enabled':True,'pct':10},
-  'complement_tens':{'enabled':False,'pct':0,'targets':[10,20,30,40,50,60,70,80,90,100,1000],'display':'both'},
+  'complement_tens':{'enabled':False,'pct':0,'targets':[10,20,30,40,50,60,70,80,90,100,1000],'gapMin':5,'gapMax':20},
   'place_value':{'enabled':False,'pct':0,'places':['u'],'absenceProbability':50},
   'addition3':{'enabled':False,'pct':0},
   'multiple_of':{'enabled':False,'pct':0,'min':1,'max':10,'factors':[3,4]},
@@ -322,10 +322,13 @@ def gen(kind,cfg):
     if kind=='complement_tens':
         targets=[int(x) for x in cfg.get('targets',[10,20,30,40,50,60,70,80,90,100,1000])]
         if not targets: raise ValueError("Choisis au moins une dizaine cible.")
-        target=random.choice(targets); a=random.randint(1,target-1)
-        mode=cfg.get('display','both'); mode=random.choice(['complement','gap']) if mode=='both' else mode
-        display=f'Écart de {a} à {target} = __' if mode=='gap' else f'{a} + __ = {target}'
-        return {'a':a,'target':target,'mode':mode},display,target-a
+        gap_min=max(1,int(cfg.get('gapMin',5)))
+        gap_max=max(gap_min,int(cfg.get('gapMax',20)))
+        possible=[(target,gap) for target in targets for gap in range(gap_min,gap_max+1) if gap < target]
+        if not possible: raise ValueError("Aucune opération possible avec cet écart et ces cibles.")
+        target,gap=random.choice(possible); a=target-gap
+        display=f'{a} + __ = {target}'
+        return {'a':a,'target':target},display,gap
     if kind=='place_value':
         places=[p for p in cfg.get('places',['u']) if p in ('m','c','d','u')]
         if not places: raise ValueError("Choisis au moins un terme parmi m, c, d et u.")
@@ -903,7 +906,7 @@ def start(pid):
         if kind in ('decimal','decimal_sub'): return (kind, payload.get('a'), payload.get('b'), payload.get('op'))
         if kind in ('division','decimal_division'): return (kind, payload.get('dividend'), payload.get('divisor'))
         if kind == 'complement10': return (kind, payload.get('a'))
-        if kind == 'complement_tens': return (kind,payload.get('a'),payload.get('target'),payload.get('mode'))
+        if kind == 'complement_tens': return (kind,payload.get('a'),payload.get('target'))
         if kind == 'place_value': return (kind,json.dumps(payload.get('factors',{}),sort_keys=True))
         if kind == 'addition3': return (kind,tuple(payload.get('numbers',[])))
         if kind == 'multiple_of': return (kind,payload.get('factor'),payload.get('n'))
