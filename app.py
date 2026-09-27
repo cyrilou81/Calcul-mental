@@ -106,6 +106,7 @@ DEFAULT={
   'multiple_of':{'enabled':False,'pct':0,'min':1,'max':10,'factors':[3,4]},
   'fraction':{'enabled':False,'pct':0,'min':1,'max':10,'divisors':[3,4]},
   'tens':{'enabled':True,'pct':15,'startMin':10,'startMax':99,'mode':'10','multiples':[10,20,30,40,50,60,70,80,90],'maxResult':100},
+  'round_tens_add':{'enabled':False,'pct':0,'tens':[10,20,30,40,50,60,70,80,90],'bMin':1,'bMax':9},
   'tens_sub':{'enabled':False,'pct':0,'startMin':20,'startMax':100,'mode':'10','multiples':[10,20,30,40,50,60,70,80,90],'nonNegative':True},
   'double_tens':{'enabled':False,'pct':0,'min':10,'max':100},
   'half_tens':{'enabled':False,'pct':0,'min':20,'max':100},
@@ -361,6 +362,12 @@ def gen(kind,cfg):
             a=random.randint(cfg['startMin'],cfg['startMax']); choices=[10] if cfg.get('mode')=='10' else cfg.get('multiples',[10])
             b=random.choice(choices)
             if not cfg.get('maxResult') or a+b<=cfg['maxResult']: break
+        return {'a':a,'b':b},f'{a} + {b} = __',a+b
+    if kind=='round_tens_add':
+        tens=[int(x) for x in cfg.get('tens',[10,20,30,40,50,60,70,80,90])]
+        if not tens: raise ValueError("Choisis au moins une dizaine ronde.")
+        b_min=int(cfg.get('bMin',1)); b_max=max(b_min,int(cfg.get('bMax',9)))
+        a=random.choice(tens); b=random.randint(b_min,b_max)
         return {'a':a,'b':b},f'{a} + {b} = __',a+b
     if kind=='tens_sub':
         choices=[10] if cfg.get('mode')=='10' else cfg.get('multiples',[10])
@@ -902,6 +909,7 @@ def start(pid):
         if kind in ('addition', 'subtraction', 'multiplication', 'decimal_multiplication', 'tens', 'tens_sub'): return (kind, payload.get('a'), payload.get('b'))
         if kind in ('decimal','decimal_sub'): return (kind, payload.get('a'), payload.get('b'), payload.get('op'))
         if kind in ('division','decimal_division'): return (kind, payload.get('dividend'), payload.get('divisor'))
+        if kind == 'round_tens_add': return (kind,payload.get('a'),payload.get('b'))
         if kind == 'complement_tens': return (kind,payload.get('a'),payload.get('target'))
         if kind == 'place_value': return (kind,json.dumps(payload.get('factors',{}),sort_keys=True))
         if kind == 'addition3': return (kind,tuple(payload.get('numbers',[])))
