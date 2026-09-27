@@ -300,3 +300,9 @@ V161
 ## V185
 - Sauvegarde automatique de la configuration entraînement et des niveaux admin.
 - Suppression des boutons Enregistrer des écrans de configuration ; Retour reste disponible.
+
+
+## V187
+- Multiplications : ajout des tables 20, 30, 40 et 50 entre 10 et 100.
+- Administration : après création d'un niveau, la liste locale est rechargée avant d'ouvrir le nouveau niveau.
+- Administration : le bouton Retour depuis la configuration recharge automatiquement les niveaux et reconstruit la liste, sans refresh navigateur.
