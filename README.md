@@ -192,3 +192,14 @@ V161
 - Le report des erreurs cherche désormais uniquement la dernière séance d'entraînement, jamais le dernier Défi.
 - La configuration est validée/normalisée au démarrage d'une séance.
 - Une erreur de démarrage est désormais affichée au lieu de donner l'impression que le bouton ne fait rien.
+
+
+## V171
+- Moitiés : plage configurable des valeurs paires hors dizaines rondes, par défaut 2 à 10.
+- Option Dizaines indépendante : ajoute 10,20,...,100 sans être limitée par la plage.
+- Anti-doublons renforcé : catalogue de candidats par catégorie et tirage au niveau d'utilisation minimal.
+- Catalogues exhaustifs pour Moitiés, Doubles, Ajout à dizaine ronde et Compléments ; réserve unique élargie pour les catégories complexes.
+
+
+## V172
+- Moitiés : menu Hors dizaines / Dizaines / Les deux ; plage dynamique masquée en mode Dizaines.

@@ -94,7 +94,7 @@ DEFAULT={
  'duration':300,'count':50,
  'categories':{
   'double':{'enabled':True,'pct':15,'min':1,'max':10,'display':'both'},
-  'half':{'enabled':False,'pct':0,'tens':False},
+  'half':{'enabled':False,'pct':0,'min':2,'max':10,'halfMode':'non_tens'},
   'addition':{'enabled':True,'pct':20,'aMin':1,'aMax':10,'bMin':1,'bMax':10,'maxResult':100,'withCarry':True},
   'subtraction':{'enabled':True,'pct':15,'aMin':1,'aMax':10,'bMin':1,'bMax':10,'nonNegative':True},
   'decimal':{'enabled':False,'pct':0,'min':0,'max':20,'decimals':1,'withCarry':True},
@@ -301,9 +301,14 @@ def gen(kind,cfg):
         n=random.randint(cfg['min'],cfg['max']); mode=cfg.get('display','both'); mode=random.choice(['word','sum']) if mode=='both' else mode
         return {'n':n,'mode':mode}, (f'Double de {n} = __' if mode=='word' else f'{n} + {n} = __'), n*2
     if kind=='half':
-        # Moitiés simples : 2, 4, 6, 8, 10. L'option « Dizaines » ajoute 20, 30, ... 100.
-        choices=[2,4,6,8,10]
-        if cfg.get('tens',False): choices += [20,30,40,50,60,70,80,90,100]
+        mode=cfg.get('halfMode') or ('both' if cfg.get('tens',False) else 'non_tens')
+        lo=int(cfg.get('min',2)); hi=int(cfg.get('max',10))
+        if lo>hi: lo,hi=hi,lo
+        choices=[]
+        if mode in ('non_tens','both'): choices += [n for n in range(max(2,lo),hi+1) if n%2==0 and n%10!=0]
+        if mode in ('tens','both'): choices += [10,20,30,40,50,60,70,80,90,100]
+        choices=list(dict.fromkeys(choices))
+        if not choices: raise ValueError("Aucune moitié possible avec ces réglages.")
         n=random.choice(choices)
         return {'n':n}, f'Moitié de {n} = __', n//2
     if kind=='addition':
@@ -644,6 +649,15 @@ def validate_cfg_data(data):
         raise ValueError('Choisis au moins un multiplicateur décimal.')
     if cats.get('decimal_division',{}).get('enabled') and not cats['decimal_division'].get('divisors'):
         raise ValueError('Choisis au moins un diviseur décimal.')
+    if cats.get('half',{}).get('enabled'):
+        h=cats['half']
+        mode=h.get('halfMode') or ('both' if h.get('tens',False) else 'non_tens')
+        if mode not in ('non_tens','tens','both'): mode='non_tens'
+        h['halfMode']=mode; h.pop('tens',None)
+        h['min']=int(h.get('min',2)); h['max']=int(h.get('max',10))
+        if h['min']>h['max']: raise ValueError('La plage des moitiés est invalide.')
+        if mode in ('non_tens','both') and not any(n%2==0 and n%10!=0 for n in range(max(2,h['min']),h['max']+1)):
+            raise ValueError('Aucune moitié hors dizaine possible dans cette plage.')
     if cats.get('round_tens_add',{}).get('enabled'):
         rta=cats['round_tens_add']
         tens=[int(x) for x in rta.get('tens',[]) if int(x) in (10,20,30,40,50,60,70,80,90)]
@@ -984,18 +998,60 @@ def start(pid):
         usage[key]=usage.get(key,0)+1
         qs.append({'kind':r['kind'],'payload':payload,'display':r['display'],'expected':r['expected'],'source':'RETRY','retry_from':r['id']})
 
+    candidate_pools={}
+    def build_candidate_pool(kind, cat_cfg):
+        pool={}
+        # Catégories finies fréquentes : catalogue exhaustif, donc zéro doublon avant épuisement.
+        if kind=='half':
+            lo=int(cat_cfg.get('min',2)); hi=int(cat_cfg.get('max',10))
+            mode=cat_cfg.get('halfMode') or ('both' if cat_cfg.get('tens',False) else 'non_tens')
+            vals=[]
+            if mode in ('non_tens','both'): vals += [n for n in range(max(2,lo),hi+1) if n%2==0 and n%10!=0]
+            if mode in ('tens','both'): vals += [10,20,30,40,50,60,70,80,90,100]
+            for n in dict.fromkeys(vals):
+                p={'n':n}; pool[operation_key(kind,p)]=(p,f'Moitié de {n} = __',n//2)
+        elif kind=='double':
+            for n in range(int(cat_cfg.get('min',1)),int(cat_cfg.get('max',10))+1):
+                modes=['word','sum'] if cat_cfg.get('display','both')=='both' else [cat_cfg.get('display','word')]
+                for mode in modes:
+                    p={'n':n,'mode':mode}; d=f'Double de {n} = __' if mode=='word' else f'{n} + {n} = __'
+                    # operation_key volontairement considère les deux affichages comme le même calcul.
+                    pool.setdefault(operation_key(kind,p),(p,d,n*2))
+        elif kind=='round_tens_add':
+            for a in [int(x) for x in cat_cfg.get('tens',[])]: 
+                for b in range(int(cat_cfg.get('bMin',1)),int(cat_cfg.get('bMax',9))+1):
+                    p={'a':a,'b':b}; pool[operation_key(kind,p)]=(p,f'{a} + {b} = __',a+b)
+        elif kind=='complement_tens':
+            g0=max(1,int(cat_cfg.get('gapMin',5))); g1=max(g0,int(cat_cfg.get('gapMax',20)))
+            for target in [int(x) for x in cat_cfg.get('targets',[])]:
+                for gap in range(g0,g1+1):
+                    if gap<target:
+                        a=target-gap; p={'a':a,'target':target}
+                        pool[operation_key(kind,p)]=(p,f'{a} + __ = {target}',gap)
+        # Pour les espaces plus complexes, constituer une réserve importante une seule fois.
+        # Ensuite le tirage se fait sans remise logique par niveau d'utilisation.
+        target=max(250,min(5000,int(cfg.get('count',50))*30))
+        stagnant=0
+        while len(pool)<target and stagnant<600:
+            try: p,d,e=gen(kind,cat_cfg)
+            except ValueError: break
+            key=operation_key(kind,p)
+            before=len(pool); pool.setdefault(key,(p,d,e))
+            stagnant = stagnant+1 if len(pool)==before else 0
+        vals=list(pool.values()); random.shuffle(vals)
+        return vals
+
     def generate_least_used(kind, cat_cfg):
-        # Cherche d'abord une opération appartenant à la fréquence d'utilisation
-        # la plus basse déjà rencontrée pour cette catégorie.
-        best=None; best_count=None
-        for _ in range(500):
-            payload,display,expected=gen(kind,cat_cfg)
-            key=operation_key(kind,payload); cnt=usage.get(key,0)
-            if best_count is None or cnt<best_count:
-                best=(payload,display,expected,key); best_count=cnt
-                if cnt==0: break
-        payload,display,expected,key=best
-        usage[key]=usage.get(key,0)+1
+        if kind not in candidate_pools:
+            candidate_pools[kind]=build_candidate_pool(kind,cat_cfg)
+        pool=candidate_pools[kind]
+        if not pool: raise ValueError(f'Aucune opération possible pour {kind}.')
+        # Tous les calculs du catalogue passent une fois avant le moindre doublon,
+        # puis deux fois avant le moindre triplon, etc.
+        min_count=min(usage.get(operation_key(kind,p),0) for p,_,_ in pool)
+        choices=[x for x in pool if usage.get(operation_key(kind,x[0]),0)==min_count]
+        payload,display,expected=random.choice(choices)
+        key=operation_key(kind,payload); usage[key]=usage.get(key,0)+1
         return {'kind':kind,'payload':payload,'display':display,'expected':expected,'source':'GENERATED','retry_from':None}
 
     for kind,n in alloc.items():
