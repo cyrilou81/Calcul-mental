@@ -203,3 +203,10 @@ V161
 
 ## V172
 - Moitiés : menu Hors dizaines / Dizaines / Les deux ; plage dynamique masquée en mode Dizaines.
+
+
+## V173
+- Correction des aperçus « Autres exercices » affichant parfois « Réglages à vérifier », notamment avec les anciennes configurations de Moitiés.
+- Les exercices non sélectionnés disposent maintenant eux aussi du bouton Configurer.
+- La configuration d'un exercice dans « Autres exercices » ne l'ajoute pas automatiquement : Ajouter reste une action séparée.
+- Correction du masquage dynamique de la plage des Moitiés dans la vraie fenêtre `.cf-params`.
