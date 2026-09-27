@@ -214,9 +214,28 @@ def seed_challenge_cfg(school_class, level):
 def merged_cfg(saved):
     cfg=copy.deepcopy(DEFAULT)
     cfg.update({k:v for k,v in (saved or {}).items() if k!='categories'})
-    for kind, values in (saved or {}).get('categories',{}).items():
+    saved_cats=(saved or {}).get('categories',{})
+    for kind, values in saved_cats.items():
         if kind in cfg['categories'] and isinstance(values,dict): cfg['categories'][kind].update(values)
-        else: cfg['categories'][kind]=values
+        elif kind not in ('triple','quadruple','third','quarter'): cfg['categories'][kind]=values
+    # Migration transparente V159 -> V160 : les quatre anciennes catégories
+    # deviennent deux catégories configurables sans perdre les réglages existants.
+    if 'multiple_of' not in saved_cats:
+        old_mult=[(k,saved_cats.get(k)) for k in ('triple','quadruple') if isinstance(saved_cats.get(k),dict)]
+        enabled=[(k,v) for k,v in old_mult if v.get('enabled')]
+        if enabled:
+            base=enabled[0][1]; v=cfg['categories']['multiple_of']
+            v.update({'enabled':True,'pct':sum(int(x.get('pct',0) or 0) for _,x in enabled),
+                      'min':base.get('min',1),'max':base.get('max',10),
+                      'factors':[3 if k=='triple' else 4 for k,_ in enabled]})
+    if 'fraction' not in saved_cats:
+        old_frac=[(k,saved_cats.get(k)) for k in ('third','quarter') if isinstance(saved_cats.get(k),dict)]
+        enabled=[(k,v) for k,v in old_frac if v.get('enabled')]
+        if enabled:
+            base=enabled[0][1]; v=cfg['categories']['fraction']
+            v.update({'enabled':True,'pct':sum(int(x.get('pct',0) or 0) for _,x in enabled),
+                      'min':base.get('min',1),'max':base.get('max',10),
+                      'divisors':[3 if k=='third' else 4 for k,_ in enabled]})
     return cfg
 
 def get_cfg(pid):
@@ -325,14 +344,18 @@ def gen(kind,cfg):
     if kind=='addition3':
         nums=[random.randint(1,9) for _ in range(3)]
         return {'numbers':nums},f'{nums[0]} + {nums[1]} + {nums[2]} = __',sum(nums)
-    if kind in ('triple','quadruple'):
-        n=random.randint(int(cfg.get('min',1)),int(cfg.get('max',10))); factor=3 if kind=='triple' else 4
-        word='Triple' if kind=='triple' else 'Quadruple'
-        return {'n':n},f'{word} de {n} = __',n*factor
-    if kind in ('third','quarter'):
-        q=random.randint(int(cfg.get('min',1)),int(cfg.get('max',10))); divisor=3 if kind=='third' else 4; n=q*divisor
-        word='Tiers' if kind=='third' else 'Quart'
-        return {'n':n},f'{word} de {n} = __',q
+    if kind=='multiple_of':
+        factors=[int(x) for x in cfg.get('factors',[3,4]) if int(x) in (3,4)]
+        if not factors: raise ValueError("Choisis au moins Triple ou Quadruple.")
+        n=random.randint(int(cfg.get('min',1)),int(cfg.get('max',10))); factor=random.choice(factors)
+        word='Triple' if factor==3 else 'Quadruple'
+        return {'n':n,'factor':factor},f'{word} de {n} = __',n*factor
+    if kind=='fraction':
+        divisors=[int(x) for x in cfg.get('divisors',[3,4]) if int(x) in (3,4)]
+        if not divisors: raise ValueError("Choisis au moins Tiers ou Quart.")
+        divisor=random.choice(divisors); q=random.randint(int(cfg.get('min',1)),int(cfg.get('max',10))); n=q*divisor
+        word='Tiers' if divisor==3 else 'Quart'
+        return {'n':n,'divisor':divisor},f'{word} de {n} = __',q
     if kind=='complement10':
         a=random.randint(1,9); return {'a':a},f'{a} + __ = 10',10-a
     if kind=='tens':
@@ -574,6 +597,14 @@ def validate_cfg_data(data):
         pv=cats['place_value']; places=[p for p in pv.get('places',[]) if p in ('m','c','d','u')]
         if not places: raise ValueError('Choisis au moins un terme parmi m, c, d et u.')
         pv['places']=places; pv['absenceProbability']=max(0,min(80,(int(pv.get('absenceProbability',50))//10)*10))
+    if cats.get('multiple_of',{}).get('enabled'):
+        factors=[int(x) for x in cats['multiple_of'].get('factors',[]) if int(x) in (3,4)]
+        if not factors: raise ValueError('Choisis au moins Triple ou Quadruple.')
+        cats['multiple_of']['factors']=factors
+    if cats.get('fraction',{}).get('enabled'):
+        divisors=[int(x) for x in cats['fraction'].get('divisors',[]) if int(x) in (3,4)]
+        if not divisors: raise ValueError('Choisis au moins Tiers ou Quart.')
+        cats['fraction']['divisors']=divisors
     return data
 
 def balanced_question_order(items):
@@ -877,7 +908,8 @@ def start(pid):
         if kind == 'complement_tens': return (kind,payload.get('a'),payload.get('target'),payload.get('mode'))
         if kind == 'place_value': return (kind,json.dumps(payload.get('factors',{}),sort_keys=True))
         if kind == 'addition3': return (kind,tuple(payload.get('numbers',[])))
-        if kind in ('triple','quadruple','third','quarter'): return (kind,payload.get('n'))
+        if kind == 'multiple_of': return (kind,payload.get('factor'),payload.get('n'))
+        if kind == 'fraction': return (kind,payload.get('divisor'),payload.get('n'))
         return (kind, json.dumps(payload, sort_keys=True))
 
     qs=[]; usage={}

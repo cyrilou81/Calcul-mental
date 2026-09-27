@@ -126,3 +126,11 @@ Après `pip install -r requirements.txt` :
 - Victoire de niveau : numéro du nouveau niveau centré.
 - Victoire de couleur : suppression du rond de niveau, transition de couleurs uniquement.
 - Fenêtre de victoire : hauteur adaptative sans barre de défilement ; illustration et espacements se réduisent selon la hauteur disponible.
+
+
+## V160
+- Fusion Triple/Quadruple en « Multiple de » avec choix Triple/Quadruple (au moins un).
+- Fusion Tiers/Quart en « Fraction » avec choix Tiers/Quart (au moins un).
+- Les deux catégories fusionnées sont placées en bas de la liste.
+- « Compléments de dizaines » est placé juste après « Moitié de dizaine ».
+- Migration transparente des anciennes configurations V159.
