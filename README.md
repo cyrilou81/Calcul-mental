@@ -175,3 +175,7 @@ V161
 - Le serveur normalise automatiquement les poids ; `pct` n'est plus qu'une valeur dérivée de compatibilité.
 - Suppression de la validation historique imposant un total manuel de 100 %.
 - Le nombre exact de questions est réparti directement au prorata des points.
+
+
+## V168
+- Basée sur V167. Correction des aperçus : une carte est prévisualisée seule, sans validation parasite des autres catégories.

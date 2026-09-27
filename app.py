@@ -255,7 +255,7 @@ def normalize_category_weights(cats):
             # Migration des anciennes configs basées sur pct.
             try: p=max(0,float(v.get('pct',0) or 0))
             except (TypeError,ValueError): p=0
-            w=max(1,min(5,round(p/20))) if p else 3
+            w=max(1,min(5,int(p/20 + 0.5))) if p else 3
         v['weight']=w
         weights.append((k,v,w))
     total=sum(w for _,_,w in weights)
