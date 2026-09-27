@@ -134,3 +134,8 @@ Après `pip install -r requirements.txt` :
 - Les deux catégories fusionnées sont placées en bas de la liste.
 - « Compléments de dizaines » est placé juste après « Moitié de dizaine ».
 - Migration transparente des anciennes configurations V159.
+
+V161
+- Écran de fin réorganisé en deux colonnes sur écran large : illustration à gauche, jauges de récompense à droite.
+- Les jauges utilisent désormais la largeur disponible au lieu de s’empiler sous l’illustration.
+- Retour automatique à une colonne sur mobile ; adaptation supplémentaire pour les écrans peu hauts.
