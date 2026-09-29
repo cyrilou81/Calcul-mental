@@ -1348,3 +1348,41 @@ document.addEventListener('touchend',e=>{
   }
 }
 </style>
+<style>
+/* v217 — iPhone : compromis lisibilité / clavier entièrement visible.
+   On garde des cibles nettement plus grandes qu'avant v216, mais on redescend
+   la hauteur pour que la rangée OK reste toujours dans le viewport. */
+@media (max-width:480px) and (hover:none) and (pointer:coarse){
+  @supports (-webkit-touch-callout:none){
+    .question-zone{padding-top:clamp(2px,1dvh,8px)!important;gap:clamp(3px,.7dvh,6px)!important;}
+    .question{font-size:clamp(40px,11vw,52px)!important;}
+    .feedback{min-height:16px!important;margin:0!important;}
+    .keypad{
+      width:min(100%,400px)!important;
+      grid-template-columns:repeat(3,minmax(0,1fr))!important;
+      gap:8px!important;
+    }
+    .keypad button:not(.ok){
+      height:82px!important;
+      min-height:82px!important;
+      font-size:36px!important;
+      border-radius:20px!important;
+    }
+    .keypad .ok{
+      height:62px!important;
+      min-height:62px!important;
+      font-size:30px!important;
+    }
+  }
+}
+@media (max-width:480px) and (max-height:760px) and (hover:none) and (pointer:coarse){
+  @supports (-webkit-touch-callout:none){
+    .exercise-head{min-height:78px!important;}
+    .question-zone{padding-top:0!important;gap:2px!important;}
+    .question{font-size:40px!important;}
+    .keypad{gap:6px!important;}
+    .keypad button:not(.ok){height:72px!important;min-height:72px!important;font-size:32px!important;}
+    .keypad .ok{height:54px!important;min-height:54px!important;font-size:27px!important;}
+  }
+}
+</style>
