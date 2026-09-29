@@ -313,3 +313,9 @@ V161
 - Une confirmation est demandée avant suppression.
 - La suppression efface la séance et ses questions de la base ; elle disparaît donc des statistiques et graphiques comme si elle n'avait jamais existé.
 - Après suppression, retour automatique à la liste des séances recalculée.
+
+
+## V189
+- Correction du démarrage multiple des séances : un verrou empêche plusieurs créations pendant la requête de démarrage.
+- Le bouton de démarrage est désactivé jusqu'à la réponse du serveur.
+- « Supprimer la séance » est maintenant tout en bas du détail statistique, sous le tableau des calculs.
