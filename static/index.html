@@ -728,6 +728,22 @@ input,select{background:#fffdf7;border:2px solid #9bd8f5;}
 .session-delete-bottom .danger{background:#d83b3b;color:#fff;border-color:#b92d2d}
 .session-delete-bottom .danger:hover{background:#bd3030}
 </style>
+
+<style id="progress-v212-fix">
+/* v212: intentionally reserve a larger scenic zone for the red panda. */
+.progress-cliff-scene{
+  width:38% !important;
+  opacity:.78 !important;
+  -webkit-mask-image:linear-gradient(to right,transparent 0%,transparent 18%,rgba(0,0,0,.20) 31%,rgba(0,0,0,.72) 48%,#000 63%) !important;
+  mask-image:linear-gradient(to right,transparent 0%,transparent 18%,rgba(0,0,0,.20) 31%,rgba(0,0,0,.72) 48%,#000 63%) !important;
+}
+.progress-chart-wrap:after{
+  background:linear-gradient(90deg,rgba(255,255,255,.20) 0%,rgba(255,255,255,.12) 52%,rgba(255,255,255,.035) 68%,rgba(255,255,255,0) 80%) !important;
+}
+@media(max-width:700px){
+  .progress-cliff-scene{width:42% !important;opacity:.76 !important;}
+}
+</style>
 </head><body><div class="app">
 <section id="auth">
   <div class="auth-scene">
@@ -1102,7 +1118,7 @@ const rewardCardMap={};
 let rewardState=null;
 function rewardCardHtml(c,locked=false){return `<div class="reward-card ${locked?'locked':''}" data-card="${c.id}"><img src="${c.image}" alt="${c.label}"><div class="reward-card-name">${c.label}</div></div>`}
 function progressChartHtml(sessions,threshold=45){
- let rows=(sessions||[]).slice(-8), W=820,H=330,L=54,R=220,T=42,B=42, max=50;
+ let rows=(sessions||[]).slice(-8), W=820,H=330,L=54,R=285,T=42,B=42, max=50;
  if(!rows.length)return `<div class="progress-chart-wrap"><div class="progress-chart-title">Mon score</div><div class="progress-empty">Fais ton premier test pour commencer ! 🌱</div><div class="progress-cliff-scene" aria-hidden="true"></div></div>`;
  let x=i=>rows.length===1?(L+(W-R))/2:L+i*((W-L-R)/(rows.length-1)), y=v=>T+(max-Math.max(0,Math.min(max,v)))*(H-T-B)/max;
  let grid=[0,10,20,30,40,45,50].map(v=>`<line x1="${L}" y1="${y(v)}" x2="${W-R}" y2="${y(v)}" stroke="${v===45?'#2da354':'#bfd5df'}" stroke-width="${v===45?3.5:1}" ${v===45?'stroke-dasharray="9 7"':''}/><text x="${L-14}" y="${y(v)+4}" text-anchor="end" font-size="13" font-weight="${v===45?950:750}" fill="${v===45?'#218545':'#637d8d'}">${v}</text>`).join('');
