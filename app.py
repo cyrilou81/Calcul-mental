@@ -3,7 +3,7 @@ import json
 import random, sqlite3, statistics, time, copy, os, re
 from pathlib import Path
 from datetime import timedelta
-from flask import Flask, request, jsonify, send_from_directory, session, redirect
+from flask import Flask, request, jsonify, send_from_directory, session, redirect, Response
 from werkzeug.security import generate_password_hash, check_password_hash
 
 ROOT=Path(__file__).parent
@@ -758,6 +758,82 @@ def admin_class_color_save(school):
     if not re.fullmatch(r'#[0-9a-fA-F]{6}',color): return {'error':'Couleur invalide'},400
     c=db(); c.execute('INSERT INTO class_settings(school_class,color) VALUES(?,?) ON CONFLICT(school_class) DO UPDATE SET color=excluded.color',(school,color)); c.commit(); c.close()
     return {'ok':True,'schoolClass':school,'color':color}
+
+
+@app.get('/api/admin/levels/export')
+def admin_levels_export():
+    if (e:=require_admin()): return e
+    c=db()
+    rows=c.execute(
+        'SELECT school_class,name,position,active,data FROM challenge_levels '
+        'ORDER BY CASE school_class WHEN "CP" THEN 1 WHEN "CE1" THEN 2 WHEN "CE2" THEN 3 WHEN "CM1" THEN 4 ELSE 5 END,position'
+    ).fetchall()
+    colors={r['school_class']:r['color'] for r in c.execute('SELECT school_class,color FROM class_settings')}
+    c.close()
+    payload={
+        'format':'calcul-mental-levels',
+        'version':1,
+        'class_colors':colors,
+        'levels':[
+            {'school_class':r['school_class'],'name':r['name'],'position':r['position'],
+             'active':bool(r['active']),'config':json.loads(r['data'])}
+            for r in rows
+        ]
+    }
+    body=json.dumps(payload,ensure_ascii=False,indent=2)
+    return Response(
+        body,
+        mimetype='application/json',
+        headers={'Content-Disposition':'attachment; filename="calcul-mental-niveaux.json"'}
+    )
+
+@app.post('/api/admin/levels/import')
+def admin_levels_import():
+    if (e:=require_admin()): return e
+    d=request.get_json(silent=True) or {}
+    if d.get('format')!='calcul-mental-levels' or d.get('version')!=1 or not isinstance(d.get('levels'),list):
+        return {'error':"Fichier de niveaux invalide."},400
+    levels=d['levels']
+    cleaned=[]
+    seen_positions=set()
+    try:
+        for item in levels:
+            school=(item.get('school_class') or '').upper()
+            name=(item.get('name') or '').strip()
+            position=int(item.get('position'))
+            if school not in CLASSES or not name or position<1:
+                raise ValueError
+            key=(school,position)
+            if key in seen_positions: raise ValueError
+            seen_positions.add(key)
+            cfg=validate_cfg_data(item.get('config') or {})
+            cleaned.append((school,name,position,1 if bool(item.get('active',True)) else 0,json.dumps(cfg)))
+    except (ValueError,TypeError,KeyError):
+        return {'error':"Le fichier contient un niveau invalide."},400
+
+    colors=d.get('class_colors') or {}
+    clean_colors={}
+    for school,color in colors.items():
+        if school in CLASSES and isinstance(color,str) and re.fullmatch(r'#[0-9a-fA-F]{6}',color):
+            clean_colors[school]=color
+
+    # Import = restauration complète des niveaux : on remplace la configuration
+    # actuelle uniquement après validation intégrale du fichier.
+    c=db()
+    try:
+        c.execute('BEGIN')
+        c.execute('DELETE FROM challenge_levels')
+        for row in cleaned:
+            c.execute('INSERT INTO challenge_levels(school_class,name,position,active,data) VALUES(?,?,?,?,?)',row)
+        for school,color in clean_colors.items():
+            c.execute('INSERT INTO class_settings(school_class,color) VALUES(?,?) '
+                      'ON CONFLICT(school_class) DO UPDATE SET color=excluded.color',(school,color))
+        c.commit()
+    except Exception:
+        c.rollback(); c.close()
+        return {'error':"Impossible d'importer les niveaux."},500
+    c.close()
+    return {'ok':True,'count':len(cleaned)}
 
 @app.get('/api/admin/levels')
 def admin_levels():

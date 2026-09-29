@@ -25,3 +25,9 @@ Compatible Gunicorn / Render. La base est définie par `DB_PATH` (par défaut `c
 - Récompenses et collections.
 
 Le code ne conserve pas de compatibilité avec les anciennes catégories ou l'ancien système `pct`.
+
+
+## V194
+- Admin : export de tous les niveaux en JSON (configuration, ordre, état actif et couleurs de classe).
+- Admin : import/restauration d'un export ; le fichier est validé intégralement avant de remplacer les niveaux actuels.
+- Les données utilisateurs, séances et récompenses ne font pas partie de l'export.

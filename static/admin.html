@@ -42,11 +42,15 @@
 @media(max-width:650px){.level-active-toggle{padding:0 6px;font-size:14px}.level-active-toggle input{width:20px;height:20px}}
 .level-delete{padding-left:12px!important;padding-right:12px!important}
 @media(max-width:800px){.level-delete{font-size:13px!important;padding-left:8px!important;padding-right:8px!important}}
+
+.levels-transfer{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:12px 0 16px}
+.levels-transfer button{width:auto}
+#levelsTransferMsg{font-weight:700;color:#16803a}
 </style></head><body><main>
 <section id="adminHome" class="card"><h1>Administration</h1><div class="admin-actions"><button id="manageLevels">Gérer les niveaux</button><button id="manageHelp">🐶 Aides pédagogiques</button></div></section>
 <section id="helpView" class="card hidden"><div class="top"><div><h2>Aides pédagogiques</h2><div class="help-legend"><span>🟢 Aide = autre exemple</span><span>🟠 Correction = vrai calcul après 2 erreurs</span></div></div><button class="secondary" data-back="home">Retour</button></div><div id="helpCatalog" class="help-catalog"></div></section>
 <section id="classesView" class="card hidden"><div class="top"><h2>Gérer les niveaux</h2><button class="secondary" data-back="home">Retour</button></div><div id="classes" class="classes"></div></section>
-<section id="levelsView" class="card hidden"><div class="top"><h2 id="classTitle"></h2><button class="secondary" data-back="classes">Retour</button></div><div class="class-color-row"><strong>Couleur affichée à l’enfant</strong><span id="classColorPreview" class="class-color-preview"></span><input id="classColor" type="color" aria-label="Couleur de la classe"><span id="classColorSaved" style="color:#16803a;font-weight:700"></span></div><button id="manageList">＋ Ajouter / gérer les niveaux</button><div id="levelList" class="level-list"></div></section>
+<section id="levelsView" class="card hidden"><div class="top"><h2 id="classTitle"></h2><button class="secondary" data-back="classes">Retour</button></div><div class="levels-transfer"><button id="exportLevels" class="secondary">Exporter tous les niveaux</button><button id="importLevels" class="secondary">Importer des niveaux</button><input id="importLevelsFile" type="file" accept="application/json,.json" hidden><span id="levelsTransferMsg"></span></div><div class="class-color-row"><strong>Couleur affichée à l’enfant</strong><span id="classColorPreview" class="class-color-preview"></span><input id="classColor" type="color" aria-label="Couleur de la classe"><span id="classColorSaved" style="color:#16803a;font-weight:700"></span></div><button id="manageList">＋ Ajouter / gérer les niveaux</button><div id="levelList" class="level-list"></div></section>
 <section id="managerView" class="card hidden"><div class="top"><h2 id="managerTitle">Ajouter / gérer les niveaux</h2><button class="secondary" data-back="levels">Retour</button></div><div class="manager-row"><label>Nom du nouveau niveau<input id="newName"></label><label>Recopier la configuration depuis<select id="copyFrom"><option value="">Configuration vide</option></select></label><button id="addLevel">Ajouter</button></div><div id="managerList" class="level-list"></div><div id="managerErr" class="error"></div></section>
 <section id="configView" class="card hidden"><div class="top"><div><small id="configClass"></small><h2 style="margin-bottom:4px"><input id="levelName" style="font-size:1em;font-weight:800"></h2><div style="color:#5a7890">Configuration du template — même interface que l’entraînement</div></div><button class="secondary" data-back="levels">Retour</button></div><div class="cf-savebar"><div class="cf-session-bar"><label>Nombre de questions <input id="questionCount" type="number" min="1" max="500"></label><label>Durée (max) <input id="durationMinutes" type="number" min="1" max="60"> min</label></div></div><div id="configErr" class="error"></div><div id="configRows"></div></section>
 </main><script>
@@ -97,6 +101,32 @@ async function api(url,opt={}){let r=await fetch(url,{headers:{'Content-Type':'a
 function show(id){['adminHome','helpView','classesView','levelsView','managerView','configView'].forEach(x=>$('#'+x).classList.toggle('hidden',x!==id))}
 async function ensureAuth(){let s=await api('/api/auth/status');if(!s.authenticated){location.href='/';return false}return true}
 async function loadLevels(){levels=await api('/api/admin/levels');classColors=await api('/api/admin/class-colors')}
+async function exportLevels(){
+  try{
+    $('#levelsTransferMsg').textContent='';
+    let r=await fetch('/api/admin/levels/export');
+    if(!r.ok){let j=await r.json().catch(()=>({}));throw Error(j.error||'Export impossible')}
+    let blob=await r.blob(),url=URL.createObjectURL(blob),link=document.createElement('a');
+    link.href=url;link.download='calcul-mental-niveaux.json';document.body.appendChild(link);link.click();link.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),1000);
+    $('#levelsTransferMsg').textContent='Export terminé ✓';
+  }catch(e){alert('Export impossible : '+e.message)}
+}
+async function importLevelsFile(file){
+  if(!file)return;
+  try{
+    let text=await file.text(),data=JSON.parse(text);
+    if(!confirm('Importer ce fichier remplacera tous les niveaux actuels. Continuer ?'))return;
+    let result=await api('/api/admin/levels/import',{method:'POST',body:JSON.stringify(data)});
+    await loadLevels();renderLevelList();
+    $('#levelsTransferMsg').textContent=result.count+' niveaux importés ✓';
+  }catch(e){alert('Import impossible : '+e.message)}
+  finally{$('#importLevelsFile').value=''}
+}
+$('#exportLevels').onclick=exportLevels;
+$('#importLevels').onclick=()=>$('#importLevelsFile').click();
+$('#importLevelsFile').addEventListener('change',e=>importLevelsFile(e.target.files[0]));
+
 function classButtons(){let r=$('#classes');r.innerHTML='';classes.forEach(c=>{let b=document.createElement('button');b.textContent=c;let col=classColors[c]||'#3189dc';b.style.background=col;b.style.borderColor=col;b.style.color='#fff';b.onclick=()=>openClass(c);r.appendChild(b)})}
 async function openClass(c){currentClass=c;await loadLevels();$('#classTitle').textContent=c;let col=classColors[c]||'#3189dc';$('#classColor').value=col;$('#classColorPreview').style.background=col;$('#classColorSaved').textContent='';renderLevelList();show('levelsView')}
 function renderLevelList(){let arr=levels.filter(x=>x.school_class===currentClass).sort((a,b)=>a.position-b.position),r=$('#levelList');r.innerHTML='';arr.forEach((x,i)=>{let d=document.createElement('div');d.className='level-item';d.innerHTML=`<button class="level-open">${x.name}</button><label class="level-active-toggle" title="Disponible pour les joueurs"><input type="checkbox" ${x.active!==0?'checked':''}> <span>Actif</span></label><button class="move" title="Monter">↑</button><button class="move" title="Descendre">↓</button><button class="danger level-delete" title="Supprimer ce niveau">Supprimer</button>`;d.children[0].onclick=()=>openConfig(x.id);let activeBox=d.querySelector('.level-active-toggle input');activeBox.onchange=async()=>{try{await api('/api/admin/levels/'+x.id+'/active',{method:'PUT',body:JSON.stringify({active:activeBox.checked})});x.active=activeBox.checked?1:0}catch(e){activeBox.checked=!activeBox.checked;alert(e.message)}};d.children[2].onclick=()=>move(x.id,'up');d.children[3].onclick=()=>move(x.id,'down');d.children[2].disabled=i===0;d.children[3].disabled=i===arr.length-1;d.children[4].onclick=async()=>{if(confirm('Supprimer « '+x.name+' » ?')){await api('/api/admin/levels/'+x.id,{method:'DELETE'});await loadLevels();renderLevelList()}};r.appendChild(d)})}
