@@ -1288,25 +1288,31 @@ document.addEventListener('touchend',e=>{
 }
 </style>
 <style>
-/* v214 — iPhone : touches numériques plus grandes pour limiter les erreurs de frappe.
-   Le bouton OK garde volontairement sa taille actuelle. */
+/* v215 — iPhone : augmentation franche (+50 %) des touches hors OK.
+   La grille utilise presque toute la largeur disponible pour maximiser la cible tactile. */
 @media (max-width:430px) and (hover:none) and (pointer:coarse){
   @supports (-webkit-touch-callout:none){
     .keypad{
-      grid-template-columns:repeat(3,minmax(68px,88px));
-      gap:clamp(8px,1.25dvh,11px);
+      width:min(100%,390px);
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:10px;
     }
     .keypad button:not(.ok){
-      height:clamp(62px,9.4dvh,82px);
-      font-size:clamp(28px,4.7dvh,35px);
-      border-radius:18px;
+      width:100%;
+      height:clamp(84px,12.75dvh,114px);
+      font-size:clamp(32px,6dvh,42px);
+      border-radius:20px;
+      padding:0;
     }
+    .keypad .ok{height:clamp(75px,11.4dvh,102px)!important;}
   }
 }
+/* Même sur les iPhone peu hauts, on ne ré-écrase plus les touches à 58 px. */
 @media (max-width:430px) and (max-height:700px) and (hover:none) and (pointer:coarse){
   @supports (-webkit-touch-callout:none){
-    .keypad{grid-template-columns:repeat(3,minmax(66px,86px));gap:7px;}
-    .keypad button:not(.ok){height:58px;font-size:28px;}
+    .question-zone{padding-top:4px;gap:4px;}
+    .keypad{width:min(100%,390px);grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;}
+    .keypad button:not(.ok){height:80px;font-size:34px;border-radius:19px;}
     .keypad .ok{height:72px!important;}
   }
 }
