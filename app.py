@@ -1062,7 +1062,14 @@ def start(pid):
             payload,display,expected=generate_with_duplicate_retry(kind,cfg['categories'][kind],seen_by_kind)
             qs.append({'kind':kind,'payload':payload,'display':display,'expected':expected,'source':'GENERATED','retry_from':None})
     qs=balanced_question_order(qs)
-    c=db(); cur=c.execute('INSERT INTO sessions(profile_id,mode,challenge_class,challenge_level_id) VALUES(?,?,?,?)',(pid,mode,challenge_class,challenge_level_id)); sid=cur.lastrowid
+    c=db()
+    # Une séance interrompue (fermeture/navigation sans STOP) ne doit jamais devenir une statistique.
+    # STOP la supprime déjà immédiatement côté API ; ici on nettoie aussi les éventuels abandons orphelins.
+    abandoned=[r['id'] for r in c.execute('SELECT id FROM sessions WHERE profile_id=? AND mode=? AND rewarded=0',(pid,mode))]
+    for old_sid in abandoned:
+        c.execute('DELETE FROM questions WHERE session_id=?',(old_sid,))
+        c.execute('DELETE FROM sessions WHERE id=?',(old_sid,))
+    cur=c.execute('INSERT INTO sessions(profile_id,mode,challenge_class,challenge_level_id) VALUES(?,?,?,?)',(pid,mode,challenge_class,challenge_level_id)); sid=cur.lastrowid
     for i,q in enumerate(qs): c.execute('INSERT INTO questions(session_id,position,kind,payload,display,expected,status,source,retry_from) VALUES(?,?,?,?,?,?,\'UNANSWERED\',?,?)',(sid,i,q['kind'],json.dumps(q['payload']),q['display'],q['expected'],q['source'],q['retry_from']))
     c.commit()
     rows=[]
@@ -1318,9 +1325,9 @@ def stats(pid):
         # Les stats Défi décrivent uniquement le niveau actuellement travaillé.
         p=c.execute('SELECT challenge_level_id FROM profiles WHERE id=?',(pid,)).fetchone()
         current_level_id=p['challenge_level_id'] if p else None
-        ss=[dict(x) for x in c.execute('SELECT id,started_at,active_ms,mode FROM sessions WHERE profile_id=? AND mode=? AND challenge_level_id=? ORDER BY id DESC',(pid,mode,current_level_id))] if current_level_id else []
+        ss=[dict(x) for x in c.execute('SELECT id,started_at,active_ms,mode FROM sessions WHERE profile_id=? AND mode=? AND challenge_level_id=? AND rewarded=1 ORDER BY id DESC',(pid,mode,current_level_id))] if current_level_id else []
     else:
-        ss=[dict(x) for x in c.execute('SELECT id,started_at,active_ms,mode FROM sessions WHERE profile_id=? AND mode=? ORDER BY id DESC',(pid,mode))]
+        ss=[dict(x) for x in c.execute('SELECT id,started_at,active_ms,mode FROM sessions WHERE profile_id=? AND mode=? AND rewarded=1 ORDER BY id DESC',(pid,mode))]
     out=[]
     for s in ss:
         qs=[dict(x) for x in c.execute("SELECT * FROM questions WHERE session_id=? AND status!='UNANSWERED'",(s['id'],))]
