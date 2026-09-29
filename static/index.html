@@ -1317,3 +1317,34 @@ document.addEventListener('touchend',e=>{
   }
 }
 </style>
+<style>
+/* v216 — vrais grands boutons sur TOUS les iPhone, y compris les modèles 440px CSS.
+   Les versions précédentes s'arrêtaient à 430px et ne touchaient donc pas certains grands iPhone. */
+@media (max-width:480px) and (hover:none) and (pointer:coarse){
+  @supports (-webkit-touch-callout:none){
+    .keypad{
+      width:min(100%,400px)!important;
+      grid-template-columns:repeat(3,minmax(0,1fr))!important;
+      gap:10px!important;
+    }
+    .keypad button:not(.ok){
+      width:100%!important;
+      height:114px!important;
+      min-height:114px!important;
+      font-size:42px!important;
+      border-radius:22px!important;
+      padding:0!important;
+    }
+    .keypad .ok{height:76px!important;min-height:76px!important;}
+  }
+}
+/* Sur les iPhone courts, priorité à la taille des cibles : on compacte la question,
+   pas les touches. */
+@media (max-width:480px) and (max-height:700px) and (hover:none) and (pointer:coarse){
+  @supports (-webkit-touch-callout:none){
+    .question-zone{padding-top:2px!important;gap:3px!important;}
+    .keypad button:not(.ok){height:96px!important;min-height:96px!important;font-size:38px!important;}
+    .keypad .ok{height:66px!important;min-height:66px!important;}
+  }
+}
+</style>
