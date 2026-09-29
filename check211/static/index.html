@@ -105,7 +105,7 @@ input,select{background:#fffdf7;border:2px solid #9bd8f5;}
 .progress-chart-wrap:after{content:"";position:absolute;z-index:1;inset:0;background:linear-gradient(90deg,rgba(255,255,255,.26) 0%,rgba(255,255,255,.17) 58%,rgba(255,255,255,.04) 74%,rgba(255,255,255,0) 86%);pointer-events:none}
 .progress-chart-wrap>*{position:relative;z-index:2}
 .progress-panda{display:none!important}
-.progress-cliff-scene{position:absolute!important;z-index:3!important;right:-1px;top:0;width:38%;height:100%;background:url("progress-cliff-clean.png") right center/cover no-repeat;pointer-events:none;-webkit-mask-image:linear-gradient(to right,transparent 0%,transparent 30%,rgba(0,0,0,.35) 45%,#000 62%);mask-image:linear-gradient(to right,transparent 0%,transparent 30%,rgba(0,0,0,.35) 45%,#000 62%)}
+.progress-cliff-scene{position:absolute!important;z-index:3!important;right:-1px;top:0;width:32%;height:100%;background:url("progress-cliff-clean.png") right center/cover no-repeat;pointer-events:none;-webkit-mask-image:linear-gradient(to right,transparent 0%,transparent 30%,rgba(0,0,0,.35) 45%,#000 62%);mask-image:linear-gradient(to right,transparent 0%,transparent 30%,rgba(0,0,0,.35) 45%,#000 62%)}
 .progress-empty{position:relative;z-index:4;display:flex;align-items:center;justify-content:center;min-height:275px;padding:30px 25% 30px 8%;text-align:center;color:#214f6d;font-size:22px;font-weight:900;line-height:1.25;text-shadow:0 1px 0 rgba(255,255,255,.95)}
 .progress-chart-title{text-shadow:0 1px 0 #fff}.progress-chart-title{font-size:22px;font-weight:950;text-align:left;margin:0 0 2px;color:#173f5d}.progress-chart-sub{font-size:13px;color:#678296;text-align:left;margin-bottom:6px}.progress-chart{width:100%;height:auto;display:block;overflow:visible}.progress-empty{text-align:center;color:#668397;font-weight:750;padding:34px 12px 38px}.progress-reward-divider{height:1px;background:#d8ebf5;max-width:760px;margin:8px auto 18px}.progress-reward-title{text-align:center;font-size:22px;font-weight:950;margin:0 0 8px;color:#173f5d}.progress-screen{overflow:auto;height:100%;-webkit-overflow-scrolling:touch}.progress-screen .reward-head{position:relative;z-index:8;background:transparent;padding:0;margin:0 0 4px;min-height:58px}.progress-screen .reward-head h2{display:none}.progress-screen .reward-head>div{margin-left:auto}.progress-screen #rewardContent{padding-bottom:20px}.progress-tabs{display:flex;justify-content:center;gap:8px;margin:0 auto 12px;padding:5px;max-width:430px;background:#eaf5fb;border-radius:18px}.progress-tab{flex:1;border:0;border-radius:14px;padding:11px 14px;font-size:16px;font-weight:900;background:transparent;color:#496b80;box-shadow:none}.progress-tab.active{background:#fff;color:#173f5d;box-shadow:0 3px 10px #24506a1c}.progress-panel.hidden{display:none!important}
 @media(max-width:700px){.home>.side{top:-40px;}.home-coin-badge{margin-bottom:12px;}.puzzle-card.reward-thumb{width:125px;}.collection-grid .reward-card{flex-basis:115px;}}
@@ -728,43 +728,6 @@ input,select{background:#fffdf7;border:2px solid #9bd8f5;}
 .session-delete-bottom .danger{background:#d83b3b;color:#fff;border-color:#b92d2d}
 .session-delete-bottom .danger:hover{background:#bd3030}
 </style>
-
-<style id="progress-v212-fix">
-/* v212: intentionally reserve a larger scenic zone for the red panda. */
-.progress-cliff-scene{
-  width:38% !important;
-  opacity:.78 !important;
-  -webkit-mask-image:linear-gradient(to right,transparent 0%,transparent 18%,rgba(0,0,0,.20) 31%,rgba(0,0,0,.72) 48%,#000 63%) !important;
-  mask-image:linear-gradient(to right,transparent 0%,transparent 18%,rgba(0,0,0,.20) 31%,rgba(0,0,0,.72) 48%,#000 63%) !important;
-}
-.progress-chart-wrap:after{
-  background:linear-gradient(90deg,rgba(255,255,255,.20) 0%,rgba(255,255,255,.12) 52%,rgba(255,255,255,.035) 68%,rgba(255,255,255,0) 80%) !important;
-}
-@media(max-width:700px){
-  .progress-cliff-scene{width:42% !important;opacity:.76 !important;}
-}
-</style>
-<style id="progress-v213-final">
-/* v213: the chart itself occupies only the left side; the right side belongs to the climber. */
-.progress-chart-wrap .progress-chart{
-  width:72% !important;
-  max-width:72% !important;
-  margin:0 !important;
-  overflow:visible;
-}
-.progress-cliff-scene{
-  width:36% !important;
-  opacity:.92 !important;
-}
-.progress-chart-wrap:after{
-  background:linear-gradient(90deg,rgba(255,255,255,.16) 0%,rgba(255,255,255,.09) 47%,rgba(255,255,255,.025) 65%,rgba(255,255,255,0) 78%) !important;
-}
-.progress-chart-wrap:before{opacity:.25 !important;}
-@media(max-width:700px){
-  .progress-chart-wrap .progress-chart{width:68% !important;max-width:68% !important;}
-  .progress-cliff-scene{width:40% !important;}
-}
-</style>
 </head><body><div class="app">
 <section id="auth">
   <div class="auth-scene">
@@ -1139,7 +1102,7 @@ const rewardCardMap={};
 let rewardState=null;
 function rewardCardHtml(c,locked=false){return `<div class="reward-card ${locked?'locked':''}" data-card="${c.id}"><img src="${c.image}" alt="${c.label}"><div class="reward-card-name">${c.label}</div></div>`}
 function progressChartHtml(sessions,threshold=45){
- let rows=(sessions||[]).slice(-8), W=820,H=330,L=54,R=70,T=42,B=42, max=50;
+ let rows=(sessions||[]).slice(-8), W=820,H=330,L=54,R=220,T=42,B=42, max=50;
  if(!rows.length)return `<div class="progress-chart-wrap"><div class="progress-chart-title">Mon score</div><div class="progress-empty">Fais ton premier test pour commencer ! 🌱</div><div class="progress-cliff-scene" aria-hidden="true"></div></div>`;
  let x=i=>rows.length===1?(L+(W-R))/2:L+i*((W-L-R)/(rows.length-1)), y=v=>T+(max-Math.max(0,Math.min(max,v)))*(H-T-B)/max;
  let grid=[0,10,20,30,40,45,50].map(v=>`<line x1="${L}" y1="${y(v)}" x2="${W-R}" y2="${y(v)}" stroke="${v===45?'#2da354':'#bfd5df'}" stroke-width="${v===45?3.5:1}" ${v===45?'stroke-dasharray="9 7"':''}/><text x="${L-14}" y="${y(v)+4}" text-anchor="end" font-size="13" font-weight="${v===45?950:750}" fill="${v===45?'#218545':'#637d8d'}">${v}</text>`).join('');
@@ -1281,9 +1244,9 @@ document.addEventListener('touchend',e=>{
     linear-gradient(195deg,transparent 0 44%,rgba(78,145,179,.12) 44.2% 57%,transparent 57.2%),
     linear-gradient(to bottom,#8ed8f7 0%,#c8efff 48%,#e9f7e4 69%,#afd59b 100%);
 }
-.progress-chart-wrap:before{opacity:.38}
-.progress-chart-wrap:after{background:linear-gradient(90deg,rgba(255,255,255,.28) 0%,rgba(255,255,255,.18) 52%,rgba(255,255,255,.06) 68%,rgba(255,255,255,0) 84%)}
+.progress-chart-wrap:before{opacity:.62}
+.progress-chart-wrap:after{background:linear-gradient(90deg,rgba(255,255,255,.52) 0%,rgba(255,255,255,.36) 58%,rgba(255,255,255,.12) 72%,rgba(255,255,255,0) 84%)}
 @media(max-width:700px){
-  .progress-cliff-scene{width:42%}
+  .progress-cliff-scene{width:36%}
 }
 </style>
