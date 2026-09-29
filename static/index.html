@@ -827,12 +827,11 @@ input,select{background:#fffdf7;border:2px solid #9bd8f5;}
 <section id="stats" class="hidden card"><div class="top"><h2>Statistiques</h2><button class="back">Retour</button></div><div id="statsContent"></div></section>
 <section id="celebration" class="hidden card celebration celebration-playful"><div class="confetti">★ &nbsp; ● &nbsp; ★ &nbsp; ● &nbsp; ★</div><h2>Test terminé !</h2><div class="celebration-main"><div class="celebration-visual"><img class="bravo-dog" src="dog-bravo.png" alt="Petit chien joyeux qui fête la fin du test"><p>Tu as fait de super efforts !</p></div><div class="celebration-rewards"><div id="coinAward" class="daily-bonus-block answer-reward-block"><div class="daily-bonus-label"><span id="answerRewardLabel">0 question réussie</span><span class="daily-bonus-coins"><span class="gold-coin"></span> +<b id="earnedNow">0</b></span></div><div class="daily-bonus-meter"><div id="coinMeterFill" class="daily-bonus-fill"></div></div></div><div id="dailyBonusBlock" class="daily-bonus-block hidden"><div class="daily-bonus-label"><span>✓ Défi quotidien effectué</span><span class="daily-bonus-coins"><span class="gold-coin"></span> +<b id="dailyBonusNow">0</b></span></div><div class="daily-bonus-meter"><div id="dailyBonusFill" class="daily-bonus-fill"></div></div></div><div id="starBonusBlock" class="daily-bonus-block hidden"><div class="daily-bonus-label"><span>⭐ Étoile gagnée</span><span class="daily-bonus-coins"><span class="gold-coin"></span> +<b id="starBonusNow">0</b></span></div><div class="daily-bonus-meter"><div id="starBonusFill" class="daily-bonus-fill"></div></div></div><div id="levelBonusBlock" class="daily-bonus-block hidden"><div class="daily-bonus-label"><span>✓ Niveau validé</span><span class="daily-bonus-coins"><span class="gold-coin"></span> +<b id="levelBonusNow">0</b></span></div><div class="daily-bonus-meter"><div id="levelBonusFill" class="daily-bonus-fill"></div></div></div></div></div><div class="celebration-actions"><button id="celebrationHome" class="primary">⌂ Retour à l’accueil</button></div></section>
 <section id="recordVictory" class="hidden card record-victory">
-  <h2>Nouveau record !</h2>
-  <p class="record-victory-message">Bravo ! Sur le Défi <strong id="recordVictoryLevelText">4</strong> <span id="recordVictoryMedal" class="record-victory-medal">4</span>, tu as un nouveau record de <strong id="recordVictoryScore">0</strong> !</p>
-  <div class="record-victory-art">
-    <img class="record-victory-animals" src="level-victory-animals.png" alt="Animaux qui applaudissent">
-    <img class="record-victory-panda" src="red-panda-explorer-hat.png" alt="Mascotte panda roux qui fête le record">
+  <div class="record-victory-header">
+    <h2>Nouveau record !</h2>
+    <p class="record-victory-message">Bravo ! Sur le Défi <strong id="recordVictoryLevelText">4</strong> <span id="recordVictoryMedal" class="record-victory-medal">4</span>, tu as un nouveau record de <strong id="recordVictoryScore">0</strong> !</p>
   </div>
+  <img class="record-victory-animals" src="record-victory-asia.png" alt="Panda roux et animaux d’Asie qui applaudissent">
   <div class="record-victory-actions"><button id="recordVictoryBack" class="primary">Continuer</button></div>
 </section>
 <section id="levelVictory" class="hidden card level-victory">
@@ -1419,4 +1418,18 @@ document.addEventListener('touchend',e=>{
 @media (hover:none) and (pointer:coarse) and (max-width:480px) and (max-height:760px){
   .keypad .ok{height:108px!important;min-height:108px!important;font-size:29px!important;}
 }
+</style>
+
+<style>
+/* v222 — victoire record : même principe que la victoire de niveau, texte dynamique séparé de l’illustration */
+#recordVictory.record-victory{position:relative!important;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;width:min(980px,96vw);min-height:0!important;max-height:94dvh;margin:0 auto;padding:16px 18px 18px!important;overflow-y:auto!important;background:linear-gradient(180deg,#e8f8ff 0%,#f7fcff 100%);border-radius:28px;box-sizing:border-box;text-align:center}
+#recordVictory.hidden{display:none!important}
+.record-victory-header{position:relative;z-index:2;width:100%;padding:2px 12px 10px;text-align:center}
+.record-victory h2{margin:0;color:#0b397d;font-size:clamp(42px,7vw,68px);line-height:1}
+.record-victory-message{margin:8px auto 7px;color:#164b70;font-size:clamp(20px,3vw,30px);font-weight:800;line-height:1.2}
+.record-victory-medal{display:inline-flex;align-items:center;justify-content:center;width:64px;height:64px;margin:0 7px;border-radius:50%;vertical-align:middle;background:var(--record-medal,#3189dc);border:4px solid rgba(0,0,0,.12);box-shadow:0 5px 0 rgba(0,0,0,.16),inset 0 0 0 2px rgba(255,255,255,.3);color:#fff;font-size:32px;font-weight:950}
+.record-victory-animals{display:block;width:min(900px,100%);height:auto;max-height:60dvh;object-fit:contain;border-radius:22px}
+.record-victory-actions{width:100%;padding-top:10px;text-align:center}
+#recordVictoryBack{display:block;min-width:180px;margin:0 auto;background:linear-gradient(#27c76a,#0ba34b);border-color:#07873d;box-shadow:0 4px 0 #067335;color:#fff}
+@media(max-width:600px){#recordVictory.record-victory{padding:10px 12px 12px!important}.record-victory-header{padding:0 4px 6px}.record-victory h2{font-size:36px}.record-victory-message{font-size:19px}.record-victory-medal{width:52px;height:52px;font-size:27px}.record-victory-animals{max-height:56dvh}}
 </style>

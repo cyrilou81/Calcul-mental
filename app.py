@@ -1191,7 +1191,7 @@ def finish(sid):
     if s['mode']=='challenge':
         record_score=c.execute("SELECT COUNT(*) n FROM questions WHERE session_id=? AND status='CORRECT'",(sid,)).fetchone()['n']
         # Record du même niveau de Défi uniquement, en excluant la séance qui vient de finir.
-        # La condition > 15 évite une animation de record pour les tout petits scores.
+        # Un record est célébré à partir de 15 bonnes réponses incluses.
         previous_attempts=c.execute("""SELECT COUNT(*) n FROM sessions ss
             WHERE ss.profile_id=? AND ss.mode='challenge' AND ss.challenge_level_id=?
               AND ss.rewarded=1 AND ss.id<>?
@@ -1205,8 +1205,8 @@ def finish(sid):
         )""",(s['profile_id'],s['challenge_level_id'],sid)).fetchone()
         previous_record=int((prev['best'] if prev else 0) or 0)
         # La toute première partie d'un niveau établit la référence : elle ne peut jamais être un « nouveau record ».
-        # À partir de la deuxième partie : score > 15 ET strictement supérieur au meilleur score précédent.
-        new_record=previous_attempts>0 and record_score>15 and record_score>previous_record
+        # À partir de la deuxième partie : score >= 15 ET strictement supérieur au meilleur score précédent.
+        new_record=previous_attempts>0 and record_score>=15 and record_score>previous_record
         rr=c.execute('SELECT position,school_class FROM challenge_levels WHERE id=?',(s['challenge_level_id'],)).fetchone() if s['challenge_level_id'] else None
         record_level_position=rr['position'] if rr else 1
         if rr:
