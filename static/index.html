@@ -21,6 +21,10 @@ button.primary,.home .side button{background:linear-gradient(#38b5ff,#168fd9);bo
 .keypad .ok{background:linear-gradient(#35b4ff,#168fd9);color:#fff;border-color:#147fc1;box-shadow:0 4px 0 #116da5;}
 .keypad .erase{background:linear-gradient(#ffe3a1,#ffc85a);color:#5b4300;border-color:#e6a62a;box-shadow:0 4px 0 #c98b16;}
 .keypad .erase:hover{background:linear-gradient(#ffe9b8,#ffd374);}
+/* Validation button: same width, double height, green. */
+.keypad .ok{height:clamp(116px,18vh,164px)!important;background:linear-gradient(#2fca72,#159a4f)!important;color:#fff!important;border-color:#128442!important;box-shadow:0 4px 0 #0d6e36!important;}
+.keypad .ok:hover{background:linear-gradient(#3bd27d,#18a958)!important;}
+@media(max-height:700px){.keypad .ok{height:96px!important;}}
 .stat,.cat-stat,.trend-wrap{background:rgba(255,255,255,.88);border:2px solid rgba(135,207,239,.55);}
 #config,#stats{background:rgba(255,255,255,.84);}
 input,select{background:#fffdf7;border:2px solid #9bd8f5;}
