@@ -93,24 +93,24 @@ def init_db():
 DEFAULT={
  'duration':300,'count':50,
  'categories':{
-  'double':{'enabled':True,'pct':15,'min':1,'max':9,'doubleMode':'non_tens','tensValues':[10,20,30,40,50,60,70,80,90,100],'display':'both'},
-  'half':{'enabled':False,'pct':0,'min':2,'max':10,'halfMode':'non_tens','tensValues':[10,20,30,40,50,60,70,80,90,100]},
-  'addition':{'enabled':True,'pct':20,'aMin':1,'aMax':10,'bMin':1,'bMax':10,'maxResult':100,'withCarry':True},
-  'subtraction':{'enabled':True,'pct':15,'aMin':1,'aMax':10,'bMin':1,'bMax':10,'nonNegative':True,'withCarry':True},
-  'decimal':{'enabled':False,'pct':0,'min':0,'max':20,'decimals':1,'withCarry':True},
-  'multiplication':{'enabled':True,'pct':15,'tables':[2,3],'factorMin':1,'factorMax':9},
-  'division':{'enabled':True,'pct':10,'tables':[2,3,4],'quotientMin':1,'quotientMax':10},
-  'complement_tens':{'enabled':False,'pct':0,'targets':[10,20,30,40,50,60,70,80,90,100,1000],'gapMin':5,'gapMax':20},
-  'place_value':{'enabled':False,'pct':0,'places':['u'],'absenceProbability':50},
-  'addition3':{'enabled':False,'pct':0,'maxResult':27},
-  'multiple_of':{'enabled':False,'pct':0,'min':1,'max':10,'factors':[3,4]},
-  'fraction':{'enabled':False,'pct':0,'min':1,'max':10,'divisors':[3,4]},
-  'tens':{'enabled':True,'pct':15,'startMin':10,'startMax':99,'mode':'10','multiples':[10,20,30,40,50,60,70,80,90],'maxResult':100,'withCarry':True},
-  'round_tens_add':{'enabled':False,'pct':0,'aMin':10,'aMax':90,'secondMode':'non_tens','bMin':1,'bMax':9,'bTensValues':[10,20,30,40,50,60,70,80,90,100],'maxResult':100},
-  'tens_sub':{'enabled':False,'pct':0,'startMin':20,'startMax':100,'mode':'10','multiples':[10,20,30,40,50,60,70,80,90],'nonNegative':True,'withCarry':True},
-  'decimal_sub':{'enabled':False,'pct':0,'min':0,'max':20,'decimals':1,'withBorrow':True},
-  'decimal_multiplication':{'enabled':False,'pct':0,'multipliers':[10,100,1000],'min':0.1,'max':20,'decimals':1},
-  'decimal_division':{'enabled':False,'pct':0,'divisors':[10,100,1000],'min':1,'max':1000,'decimals':1}
+  'double':{'enabled':True,'weight':3,'min':1,'max':9,'doubleMode':'non_tens','tensValues':[10,20,30,40,50,60,70,80,90,100],'display':'both'},
+  'half':{'enabled':False,'weight':3,'min':2,'max':10,'halfMode':'non_tens','tensValues':[10,20,30,40,50,60,70,80,90,100]},
+  'addition':{'enabled':True,'weight':4,'aMin':1,'aMax':10,'bMin':1,'bMax':10,'maxResult':100,'withCarry':True},
+  'subtraction':{'enabled':True,'weight':3,'aMin':1,'aMax':10,'bMin':1,'bMax':10,'nonNegative':True,'withCarry':True},
+  'decimal':{'enabled':False,'weight':3,'min':0,'max':20,'decimals':1,'withCarry':True},
+  'multiplication':{'enabled':True,'weight':3,'tables':[2,3],'factorMin':1,'factorMax':9},
+  'division':{'enabled':True,'weight':2,'tables':[2,3,4],'quotientMin':1,'quotientMax':10},
+  'complement_tens':{'enabled':False,'weight':3,'targets':[10,20,30,40,50,60,70,80,90,100,1000],'gapMin':5,'gapMax':20},
+  'place_value':{'enabled':False,'weight':3,'places':['u'],'absenceProbability':50},
+  'addition3':{'enabled':False,'weight':3,'maxResult':27},
+  'multiple_of':{'enabled':False,'weight':3,'min':1,'max':10,'factors':[3,4]},
+  'fraction':{'enabled':False,'weight':3,'min':1,'max':10,'divisors':[3,4]},
+  'tens':{'enabled':True,'weight':3,'startMin':10,'startMax':99,'mode':'10','multiples':[10,20,30,40,50,60,70,80,90],'maxResult':100,'withCarry':True},
+  'round_tens_add':{'enabled':False,'weight':3,'aMin':10,'aMax':90,'secondMode':'non_tens','bMin':1,'bMax':9,'bTensValues':[10,20,30,40,50,60,70,80,90,100],'maxResult':100},
+  'tens_sub':{'enabled':False,'weight':3,'startMin':20,'startMax':100,'mode':'10','multiples':[10,20,30,40,50,60,70,80,90],'nonNegative':True,'withCarry':True},
+  'decimal_sub':{'enabled':False,'weight':3,'min':0,'max':20,'decimals':1,'withBorrow':True},
+  'decimal_multiplication':{'enabled':False,'weight':3,'multipliers':[10,100,1000],'min':0.1,'max':20,'decimals':1},
+  'decimal_division':{'enabled':False,'weight':3,'divisors':[10,100,1000],'min':1,'max':1000,'decimals':1}
  }}
 
 # Défis centralisés : 5 paliers par classe.
@@ -124,10 +124,10 @@ def seed_challenge_cfg(school_class, level):
     cfg['duration']=300
     cfg['count']=50
     for v in cfg['categories'].values():
-        v['enabled']=False; v['pct']=0
+        v['enabled']=False
 
-    def on(kind,pct,**kw):
-        v=cfg['categories'][kind]; v.update(kw); v['enabled']=True; v['pct']=pct
+    def on(kind,weight,**kw):
+        v=cfg['categories'][kind]; v.update(kw); v['enabled']=True; v['weight']=weight
 
     # Ces 25 templates constituent une première progression centrale facilement
     # ajustable ensuite sans modifier l'interface.
@@ -208,55 +208,12 @@ def seed_challenge_cfg(school_class, level):
     return cfg
 
 def merged_cfg(saved):
+    """Fusionne uniquement les catégories actuellement supportées."""
     cfg=copy.deepcopy(DEFAULT)
     cfg.update({k:v for k,v in (saved or {}).items() if k!='categories'})
-    saved_cats=(saved or {}).get('categories',{})
-    for kind, values in saved_cats.items():
-        if kind in cfg['categories'] and isinstance(values,dict): cfg['categories'][kind].update(values)
-        elif kind not in ('triple','quadruple','third','quarter','complement10','double_tens','half_tens'): cfg['categories'][kind]=values
-    # Migration des anciennes configs/niveaux qui utilisaient encore `complement10`.
-    # La catégorie a été absorbée par `complement_tens` (cible 10).
-    old_c10=saved_cats.get('complement10')
-    if isinstance(old_c10,dict) and old_c10.get('enabled'):
-        # Si le nouveau complément n'était pas explicitement configuré, on reprend l'ancien.
-        if 'complement_tens' not in saved_cats:
-            v=cfg['categories']['complement_tens']
-            v.update({'enabled':True,'targets':[10],'gapMin':1,'gapMax':9,
-                      'pct':int(old_c10.get('pct',0) or 0)})
-            if old_c10.get('weight') is not None:
-                v['weight']=old_c10.get('weight')
-        # Si les deux existent, l'ancien identifiant est simplement ignoré : la nouvelle config prime.
-    # Migration V179 : « Double de dizaines » est absorbé par « Doubles ».
-    old_dt=saved_cats.get('double_tens')
-    if isinstance(old_dt,dict) and old_dt.get('enabled'):
-        d=cfg['categories']['double']
-        if not saved_cats.get('double',{}).get('enabled'):
-            lo=max(10,int(old_dt.get('min',10))); hi=max(lo,int(old_dt.get('max',100)))
-            d.update({'enabled':True,'doubleMode':'tens','tensValues':[n for n in range(10,101,10) if lo<=n<=hi],
-                      'weight':old_dt.get('weight',3),'pct':old_dt.get('pct',0)})
-        else:
-            d['doubleMode']='both'
-            existing=[int(x) for x in d.get('tensValues',[])]
-            lo=max(10,int(old_dt.get('min',10))); hi=max(lo,int(old_dt.get('max',100)))
-            d['tensValues']=list(dict.fromkeys(existing+[n for n in range(10,101,10) if lo<=n<=hi]))
-    # Migration transparente V159 -> V160 : les quatre anciennes catégories
-    # deviennent deux catégories configurables sans perdre les réglages existants.
-    if 'multiple_of' not in saved_cats:
-        old_mult=[(k,saved_cats.get(k)) for k in ('triple','quadruple') if isinstance(saved_cats.get(k),dict)]
-        enabled=[(k,v) for k,v in old_mult if v.get('enabled')]
-        if enabled:
-            base=enabled[0][1]; v=cfg['categories']['multiple_of']
-            v.update({'enabled':True,'pct':sum(int(x.get('pct',0) or 0) for _,x in enabled),
-                      'min':base.get('min',1),'max':base.get('max',10),
-                      'factors':[3 if k=='triple' else 4 for k,_ in enabled]})
-    if 'fraction' not in saved_cats:
-        old_frac=[(k,saved_cats.get(k)) for k in ('third','quarter') if isinstance(saved_cats.get(k),dict)]
-        enabled=[(k,v) for k,v in old_frac if v.get('enabled')]
-        if enabled:
-            base=enabled[0][1]; v=cfg['categories']['fraction']
-            v.update({'enabled':True,'pct':sum(int(x.get('pct',0) or 0) for _,x in enabled),
-                      'min':base.get('min',1),'max':base.get('max',10),
-                      'divisors':[3 if k=='third' else 4 for k,_ in enabled]})
+    for kind,values in (saved or {}).get('categories',{}).items():
+        if kind in cfg['categories'] and isinstance(values,dict):
+            cfg['categories'][kind].update(values)
     return cfg
 
 def get_cfg(pid):
@@ -264,34 +221,12 @@ def get_cfg(pid):
     return merged_cfg(json.loads(r['data'])) if r else copy.deepcopy(DEFAULT)
 
 def normalize_category_weights(cats):
-    """Les points de fréquence (weight 1..5) sont la source de vérité.
-    pct n'est qu'une valeur dérivée, conservée pour compatibilité avec les anciennes configs.
-    """
-    active=[(k,v) for k,v in cats.items() if v.get('enabled')]
-    if not active:
-        return cats
-    weights=[]
-    for k,v in active:
-        try: w=int(v.get('weight') or 0)
-        except (TypeError,ValueError): w=0
-        if w < 1 or w > 5:
-            # Migration des anciennes configs basées sur pct.
-            try: p=max(0,float(v.get('pct',0) or 0))
-            except (TypeError,ValueError): p=0
-            w=max(1,min(5,int(p/20 + 0.5))) if p else 3
-        v['weight']=w
-        weights.append((k,v,w))
-    total=sum(w for _,_,w in weights)
-    parts=[]; used=0
-    for k,v,w in weights:
-        exact=100*w/total; base=int(exact)
-        parts.append([k,v,base,exact-base]); used+=base
-    parts.sort(key=lambda x:x[3],reverse=True)
-    for i in range(100-used):
-        parts[i%len(parts)][2]+=1
-    for k,v,p,_ in parts: v['pct']=p
+    """Garantit simplement un poids positif aux catégories actives."""
     for v in cats.values():
-        if not v.get('enabled'): v['pct']=0
+        if v.get('enabled'):
+            try: w=int(v.get('weight',3))
+            except (TypeError,ValueError): w=3
+            v['weight']=max(1,w)
     return cats
 
 def allocate(n,cats):
@@ -309,7 +244,7 @@ def allocate(n,cats):
 
 def gen(kind,cfg):
     if kind=='double':
-        value_mode=cfg.get('doubleMode') or ('tens' if cfg.get('_legacyDoubleTens') else 'non_tens')
+        value_mode=cfg.get('doubleMode','non_tens')
         lo=int(cfg.get('min',1)); hi=int(cfg.get('max',9))
         if lo>hi: lo,hi=hi,lo
         choices=[]
@@ -878,7 +813,7 @@ def admin_level_create():
     if school not in CLASSES or not name:return {'error':'Classe et nom requis.'},400
     c=db(); pos=c.execute('SELECT COALESCE(MAX(position),0)+1 n FROM challenge_levels WHERE school_class=?',(school,)).fetchone()['n']
     cfg=copy.deepcopy(DEFAULT)
-    for v in cfg['categories'].values():v['enabled']=False;v['pct']=0
+    for v in cfg['categories'].values():v['enabled']=False
     if source:
         r=c.execute('SELECT data FROM challenge_levels WHERE id=?',(int(source),)).fetchone()
         if r:cfg=merged_cfg(json.loads(r['data']))
@@ -1079,7 +1014,7 @@ def start(pid):
     else:
         cfg=get_cfg(pid)
     # Valide et normalise aussi au démarrage : les anciennes configs sauvegardées
-    # (pct/weight, catégories migrées) ne doivent jamais bloquer silencieusement une séance.
+    # Les poids de fréquence ne doivent jamais bloquer silencieusement une séance.
     try:
         cfg=validate_cfg_data(cfg)
     except (ValueError,TypeError,KeyError) as ex:
