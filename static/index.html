@@ -1166,7 +1166,7 @@ document.addEventListener('touchend',e=>{
 
 </script></body></html>
 <style>
-/* v198 — mise en page du test adaptée aux petits écrans (notamment iPhone).
+/* v199 — mise en page du test adaptée aux petits écrans (notamment iPhone).
    On ne décale plus artificiellement toute la zone : le clavier se place juste
    sous la question et ses dimensions se resserrent selon la hauteur disponible. */
 @media (max-width:700px){
@@ -1176,7 +1176,7 @@ document.addEventListener('touchend',e=>{
   .question-zone{
     justify-content:flex-start;
     transform:none;
-    padding:8px 0 0;
+    padding:clamp(18px,3dvh,28px) 0 0;
     gap:clamp(7px,1.15dvh,11px);
   }
   .question{font-size:clamp(42px,12vw,58px);line-height:1;}
@@ -1186,8 +1186,8 @@ document.addEventListener('touchend',e=>{
     gap:clamp(7px,1.1dvh,10px);
   }
   .keypad button{
-    height:clamp(50px,7.6dvh,68px);
-    font-size:clamp(23px,3.8dvh,30px);
+    height:clamp(56px,8.5dvh,76px);
+    font-size:clamp(25px,4.2dvh,33px);
   }
   .keypad .ok{
     height:clamp(75px,11.4dvh,102px)!important;
@@ -1195,10 +1195,10 @@ document.addEventListener('touchend',e=>{
 }
 @media (max-width:700px) and (max-height:700px){
   .exercise-head{min-height:82px;}
-  .question-zone{padding-top:4px;gap:6px;}
+  .question-zone{padding-top:10px;gap:6px;}
   .question{font-size:clamp(38px,11vw,52px);}
   .keypad{gap:6px;}
-  .keypad button{height:48px;}
+  .keypad button{height:53px;font-size:25px;}
   .keypad .ok{height:72px!important;}
 }
 </style>
