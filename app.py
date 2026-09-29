@@ -1183,8 +1183,37 @@ def finish(sid):
     next_class=None
     completed_color=None
     next_color=None
+    new_record=False
+    previous_record=0
+    record_score=0
+    record_level_position=None
+    record_level_color=None
+    if s['mode']=='challenge':
+        record_score=c.execute("SELECT COUNT(*) n FROM questions WHERE session_id=? AND status='CORRECT'",(sid,)).fetchone()['n']
+        # Record du même niveau de Défi uniquement, en excluant la séance qui vient de finir.
+        # La condition > 15 évite une animation de record pour les tout petits scores.
+        previous_attempts=c.execute("""SELECT COUNT(*) n FROM sessions ss
+            WHERE ss.profile_id=? AND ss.mode='challenge' AND ss.challenge_level_id=?
+              AND ss.rewarded=1 AND ss.id<>?
+        """,(s['profile_id'],s['challenge_level_id'],sid)).fetchone()['n']
+        prev=c.execute("""SELECT MAX(score) best FROM (
+            SELECT ss.id, COUNT(CASE WHEN q.status='CORRECT' THEN 1 END) score
+            FROM sessions ss LEFT JOIN questions q ON q.session_id=ss.id
+            WHERE ss.profile_id=? AND ss.mode='challenge' AND ss.challenge_level_id=?
+              AND ss.rewarded=1 AND ss.id<>?
+            GROUP BY ss.id
+        )""",(s['profile_id'],s['challenge_level_id'],sid)).fetchone()
+        previous_record=int((prev['best'] if prev else 0) or 0)
+        # La toute première partie d'un niveau établit la référence : elle ne peut jamais être un « nouveau record ».
+        # À partir de la deuxième partie : score > 15 ET strictement supérieur au meilleur score précédent.
+        new_record=previous_attempts>0 and record_score>15 and record_score>previous_record
+        rr=c.execute('SELECT position,school_class FROM challenge_levels WHERE id=?',(s['challenge_level_id'],)).fetchone() if s['challenge_level_id'] else None
+        record_level_position=rr['position'] if rr else 1
+        if rr:
+            rc=c.execute('SELECT color FROM class_settings WHERE school_class=?',(rr['school_class'],)).fetchone()
+            record_level_color=rc['color'] if rc else '#3189dc'
     if s['mode']=='challenge' and not s['star_awarded']:
-        correct=c.execute("SELECT COUNT(*) n FROM questions WHERE session_id=? AND status='CORRECT'",(sid,)).fetchone()['n']
+        correct=record_score
         p=c.execute('SELECT school_class,challenge_level_id,challenge_stars FROM profiles WHERE id=?',(s['profile_id'],)).fetchone()
         current_row=c.execute('SELECT id,school_class,name,position,data FROM challenge_levels WHERE id=?',(s['challenge_level_id'],)).fetchone() if s['challenge_level_id'] else None
         same_level=(p['challenge_level_id']==s['challenge_level_id'])
@@ -1220,7 +1249,7 @@ def finish(sid):
     if s['mode']=='challenge' and pstate['challenge_level_id'] and pstate['challenge_level_id']!=s['challenge_level_id']:
         nr=c.execute('SELECT name FROM challenge_levels WHERE id=?',(pstate['challenge_level_id'],)).fetchone()
         promoted_level_name=nr['name'] if nr else 'Niveau suivant'
-    c.commit(); c.close(); return {'ok':True,'coinsEarned':earned,'dailyBonus':daily_bonus,'starBonus':star_bonus,'levelBonus':level_bonus,'balance':balance,'starAwarded':star_awarded,'levelUnlocked':bool(promoted_level_name),'unlockedLevelName':promoted_level_name,'classCompleted':class_completed,'completedClass':completed_class,'nextClass':next_class,'completedColor':completed_color,'nextColor':next_color,'completedColorName':color_name_fr(completed_color) if completed_color else None,'nextColorName':color_name_fr(next_color) if next_color else None,'challenge':{'level':current_level_position,'stars':pstate['challenge_stars']}}
+    c.commit(); c.close(); return {'ok':True,'coinsEarned':earned,'dailyBonus':daily_bonus,'starBonus':star_bonus,'levelBonus':level_bonus,'balance':balance,'starAwarded':star_awarded,'levelUnlocked':bool(promoted_level_name),'unlockedLevelName':promoted_level_name,'classCompleted':class_completed,'completedClass':completed_class,'nextClass':next_class,'completedColor':completed_color,'nextColor':next_color,'completedColorName':color_name_fr(completed_color) if completed_color else None,'nextColorName':color_name_fr(next_color) if next_color else None,'newRecord':new_record,'recordScore':record_score,'previousRecord':previous_record,'recordLevel':record_level_position,'recordColor':record_level_color,'challenge':{'level':current_level_position,'stars':pstate['challenge_stars']}}
 
 @app.get('/api/rewards/<int:pid>')
 def rewards(pid):
