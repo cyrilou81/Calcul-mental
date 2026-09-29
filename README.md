@@ -31,3 +31,10 @@ Le code ne conserve pas de compatibilité avec les anciennes catégories ou l'an
 - Admin : export de tous les niveaux en JSON (configuration, ordre, état actif et couleurs de classe).
 - Admin : import/restauration d'un export ; le fichier est validé intégralement avant de remplacer les niveaux actuels.
 - Les données utilisateurs, séances et récompenses ne font pas partie de l'export.
+
+
+## V195
+- Suppression de la migration V180 de `round_tens_add`.
+- Suppression du comportement de création de compte hérité de V28.
+- Les deux grandes images intégrées en base64 ont été sorties de `index.html` vers des fichiers PNG statiques.
+- Suppression des commentaires CSS historiques numérotés, sans modifier les règles CSS.

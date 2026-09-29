@@ -455,12 +455,8 @@ def auth_register():
     if (err:=password_error(password)): return {'error':err},400
     c=db()
     try:
-        count=c.execute('SELECT COUNT(*) n FROM accounts').fetchone()['n']
-        # Le premier compte créé récupère les profils historiques de la base V28 et antérieures.
-        if count==0:
-            c.execute('INSERT INTO accounts(id,username,password_hash) VALUES(1,?,?)',(username,generate_password_hash(password))); aid=1
-        else:
-            cur=c.execute('INSERT INTO accounts(username,password_hash) VALUES(?,?)',(username,generate_password_hash(password))); aid=cur.lastrowid
+        cur=c.execute('INSERT INTO accounts(username,password_hash) VALUES(?,?)',(username,generate_password_hash(password)))
+        aid=cur.lastrowid
         c.commit()
     except sqlite3.IntegrityError:
         c.close(); return {'error':'Cet identifiant existe déjà.'},409
@@ -623,10 +619,6 @@ def validate_cfg_data(data):
             raise ValueError('Aucune moitié hors dizaine possible dans cette plage.')
     if cats.get('round_tens_add',{}).get('enabled'):
         rta=cats['round_tens_add']
-        # Migration V180: old checked first-term tens -> equivalent min/max range.
-        old_tens=[int(x) for x in rta.get('tens',[]) if int(x) in (10,20,30,40,50,60,70,80,90)]
-        if 'aMin' not in rta and old_tens: rta['aMin']=min(old_tens)
-        if 'aMax' not in rta and old_tens: rta['aMax']=max(old_tens)
         rta['aMin']=int(rta.get('aMin',10)); rta['aMax']=int(rta.get('aMax',90))
         if rta['aMin']>rta['aMax']: raise ValueError('La plage du premier terme est invalide.')
         if not any(x%10==0 for x in range(rta['aMin'],rta['aMax']+1)):
