@@ -23,71 +23,47 @@ def db():
     c=sqlite3.connect(DB); c.row_factory=sqlite3.Row; return c
 
 def init_db():
-    c=db(); c.executescript('''
-    CREATE TABLE IF NOT EXISTS accounts(id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT NOT NULL UNIQUE COLLATE NOCASE, password_hash TEXT NOT NULL, created_at TEXT DEFAULT CURRENT_TIMESTAMP);
-    CREATE TABLE IF NOT EXISTS profiles(id INTEGER PRIMARY KEY AUTOINCREMENT,name TEXT NOT NULL UNIQUE,created_at TEXT DEFAULT CURRENT_TIMESTAMP);
-    CREATE TABLE IF NOT EXISTS configs(profile_id INTEGER PRIMARY KEY, data TEXT NOT NULL, FOREIGN KEY(profile_id) REFERENCES profiles(id));
-    CREATE TABLE IF NOT EXISTS sessions(id INTEGER PRIMARY KEY AUTOINCREMENT,profile_id INTEGER NOT NULL,started_at TEXT DEFAULT CURRENT_TIMESTAMP,active_ms INTEGER NOT NULL DEFAULT 0, FOREIGN KEY(profile_id) REFERENCES profiles(id));
-    CREATE TABLE IF NOT EXISTS questions(id INTEGER PRIMARY KEY AUTOINCREMENT,session_id INTEGER NOT NULL,position INTEGER NOT NULL,kind TEXT NOT NULL,payload TEXT NOT NULL,display TEXT NOT NULL,expected INTEGER NOT NULL,given_answer INTEGER,status TEXT NOT NULL,response_ms INTEGER,source TEXT NOT NULL,retry_from INTEGER,attempts INTEGER NOT NULL DEFAULT 0,had_error INTEGER NOT NULL DEFAULT 0, FOREIGN KEY(session_id) REFERENCES sessions(id));
-    ''')
-    cols={r['name'] for r in c.execute('PRAGMA table_info(questions)')}
-    if 'attempts' not in cols: c.execute('ALTER TABLE questions ADD COLUMN attempts INTEGER NOT NULL DEFAULT 0')
-    if 'had_error' not in cols: c.execute('ALTER TABLE questions ADD COLUMN had_error INTEGER NOT NULL DEFAULT 0')
-    if 'first_wrong_answer' not in cols: c.execute('ALTER TABLE questions ADD COLUMN first_wrong_answer REAL')
-    if 'last_answer' not in cols: c.execute('ALTER TABLE questions ADD COLUMN last_answer REAL')
-    if 'help_used' not in cols: c.execute('ALTER TABLE questions ADD COLUMN help_used INTEGER NOT NULL DEFAULT 0')
-    pcols={r['name'] for r in c.execute('PRAGMA table_info(profiles)')}
-    if 'account_id' not in pcols: c.execute('ALTER TABLE profiles ADD COLUMN account_id INTEGER NOT NULL DEFAULT 1')
-    if 'color' not in pcols: c.execute("ALTER TABLE profiles ADD COLUMN color TEXT NOT NULL DEFAULT '#8fdff7'")
-    if 'school_class' not in pcols: c.execute("ALTER TABLE profiles ADD COLUMN school_class TEXT NOT NULL DEFAULT ''")
-    if 'coins' not in pcols: c.execute('ALTER TABLE profiles ADD COLUMN coins INTEGER NOT NULL DEFAULT 0')
-    if 'challenge_level' not in pcols: c.execute('ALTER TABLE profiles ADD COLUMN challenge_level INTEGER NOT NULL DEFAULT 1')
-    if 'challenge_stars' not in pcols: c.execute('ALTER TABLE profiles ADD COLUMN challenge_stars INTEGER NOT NULL DEFAULT 0')
-    if 'challenge_level_id' not in pcols: c.execute('ALTER TABLE profiles ADD COLUMN challenge_level_id INTEGER')
-    # V99: l'ancien schéma imposait un nom de profil unique dans toute la base.
-    # On migre vers une unicité par compte : deux comptes peuvent chacun avoir "Paul".
-    profile_sql=c.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name='profiles'").fetchone()['sql']
-    if 'name TEXT NOT NULL UNIQUE' in profile_sql:
-        c.execute('ALTER TABLE profiles RENAME TO profiles_legacy_v99')
-        c.execute('''CREATE TABLE profiles(
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-            account_id INTEGER NOT NULL DEFAULT 1,
-            color TEXT NOT NULL DEFAULT '#8fdff7',
-            school_class TEXT NOT NULL DEFAULT '',
-            coins INTEGER NOT NULL DEFAULT 0,
-            challenge_level INTEGER NOT NULL DEFAULT 1,
-            challenge_stars INTEGER NOT NULL DEFAULT 0,
-            challenge_level_id INTEGER
-        )''')
-        c.execute('''INSERT INTO profiles(id,name,created_at,account_id,color,school_class,coins,challenge_level,challenge_stars,challenge_level_id)
-                     SELECT id,name,created_at,account_id,color,school_class,coins,challenge_level,challenge_stars,challenge_level_id
-                     FROM profiles_legacy_v99''')
-        c.execute('DROP TABLE profiles_legacy_v99')
-    c.execute('CREATE UNIQUE INDEX IF NOT EXISTS ux_profiles_account_name ON profiles(account_id,name COLLATE NOCASE)')
-    # V152: politique de départ des défis (une classe sous la classe réelle).
-    pcols={r['name'] for r in c.execute('PRAGMA table_info(profiles)')}
-    if 'challenge_start_policy' not in pcols: c.execute('ALTER TABLE profiles ADD COLUMN challenge_start_policy INTEGER NOT NULL DEFAULT 0')
-    scols={r['name'] for r in c.execute('PRAGMA table_info(sessions)')}
-    if 'rewarded' not in scols: c.execute('ALTER TABLE sessions ADD COLUMN rewarded INTEGER NOT NULL DEFAULT 0')
-    if 'mode' not in scols: c.execute("ALTER TABLE sessions ADD COLUMN mode TEXT NOT NULL DEFAULT 'learning'")
-    if 'challenge_class' not in scols: c.execute("ALTER TABLE sessions ADD COLUMN challenge_class TEXT")
-    if 'challenge_level' not in scols: c.execute("ALTER TABLE sessions ADD COLUMN challenge_level INTEGER")
-    if 'star_awarded' not in scols: c.execute("ALTER TABLE sessions ADD COLUMN star_awarded INTEGER NOT NULL DEFAULT 0")
-    if 'challenge_day' not in scols: c.execute("ALTER TABLE sessions ADD COLUMN challenge_day TEXT")
-    if 'daily_bonus_awarded' not in scols: c.execute("ALTER TABLE sessions ADD COLUMN daily_bonus_awarded INTEGER NOT NULL DEFAULT 0")
-    if 'challenge_level_id' not in scols: c.execute("ALTER TABLE sessions ADD COLUMN challenge_level_id INTEGER")
-    c.executescript('''
-    CREATE TABLE IF NOT EXISTS reward_progress(profile_id INTEGER PRIMARY KEY, current_card TEXT, revealed TEXT NOT NULL DEFAULT '[]', completed TEXT NOT NULL DEFAULT '[]', FOREIGN KEY(profile_id) REFERENCES profiles(id));
-    CREATE TABLE IF NOT EXISTS challenge_levels(id INTEGER PRIMARY KEY AUTOINCREMENT, school_class TEXT NOT NULL, name TEXT NOT NULL, position INTEGER NOT NULL, data TEXT NOT NULL, UNIQUE(school_class, position));
+    c=db()
+    c.executescript("""
+    CREATE TABLE IF NOT EXISTS accounts(
+        id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT NOT NULL UNIQUE COLLATE NOCASE,
+        password_hash TEXT NOT NULL, created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE TABLE IF NOT EXISTS profiles(
+        id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        account_id INTEGER NOT NULL, color TEXT NOT NULL DEFAULT '#8fdff7', school_class TEXT NOT NULL DEFAULT '',
+        coins INTEGER NOT NULL DEFAULT 0, challenge_stars INTEGER NOT NULL DEFAULT 0, challenge_level_id INTEGER
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS ux_profiles_account_name ON profiles(account_id,name COLLATE NOCASE);
+    CREATE TABLE IF NOT EXISTS configs(
+        profile_id INTEGER PRIMARY KEY, data TEXT NOT NULL, FOREIGN KEY(profile_id) REFERENCES profiles(id)
+    );
+    CREATE TABLE IF NOT EXISTS sessions(
+        id INTEGER PRIMARY KEY AUTOINCREMENT, profile_id INTEGER NOT NULL, started_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        active_ms INTEGER NOT NULL DEFAULT 0, rewarded INTEGER NOT NULL DEFAULT 0, mode TEXT NOT NULL DEFAULT 'learning',
+        challenge_class TEXT, challenge_level_id INTEGER, star_awarded INTEGER NOT NULL DEFAULT 0, challenge_day TEXT,
+        daily_bonus_awarded INTEGER NOT NULL DEFAULT 0, FOREIGN KEY(profile_id) REFERENCES profiles(id)
+    );
+    CREATE TABLE IF NOT EXISTS questions(
+        id INTEGER PRIMARY KEY AUTOINCREMENT, session_id INTEGER NOT NULL, position INTEGER NOT NULL, kind TEXT NOT NULL,
+        payload TEXT NOT NULL, display TEXT NOT NULL, expected REAL NOT NULL, given_answer REAL, status TEXT NOT NULL,
+        response_ms INTEGER, source TEXT NOT NULL, retry_from INTEGER, attempts INTEGER NOT NULL DEFAULT 0,
+        had_error INTEGER NOT NULL DEFAULT 0, first_wrong_answer REAL, last_answer REAL, help_used INTEGER NOT NULL DEFAULT 0,
+        FOREIGN KEY(session_id) REFERENCES sessions(id)
+    );
+    CREATE TABLE IF NOT EXISTS reward_progress(
+        profile_id INTEGER PRIMARY KEY, current_card TEXT, revealed TEXT NOT NULL DEFAULT '[]',
+        completed TEXT NOT NULL DEFAULT '[]', FOREIGN KEY(profile_id) REFERENCES profiles(id)
+    );
+    CREATE TABLE IF NOT EXISTS challenge_levels(
+        id INTEGER PRIMARY KEY AUTOINCREMENT, school_class TEXT NOT NULL, name TEXT NOT NULL, position INTEGER NOT NULL,
+        data TEXT NOT NULL, active INTEGER NOT NULL DEFAULT 1, UNIQUE(school_class, position)
+    );
     CREATE TABLE IF NOT EXISTS class_settings(school_class TEXT PRIMARY KEY, color TEXT NOT NULL);
-    ''')
-    level_cols=[r['name'] for r in c.execute("PRAGMA table_info(challenge_levels)").fetchall()]
-    if 'active' not in level_cols:
-        c.execute("ALTER TABLE challenge_levels ADD COLUMN active INTEGER NOT NULL DEFAULT 1")
+    """)
     class_defaults={'CP':'#ef5350','CE1':'#f5b82e','CE2':'#2fbd68','CM1':'#3189dc','CM2':'#8b4de3'}
-    for school,color in class_defaults.items(): c.execute('INSERT OR IGNORE INTO class_settings(school_class,color) VALUES(?,?)',(school,color))
+    for school,color in class_defaults.items():
+        c.execute('INSERT OR IGNORE INTO class_settings(school_class,color) VALUES(?,?)',(school,color))
     c.commit(); c.close()
 
 DEFAULT={
@@ -576,33 +552,21 @@ def first_level_for(c, school):
 
 def resolve_profile_level(c, profile):
     real_school=(profile['school_class'] or 'CP').upper()
-    keys=profile.keys()
-    level_id=profile['challenge_level_id'] if 'challenge_level_id' in keys else None
+    level_id=profile['challenge_level_id']
     row=c.execute('SELECT id,school_class,name,position,data FROM challenge_levels WHERE id=? AND active=1',(level_id,)).fetchone() if level_id else None
     if row is None:
         challenge_school=initial_challenge_school(real_school)
-        levels=challenge_levels_for(c,challenge_school)
-        if not levels:
+        row=first_level_for(c,challenge_school)
+        if row is None:
             return challenge_school,None,1,'Niveau 1'
-        legacy=max(1,int(profile['challenge_level'] or 1)) if 'challenge_level' in keys else 1
-        row=levels[min(legacy-1,len(levels)-1)]
     return row['school_class'],row,row['position'],row['name']
 
-def ensure_challenge_start_policy(c,pid):
-    p=c.execute('SELECT id,school_class,challenge_start_policy FROM profiles WHERE id=?',(pid,)).fetchone()
-    if not p or p['challenge_start_policy']: return
-    school=initial_challenge_school(p['school_class'])
-    first=first_level_for(c,school)
-    c.execute('UPDATE profiles SET challenge_level=1,challenge_level_id=?,challenge_stars=0,challenge_start_policy=1 WHERE id=?',
-              (first['id'] if first else None,pid))
-
 def sync_profile_level(c, pid):
-    ensure_challenge_start_policy(c,pid)
-    p=c.execute('SELECT id,school_class,challenge_level,challenge_level_id FROM profiles WHERE id=?',(pid,)).fetchone()
+    p=c.execute('SELECT id,school_class,challenge_level_id FROM profiles WHERE id=?',(pid,)).fetchone()
     if not p: return None
-    school,row,pos,name=resolve_profile_level(c,p)
-    if row and (p['challenge_level_id']!=row['id'] or p['challenge_level']!=pos):
-        c.execute('UPDATE profiles SET challenge_level_id=?,challenge_level=? WHERE id=?',(row['id'],pos,pid))
+    _,row,_,_=resolve_profile_level(c,p)
+    if row and p['challenge_level_id']!=row['id']:
+        c.execute('UPDATE profiles SET challenge_level_id=? WHERE id=?',(row['id'],pid))
     return row
 
 def next_challenge_level(c, row):
@@ -680,7 +644,6 @@ def validate_cfg_data(data):
             raise ValueError('Aucune valeur hors dizaine dans la plage du second terme.')
         if mode in ('tens','both') and not vals:
             raise ValueError('Choisis au moins une dizaine pour le second terme.')
-        for legacy in ('tens','firstMode','bTensMin','bTensMax'): rta.pop(legacy,None)
     if cats.get('complement_tens',{}).get('enabled') and not cats['complement_tens'].get('targets'):
         raise ValueError('Choisis au moins une dizaine cible pour les compléments.')
     if cats.get('place_value',{}).get('enabled'):
@@ -862,7 +825,7 @@ def profiles():
     pids=[r['id'] for r in c.execute('SELECT id FROM profiles WHERE account_id=?',(current_account_id(),)).fetchall()]
     for pid in pids: sync_profile_level(c,pid)
     c.commit()
-    rows=[dict(x) for x in c.execute('SELECT id,name,color,school_class,coins,challenge_level,challenge_level_id,challenge_stars,created_at FROM profiles WHERE account_id=? ORDER BY name',(current_account_id(),))]
+    rows=[dict(x) for x in c.execute('SELECT id,name,color,school_class,coins,challenge_level_id,challenge_stars,created_at FROM profiles WHERE account_id=? ORDER BY name',(current_account_id(),))]
     c.close(); return jsonify(rows)
 @app.post('/api/profiles')
 def create_profile():
@@ -878,7 +841,7 @@ def create_profile():
     if c.execute('SELECT 1 FROM profiles WHERE account_id=? AND name=? COLLATE NOCASE',(current_account_id(),name)).fetchone():
         c.close(); return {'error':'Ce profil existe déjà'},409
     try:
-        start_school=initial_challenge_school(school_class); first=first_level_for(c,start_school); first_id=first['id'] if first else None; cur=c.execute('INSERT INTO profiles(name,account_id,color,school_class,challenge_level,challenge_level_id,challenge_stars,challenge_start_policy) VALUES(?,?,?,?,1,?,0,1)',(name,current_account_id(),color,school_class,first_id)); pid=cur.lastrowid; c.execute('INSERT INTO configs(profile_id,data) VALUES(?,?)',(pid,json.dumps(DEFAULT))); c.commit(); c.close(); return {'id':pid,'name':name,'color':color,'school_class':school_class}
+        start_school=initial_challenge_school(school_class); first=first_level_for(c,start_school); first_id=first['id'] if first else None; cur=c.execute('INSERT INTO profiles(name,account_id,color,school_class,challenge_level_id,challenge_stars) VALUES(?,?,?,?,?,0)',(name,current_account_id(),color,school_class,first_id)); pid=cur.lastrowid; c.execute('INSERT INTO configs(profile_id,data) VALUES(?,?)',(pid,json.dumps(DEFAULT))); c.commit(); c.close(); return {'id':pid,'name':name,'color':color,'school_class':school_class}
     except sqlite3.IntegrityError: return {'error':'Ce profil existe déjà'},409
 @app.put('/api/profiles/<int:pid>')
 def update_profile(pid):
@@ -897,7 +860,7 @@ def update_profile(pid):
         old_class=c.execute('SELECT school_class FROM profiles WHERE id=?',(pid,)).fetchone()['school_class']
         if old_class != school_class:
             clear_challenge_stats(c,pid)
-            start_school=initial_challenge_school(school_class); first=first_level_for(c,start_school); first_id=first['id'] if first else None; c.execute('UPDATE profiles SET name=?,color=?,school_class=?,challenge_level=1,challenge_level_id=?,challenge_stars=0,challenge_start_policy=1 WHERE id=?',(name,color,school_class,first_id,pid))
+            start_school=initial_challenge_school(school_class); first=first_level_for(c,start_school); first_id=first['id'] if first else None; c.execute('UPDATE profiles SET name=?,color=?,school_class=?,challenge_level_id=?,challenge_stars=0 WHERE id=?',(name,color,school_class,first_id,pid))
         else:
             c.execute('UPDATE profiles SET name=?,color=?,school_class=? WHERE id=?',(name,color,school_class,pid))
         c.commit()
@@ -939,8 +902,8 @@ def challenge_status(pid):
     if (e:=require_auth()): return e
     if not owns_profile(pid): return {'error':'Profil introuvable'},404
     day=(request.args.get('date') or '')[:10]
-    c=db(); ensure_challenge_start_policy(c,pid)
-    p=c.execute('SELECT school_class,challenge_level,challenge_level_id,challenge_stars FROM profiles WHERE id=?',(pid,)).fetchone()
+    c=db()
+    p=c.execute('SELECT school_class,challenge_level_id,challenge_stars FROM profiles WHERE id=?',(pid,)).fetchone()
     challenge_school,row,current,level_name=resolve_profile_level(c,p)
     levels=challenge_levels_for(c,challenge_school); max_level=max(1,len(levels))
     cr=c.execute('SELECT color FROM class_settings WHERE school_class=?',(challenge_school,)).fetchone(); class_color=cr['color'] if cr else '#3189dc'
@@ -949,15 +912,15 @@ def challenge_status(pid):
     if row and p['challenge_stars']>=needed:
         next_row=next_challenge_level(c,row)
         if next_row:
-            c.execute('UPDATE profiles SET challenge_level=?,challenge_level_id=?,challenge_stars=0 WHERE id=?',
-                      (next_row['position'],next_row['id'],pid)); c.commit()
+            c.execute('UPDATE profiles SET challenge_level_id=?,challenge_stars=0 WHERE id=?',
+                      (next_row['id'],pid)); c.commit()
             row=next_row; challenge_school=row['school_class']; current=row['position']; level_name=row['name']
             levels=challenge_levels_for(c,challenge_school); max_level=max(1,len(levels))
             cr=c.execute('SELECT color FROM class_settings WHERE school_class=?',(challenge_school,)).fetchone(); class_color=cr['color'] if cr else '#3189dc'
-            p=c.execute('SELECT school_class,challenge_level,challenge_level_id,challenge_stars FROM profiles WHERE id=?',(pid,)).fetchone()
+            p=c.execute('SELECT school_class,challenge_level_id,challenge_stars FROM profiles WHERE id=?',(pid,)).fetchone()
             needed=required_stars_for(challenge_school,p['school_class'])
-    if row and (p['challenge_level_id']!=row['id'] or p['challenge_level']!=current):
-        c.execute('UPDATE profiles SET challenge_level_id=?,challenge_level=? WHERE id=?',(row['id'],current,pid)); c.commit()
+    if row and p['challenge_level_id']!=row['id']:
+        c.execute('UPDATE profiles SET challenge_level_id=? WHERE id=?',(row['id'],pid)); c.commit()
     done_today=False
     if re.fullmatch(r'\d{4}-\d{2}-\d{2}',day):
         done_today=bool(c.execute("SELECT 1 FROM sessions WHERE profile_id=? AND mode='challenge' AND rewarded=1 AND challenge_day=? LIMIT 1",(pid,day)).fetchone())
@@ -965,7 +928,6 @@ def challenge_status(pid):
     return {'schoolClass':challenge_school,'realSchoolClass':p['school_class'],'classColor':class_color,'level':current,'levelName':level_name,'stars':p['challenge_stars'],'requiredStars':needed,'maxLevel':max_level,'threshold':46,'doneToday':done_today,'levels':[{'id':x['id'],'name':x['name'],'position':x['position']} for x in levels]}
 
 def clear_challenge_stats(c,pid,keep_session_id=None):
-    # Les questions n'ont pas de cascade FK garantie dans les anciennes BDD.
     # Lors d'une promotion automatique, on conserve uniquement la séance qui vient
     # de se terminer comme marqueur du défi quotidien ; elle appartient à l'ancien
     # niveau et n'est plus affichée dans les stats du nouveau niveau.
@@ -976,24 +938,6 @@ def clear_challenge_stats(c,pid,keep_session_id=None):
         c.execute("DELETE FROM questions WHERE session_id IN (SELECT id FROM sessions WHERE profile_id=? AND mode='challenge' AND id<>?)",(pid,keep_session_id))
         c.execute("DELETE FROM sessions WHERE profile_id=? AND mode='challenge' AND id<>?",(pid,keep_session_id))
 
-@app.post('/api/challenge/<int:pid>/promote')
-def challenge_promote(pid):
-    if (e:=require_auth()): return e
-    if not owns_profile(pid): return {'error':'Profil introuvable'},404
-    c=db(); p=c.execute('SELECT challenge_level,challenge_stars FROM profiles WHERE id=?',(pid,)).fetchone()
-    if p['challenge_stars']<3:
-        c.close(); return {'error':'Il faut 3 étoiles pour passer au niveau suivant.'},400
-    school=c.execute('SELECT school_class FROM profiles WHERE id=?',(pid,)).fetchone()['school_class'] or 'CP'
-    max_level=c.execute('SELECT COUNT(*) n FROM challenge_levels WHERE school_class=?',(school,)).fetchone()['n'] or 1
-    if p['challenge_level']>=max_level:
-        c.close(); return {'error':'C’est déjà le dernier niveau de cette classe.'},400
-    level=p['challenge_level']+1
-    next_row=c.execute('SELECT id FROM challenge_levels WHERE school_class=? AND position=?',(school,level)).fetchone()
-    next_id=next_row['id'] if next_row else None
-    clear_challenge_stats(c,pid)
-    c.execute('UPDATE profiles SET challenge_level=?,challenge_level_id=?,challenge_stars=0 WHERE id=?',(level,next_id,pid))
-    c.commit(); c.close()
-    return {'ok':True,'level':level,'stars':0}
 
 @app.post('/api/session/start/<int:pid>')
 def start(pid):
@@ -1003,17 +947,17 @@ def start(pid):
     if mode not in ('learning','challenge'): mode='learning'
     challenge_class=None; challenge_level=None; challenge_level_id=None
     if mode=='challenge':
-        c0=db(); ensure_challenge_start_policy(c0,pid); p0=c0.execute('SELECT school_class,challenge_level,challenge_level_id FROM profiles WHERE id=?',(pid,)).fetchone()
+        c0=db(); p0=c0.execute('SELECT school_class,challenge_level_id FROM profiles WHERE id=?',(pid,)).fetchone()
         challenge_class,row,challenge_level,_=resolve_profile_level(c0,p0); challenge_level_id=row['id'] if row else None
         if row:
-            c0.execute('UPDATE profiles SET challenge_level=?,challenge_level_id=? WHERE id=?',(challenge_level,challenge_level_id,pid)); c0.commit()
+            c0.execute('UPDATE profiles SET challenge_level_id=? WHERE id=?',(challenge_level_id,pid)); c0.commit()
             cfg=merged_cfg(json.loads(row['data']))
         else:
             cfg=copy.deepcopy(DEFAULT)
         c0.close()
     else:
         cfg=get_cfg(pid)
-    # Valide et normalise aussi au démarrage : les anciennes configs sauvegardées
+    # Valide et normalise la configuration au démarrage.
     # Les poids de fréquence ne doivent jamais bloquer silencieusement une séance.
     try:
         cfg=validate_cfg_data(cfg)
@@ -1050,7 +994,7 @@ def start(pid):
             payload,display,expected=generate_with_duplicate_retry(kind,cfg['categories'][kind],seen_by_kind)
             qs.append({'kind':kind,'payload':payload,'display':display,'expected':expected,'source':'GENERATED','retry_from':None})
     qs=balanced_question_order(qs)
-    c=db(); cur=c.execute('INSERT INTO sessions(profile_id,mode,challenge_class,challenge_level,challenge_level_id) VALUES(?,?,?,?,?)',(pid,mode,challenge_class,challenge_level,challenge_level_id)); sid=cur.lastrowid
+    c=db(); cur=c.execute('INSERT INTO sessions(profile_id,mode,challenge_class,challenge_level_id) VALUES(?,?,?,?)',(pid,mode,challenge_class,challenge_level_id)); sid=cur.lastrowid
     for i,q in enumerate(qs): c.execute('INSERT INTO questions(session_id,position,kind,payload,display,expected,status,source,retry_from) VALUES(?,?,?,?,?,?,\'UNANSWERED\',?,?)',(sid,i,q['kind'],json.dumps(q['payload']),q['display'],q['expected'],q['source'],q['retry_from']))
     c.commit()
     rows=[]
@@ -1145,7 +1089,7 @@ def finish(sid):
     data=request.json or {}; ms=max(0,int(data.get('activeMs',0)))
     local_day=str(data.get('localDate',''))[:10]
     if not re.fullmatch(r'\d{4}-\d{2}-\d{2}',local_day): local_day=None
-    c=db(); s=c.execute('SELECT s.id,s.profile_id,s.rewarded,s.mode,s.challenge_class,s.challenge_level,s.challenge_level_id,s.star_awarded,s.daily_bonus_awarded FROM sessions s JOIN profiles p ON p.id=s.profile_id WHERE s.id=? AND p.account_id=?',(sid,current_account_id())).fetchone()
+    c=db(); s=c.execute('SELECT s.id,s.profile_id,s.rewarded,s.mode,s.challenge_class,s.challenge_level_id,s.star_awarded,s.daily_bonus_awarded FROM sessions s JOIN profiles p ON p.id=s.profile_id WHERE s.id=? AND p.account_id=?',(sid,current_account_id())).fetchone()
     if not s: c.close(); return {'error':'Séance inconnue'},404
     earned=0
     if not s['rewarded']:
@@ -1173,9 +1117,9 @@ def finish(sid):
     next_color=None
     if s['mode']=='challenge' and not s['star_awarded']:
         correct=c.execute("SELECT COUNT(*) n FROM questions WHERE session_id=? AND status='CORRECT'",(sid,)).fetchone()['n']
-        p=c.execute('SELECT school_class,challenge_level,challenge_level_id,challenge_stars FROM profiles WHERE id=?',(s['profile_id'],)).fetchone()
+        p=c.execute('SELECT school_class,challenge_level_id,challenge_stars FROM profiles WHERE id=?',(s['profile_id'],)).fetchone()
         current_row=c.execute('SELECT id,school_class,name,position,data FROM challenge_levels WHERE id=?',(s['challenge_level_id'],)).fetchone() if s['challenge_level_id'] else None
-        same_level=(p['challenge_level_id']==s['challenge_level_id']) if s['challenge_level_id'] is not None else (p['challenge_level']==s['challenge_level'])
+        same_level=(p['challenge_level_id']==s['challenge_level_id'])
         challenge_school=current_row['school_class'] if current_row else (s['challenge_class'] or p['school_class'])
         needed=required_stars_for(challenge_school,p['school_class'])
         if correct>45 and same_level and p['challenge_stars']<needed:
@@ -1188,8 +1132,8 @@ def finish(sid):
                 next_row=next_challenge_level(c,current_row)
                 if next_row:
                     level_bonus=20
-                    c.execute('UPDATE profiles SET coins=coins+20,challenge_level=?,challenge_level_id=?,challenge_stars=0 WHERE id=?',
-                              (next_row['position'],next_row['id'],s['profile_id']))
+                    c.execute('UPDATE profiles SET coins=coins+20,challenge_level_id=?,challenge_stars=0 WHERE id=?',
+                              (next_row['id'],s['profile_id']))
                     # Nouveau niveau = nouveau référentiel statistique. On efface
                     # l'historique Défi précédent, sans toucher aux Entraînements.
                     # La séance courante reste seulement comme marqueur du défi du jour.
@@ -1200,13 +1144,15 @@ def finish(sid):
                         nc=c.execute('SELECT color FROM class_settings WHERE school_class=?',(next_class,)).fetchone()
                         completed_color=cc['color'] if cc else '#3189dc'; next_color=nc['color'] if nc else '#3189dc'
         c.execute('UPDATE sessions SET star_awarded=1 WHERE id=?',(sid,))
-    pstate=c.execute('SELECT coins,challenge_level,challenge_level_id,challenge_stars,school_class FROM profiles WHERE id=?',(s['profile_id'],)).fetchone()
+    pstate=c.execute('SELECT coins,challenge_level_id,challenge_stars,school_class FROM profiles WHERE id=?',(s['profile_id'],)).fetchone()
     balance=pstate['coins']
+    current_level_row=c.execute('SELECT position FROM challenge_levels WHERE id=?',(pstate['challenge_level_id'],)).fetchone() if pstate['challenge_level_id'] else None
+    current_level_position=current_level_row['position'] if current_level_row else 1
     promoted_level_name=None
     if s['mode']=='challenge' and pstate['challenge_level_id'] and pstate['challenge_level_id']!=s['challenge_level_id']:
         nr=c.execute('SELECT name FROM challenge_levels WHERE id=?',(pstate['challenge_level_id'],)).fetchone()
-        promoted_level_name=nr['name'] if nr else f"{pstate['school_class']}-{pstate['challenge_level']}"
-    c.commit(); c.close(); return {'ok':True,'coinsEarned':earned,'dailyBonus':daily_bonus,'starBonus':star_bonus,'levelBonus':level_bonus,'balance':balance,'starAwarded':star_awarded,'levelUnlocked':bool(promoted_level_name),'unlockedLevelName':promoted_level_name,'classCompleted':class_completed,'completedClass':completed_class,'nextClass':next_class,'completedColor':completed_color,'nextColor':next_color,'completedColorName':color_name_fr(completed_color) if completed_color else None,'nextColorName':color_name_fr(next_color) if next_color else None,'challenge':{'level':pstate['challenge_level'],'stars':pstate['challenge_stars']}}
+        promoted_level_name=nr['name'] if nr else 'Niveau suivant'
+    c.commit(); c.close(); return {'ok':True,'coinsEarned':earned,'dailyBonus':daily_bonus,'starBonus':star_bonus,'levelBonus':level_bonus,'balance':balance,'starAwarded':star_awarded,'levelUnlocked':bool(promoted_level_name),'unlockedLevelName':promoted_level_name,'classCompleted':class_completed,'completedClass':completed_class,'nextClass':next_class,'completedColor':completed_color,'nextColor':next_color,'completedColorName':color_name_fr(completed_color) if completed_color else None,'nextColorName':color_name_fr(next_color) if next_color else None,'challenge':{'level':current_level_position,'stars':pstate['challenge_stars']}}
 
 @app.get('/api/rewards/<int:pid>')
 def rewards(pid):
