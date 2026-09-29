@@ -993,7 +993,7 @@ def challenge_status(pid):
     if re.fullmatch(r'\d{4}-\d{2}-\d{2}',day):
         done_today=bool(c.execute("SELECT 1 FROM sessions WHERE profile_id=? AND mode='challenge' AND rewarded=1 AND challenge_day=? LIMIT 1",(pid,day)).fetchone())
     c.close()
-    return {'schoolClass':challenge_school,'realSchoolClass':p['school_class'],'classColor':class_color,'level':current,'levelName':level_name,'stars':p['challenge_stars'],'requiredStars':needed,'maxLevel':max_level,'threshold':46,'doneToday':done_today,'levels':[{'id':x['id'],'name':x['name'],'position':x['position']} for x in levels]}
+    return {'schoolClass':challenge_school,'realSchoolClass':p['school_class'],'classColor':class_color,'level':current,'levelName':level_name,'stars':p['challenge_stars'],'requiredStars':needed,'maxLevel':max_level,'threshold':45,'doneToday':done_today,'levels':[{'id':x['id'],'name':x['name'],'position':x['position']} for x in levels]}
 
 def clear_challenge_stats(c,pid,keep_session_id=None):
     # Lors d'une promotion automatique, on conserve uniquement la séance qui vient
@@ -1190,7 +1190,7 @@ def finish(sid):
         same_level=(p['challenge_level_id']==s['challenge_level_id'])
         challenge_school=current_row['school_class'] if current_row else (s['challenge_class'] or p['school_class'])
         needed=required_stars_for(challenge_school,p['school_class'])
-        if correct>45 and same_level and p['challenge_stars']<needed:
+        if correct>=45 and same_level and p['challenge_stars']<needed:
             new_stars=p['challenge_stars']+1
             c.execute('UPDATE profiles SET challenge_stars=? WHERE id=?',(new_stars,s['profile_id']))
             star_awarded=True
