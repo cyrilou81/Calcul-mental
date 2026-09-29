@@ -319,3 +319,17 @@ V161
 - Correction du démarrage multiple des séances : un verrou empêche plusieurs créations pendant la requête de démarrage.
 - Le bouton de démarrage est désactivé jusqu'à la réponse du serveur.
 - « Supprimer la séance » est maintenant tout en bas du détail statistique, sous le tableau des calculs.
+
+## V190
+- Simplification complète de l'anti-doublon : suppression des catalogues exhaustifs, réserves de candidats et tirages « least used ».
+- Chaque question est générée normalement à la demande.
+- Si la même opération existe déjà dans la même catégorie pendant la séance, le générateur effectue au maximum 3 nouvelles tentatives.
+- Si les 3 nouvelles tentatives donnent encore une opération déjà vue, la dernière est acceptée : les doublons sont donc tolérés.
+- Aucune vérification de doublon n'est faite entre catégories différentes.
+
+
+## V191
+- Une seule fonction anti-doublon est désormais utilisée partout.
+- Même règle pour les vrais tests, l'aperçu général et les aperçus/exemples de chaque catégorie.
+- La comparaison reste strictement limitée à une même catégorie.
+- En cas de doublon : 3 relances maximum, puis acceptation du doublon.

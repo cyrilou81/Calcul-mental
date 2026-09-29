@@ -790,6 +790,40 @@ def balanced_question_order(items):
         previous=chosen
     return result
 
+
+def operation_key(kind, payload):
+    """Identifie une opération uniquement à l'intérieur de sa catégorie."""
+    if kind in ('double','half'): return (kind, payload.get('n'))
+    if kind in ('addition','subtraction','multiplication','decimal_multiplication','tens','tens_sub'):
+        return (kind, payload.get('a'), payload.get('b'))
+    if kind in ('decimal','decimal_sub'):
+        return (kind, payload.get('a'), payload.get('b'), payload.get('op'))
+    if kind in ('division','decimal_division'):
+        return (kind, payload.get('dividend'), payload.get('divisor'))
+    if kind == 'round_tens_add': return (kind,payload.get('a'),payload.get('b'))
+    if kind == 'complement_tens': return (kind,payload.get('a'),payload.get('target'))
+    if kind == 'place_value':
+        return (kind,json.dumps(payload.get('factors',{}),sort_keys=True),tuple(payload.get('order',[])))
+    if kind == 'addition3': return (kind,tuple(payload.get('numbers',[])))
+    if kind == 'multiple_of': return (kind,payload.get('factor'),payload.get('n'))
+    if kind == 'fraction': return (kind,payload.get('divisor'),payload.get('n'))
+    return (kind, json.dumps(payload, sort_keys=True))
+
+def generate_with_duplicate_retry(kind, cat_cfg, seen_by_kind):
+    """
+    Génération commune à tous les contextes.
+    Tirage normal ; si la même opération existe déjà dans LA MÊME catégorie,
+    au maximum 3 relances. Après la 3e relance, le doublon est accepté.
+    """
+    seen=seen_by_kind.setdefault(kind,set())
+    for attempt in range(4):  # tirage initial + 3 relances
+        payload,display,expected=gen(kind,cat_cfg)
+        key=operation_key(kind,payload)
+        if key not in seen or attempt==3:
+            seen.add(key)
+            return payload,display,expected
+    raise RuntimeError('Génération impossible')
+
 @app.post('/api/config/preview')
 def config_preview():
     if (e:=require_auth()): return e
@@ -798,10 +832,11 @@ def config_preview():
         count=max(1,min(500,int(cfg.get('count',50))))
         alloc=allocate(count,cfg['categories'])
         questions=[]
+        seen_by_kind={}
         for kind,n in alloc.items():
             for _ in range(n):
                 try:
-                    _,display,_=gen(kind,cfg['categories'][kind])
+                    _,display,_=generate_with_duplicate_retry(kind,cfg['categories'][kind],seen_by_kind)
                     questions.append({'kind':kind,'display':display})
                 except ValueError as ex:
                     return {'error':str(ex)},400
@@ -1054,118 +1089,32 @@ def start(pid):
     # Un Défi doit rester standardisé : aucune reprise d'erreur d'une séance précédente.
     retries=[] if mode=='challenge' else [r for r in previous_errors(pid,'learning') if r['kind'] in active_kinds][:count]
     remaining=count-len(retries); alloc=allocate(remaining,cfg['categories']) if remaining else {}
-    # Répartition des répétitions par type d'opération :
-    # 1) toutes les opérations distinctes possibles avant un doublon ;
-    # 2) si le quota l'impose, chaque opération passe au maximum une 2e fois
-    #    avant qu'une opération puisse apparaître une 3e fois ; etc.
-    # Ainsi on évite d'abord les doublons, puis les triplons, tout en garantissant
-    # toujours le nombre de questions demandé.
-    def operation_key(kind, payload):
-        if kind in ('double','half'): return (kind, payload.get('n'))
-        if kind in ('addition', 'subtraction', 'multiplication', 'decimal_multiplication', 'tens', 'tens_sub'): return (kind, payload.get('a'), payload.get('b'))
-        if kind in ('decimal','decimal_sub'): return (kind, payload.get('a'), payload.get('b'), payload.get('op'))
-        if kind in ('division','decimal_division'): return (kind, payload.get('dividend'), payload.get('divisor'))
-        if kind == 'round_tens_add': return (kind,payload.get('a'),payload.get('b'))
-        if kind == 'complement_tens': return (kind,payload.get('a'),payload.get('target'))
-        if kind == 'place_value': return (kind,json.dumps(payload.get('factors',{}),sort_keys=True),tuple(payload.get('order',[])))
-        if kind == 'addition3': return (kind,tuple(payload.get('numbers',[])))
-        if kind == 'multiple_of': return (kind,payload.get('factor'),payload.get('n'))
-        if kind == 'fraction': return (kind,payload.get('divisor'),payload.get('n'))
-        return (kind, json.dumps(payload, sort_keys=True))
-
-    qs=[]; usage={}
+    qs=[]
     for r in retries:
-        payload=json.loads(r['payload']); key=operation_key(r['kind'],payload)
-        usage[key]=usage.get(key,0)+1
+        payload=json.loads(r['payload'])
         qs.append({'kind':r['kind'],'payload':payload,'display':r['display'],'expected':r['expected'],'source':'RETRY','retry_from':r['id']})
 
-    candidate_pools={}
-    def build_candidate_pool(kind, cat_cfg):
-        pool={}
-        # Catégories finies fréquentes : catalogue exhaustif, donc zéro doublon avant épuisement.
-        if kind=='half':
-            lo=int(cat_cfg.get('min',2)); hi=int(cat_cfg.get('max',10))
-            mode=cat_cfg.get('halfMode') or ('both' if cat_cfg.get('tens',False) else 'non_tens')
-            vals=[]
-            if mode in ('non_tens','both'): vals += [n for n in range(max(2,lo),hi+1) if n%2==0 and n%10!=0]
-            if mode in ('tens','both'): vals += [int(x) for x in cat_cfg.get('tensValues',[10,20,30,40,50,60,70,80,90,100])]
-            for n in dict.fromkeys(vals):
-                p={'n':n}; pool[operation_key(kind,p)]=(p,f'Moitié de {n} = __',n//2)
-        elif kind=='double':
-            value_mode=cat_cfg.get('doubleMode','non_tens'); vals=[]
-            lo=int(cat_cfg.get('min',1)); hi=int(cat_cfg.get('max',9))
-            if value_mode in ('non_tens','both'): vals += [n for n in range(lo,hi+1) if n%10!=0]
-            if value_mode in ('tens','both'): vals += [int(x) for x in cat_cfg.get('tensValues',[10,20,30,40,50,60,70,80,90,100])]
-            for n in dict.fromkeys(vals):
-                modes=['word','sum'] if cat_cfg.get('display','both')=='both' else [cat_cfg.get('display','word')]
-                for mode in modes:
-                    p={'n':n,'mode':mode}; d=f'Double de {n} = __' if mode=='word' else f'{n} + {n} = __'
-                    pool.setdefault(operation_key(kind,p),(p,d,n*2))
-        elif kind=='round_tens_add':
-            first=[x for x in range(int(cat_cfg.get('aMin',10)),int(cat_cfg.get('aMax',90))+1) if x%10==0]
-            mode=cat_cfg.get('secondMode','non_tens'); second=[]
-            if mode in ('non_tens','both'):
-                second += [x for x in range(int(cat_cfg.get('bMin',1)),int(cat_cfg.get('bMax',9))+1) if x%10!=0]
-            if mode in ('tens','both'):
-                second += [int(x) for x in cat_cfg.get('bTensValues',[10,20,30,40,50,60,70,80,90,100])]
-            max_result=int(cat_cfg.get('maxResult',100) or 0)
-            for a in dict.fromkeys(first):
-                for b in dict.fromkeys(second):
-                    if max_result and a+b>max_result: continue
-                    p={'a':a,'b':b}; pool[operation_key(kind,p)]=(p,f'{a} + {b} = __',a+b)
-        elif kind=='complement_tens':
-            g0=max(1,int(cat_cfg.get('gapMin',5))); g1=max(g0,int(cat_cfg.get('gapMax',20)))
-            for target in [int(x) for x in cat_cfg.get('targets',[])]:
-                for gap in range(g0,g1+1):
-                    if gap<target:
-                        a=target-gap; p={'a':a,'target':target}
-                        pool[operation_key(kind,p)]=(p,f'{a} + __ = {target}',gap)
-        # Pour les espaces plus complexes, constituer une réserve importante une seule fois.
-        # Ensuite le tirage se fait sans remise logique par niveau d'utilisation.
-        target=max(250,min(5000,int(cfg.get('count',50))*30))
-        stagnant=0
-        while len(pool)<target and stagnant<600:
-            try: p,d,e=gen(kind,cat_cfg)
-            except ValueError: break
-            key=operation_key(kind,p)
-            before=len(pool); pool.setdefault(key,(p,d,e))
-            stagnant = stagnant+1 if len(pool)==before else 0
-        vals=list(pool.values()); random.shuffle(vals)
-        return vals
-
-    def generate_least_used(kind, cat_cfg):
-        if kind not in candidate_pools:
-            candidate_pools[kind]=build_candidate_pool(kind,cat_cfg)
-        pool=candidate_pools[kind]
-        if not pool: raise ValueError(f'Aucune opération possible pour {kind}.')
-        # Tous les calculs du catalogue passent une fois avant le moindre doublon,
-        # puis deux fois avant le moindre triplon, etc.
-        min_count=min(usage.get(operation_key(kind,p),0) for p,_,_ in pool)
-        choices=[x for x in pool if usage.get(operation_key(kind,x[0]),0)==min_count]
-        payload,display,expected=random.choice(choices)
-        key=operation_key(kind,payload); usage[key]=usage.get(key,0)+1
-        return {'kind':kind,'payload':payload,'display':display,'expected':expected,'source':'GENERATED','retry_from':None}
+    # Anti-doublon volontairement simple : génération normale à la demande.
+    # Si le calcul existe déjà DANS LA MÊME CATÉGORIE, on retente au maximum
+    # trois fois. Après ces trois relances, on accepte le doublon.
+    # Aucune comparaison n'est faite entre deux catégories différentes.
+    seen_by_kind={}
+    for q in qs:
+        seen_by_kind.setdefault(q['kind'],set()).add(operation_key(q['kind'],q['payload']))
 
     for kind,n in alloc.items():
         for _ in range(n):
-            qs.append(generate_least_used(kind,cfg['categories'][kind]))
-
-    # Garde-fou : complète toujours le quota, en appliquant la même règle
-    # de fréquence minimale plutôt qu'en répétant arbitrairement un calcul.
-    if len(qs) < count:
-        enabled=[k for k,v in cfg['categories'].items() if v.get('enabled') and v.get('pct',0)>0]
-        while len(qs) < count:
-            kind=random.choice(enabled)
-            qs.append(generate_least_used(kind,cfg['categories'][kind]))
-    qs=balanced_question_order(qs)
-    # Garde-fou : le moteur ne doit jamais créer moins de questions que prévu.
-    if len(qs) < count:
-        enabled=[k for k,v in cfg['categories'].items() if v.get('enabled') and v.get('pct',0)>0]
-        while len(qs) < count:
-            kind=random.choice(enabled)
-            payload,display,expected=gen(kind,cfg['categories'][kind])
+            payload,display,expected=generate_with_duplicate_retry(kind,cfg['categories'][kind],seen_by_kind)
             qs.append({'kind':kind,'payload':payload,'display':display,'expected':expected,'source':'GENERATED','retry_from':None})
-        qs=balanced_question_order(qs)
+
+    # Garde-fou : complète toujours le quota avec exactement la même règle simple.
+    if len(qs) < count:
+        enabled=[k for k,v in cfg['categories'].items() if v.get('enabled') and int(v.get('weight',0) or 0)>0]
+        while len(qs) < count:
+            kind=random.choice(enabled)
+            payload,display,expected=generate_with_duplicate_retry(kind,cfg['categories'][kind],seen_by_kind)
+            qs.append({'kind':kind,'payload':payload,'display':display,'expected':expected,'source':'GENERATED','retry_from':None})
+    qs=balanced_question_order(qs)
     c=db(); cur=c.execute('INSERT INTO sessions(profile_id,mode,challenge_class,challenge_level,challenge_level_id) VALUES(?,?,?,?,?)',(pid,mode,challenge_class,challenge_level,challenge_level_id)); sid=cur.lastrowid
     for i,q in enumerate(qs): c.execute('INSERT INTO questions(session_id,position,kind,payload,display,expected,status,source,retry_from) VALUES(?,?,?,?,?,?,\'UNANSWERED\',?,?)',(sid,i,q['kind'],json.dumps(q['payload']),q['display'],q['expected'],q['source'],q['retry_from']))
     c.commit()
