@@ -14,3 +14,7 @@ Calcul Mental v212
 - Une seule victoire spéciale par défi terminé.
 - Si une étoile est gagnée, la fenêtre Nouveau record est supprimée pour cette partie.
 - Même priorité pour un changement de niveau/couleur : aucune fenêtre record supplémentaire.
+
+
+## v234
+Stats live fiables depuis v229 : séances rewarded=0 visibles comme EN COURS, polling 2 s sans cache, détail live, index.html servi en no-store pour éviter une ancienne UI en cache.

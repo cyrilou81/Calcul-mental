@@ -440,7 +440,13 @@ def password_error(password):
     return None
 
 @app.get('/')
-def index(): return send_from_directory(ROOT/'static','index.html')
+def index():
+    # index.html évolue souvent : ne jamais laisser le navigateur réutiliser une ancienne UI.
+    resp=send_from_directory(ROOT/'static','index.html',max_age=0)
+    resp.headers['Cache-Control']='no-store, no-cache, must-revalidate, max-age=0'
+    resp.headers['Pragma']='no-cache'
+    resp.headers['Expires']='0'
+    return resp
 @app.get('/api/auth/status')
 def auth_status():
     if not authenticated(): return {'authenticated':False}
@@ -1096,7 +1102,7 @@ def answer(sid):
     if not ok and first_wrong is None: first_wrong=given
     # Une question reste statistiquement en erreur dès le premier essai faux, même si elle est corrigée ensuite.
     status=('INCORRECT' if had_error else 'CORRECT') if ok or attempts>=2 else 'UNANSWERED'
-    c.execute('UPDATE questions SET given_answer=?,last_answer=?,first_wrong_answer=?,status=?,response_ms=?,attempts=?,had_error=? WHERE id=?',(first_answer,given,first_wrong,status,ms,attempts,1 if had_error else 0,qid)); active_ms=max(0,int((request.json or {}).get('activeMs',0))); c.execute('UPDATE sessions SET active_ms=? WHERE id=? AND rewarded=0',(active_ms,sid)); c.commit(); c.close(); return {'correct':ok,'expected':oldq['expected'],'attempts':attempts,'remaining':max(0,2-attempts)}
+    c.execute('UPDATE questions SET given_answer=?,last_answer=?,first_wrong_answer=?,status=?,response_ms=?,attempts=?,had_error=? WHERE id=?',(first_answer,given,first_wrong,status,ms,attempts,1 if had_error else 0,qid)); c.commit(); c.close(); return {'correct':ok,'expected':oldq['expected'],'attempts':attempts,'remaining':max(0,2-attempts)}
 @app.post('/api/session/<int:sid>/help')
 def mark_help(sid):
     if (e:=require_auth()): return e
@@ -1357,7 +1363,7 @@ def delete_session_stats(sid):
 @app.get('/api/session/<int:sid>/stats')
 def session_stats(sid):
     if (e:=require_auth()): return e
-    c=db(); s=c.execute('SELECT id,profile_id,started_at,active_ms FROM sessions WHERE id=?',(sid,)).fetchone()
+    c=db(); s=c.execute('SELECT id,profile_id,started_at,active_ms,rewarded FROM sessions WHERE id=?',(sid,)).fetchone()
     if not s: c.close(); return {'error':'Séance inconnue'},404
     if not owns_profile(s['profile_id']): c.close(); return {'error':'Séance inconnue'},404
     qs=[dict(x) for x in c.execute("SELECT id,position,kind,display,expected,given_answer,last_answer,first_wrong_answer,status,response_ms,source,attempts,had_error,help_used FROM questions WHERE session_id=? AND status!='UNANSWERED' ORDER BY position",(sid,))]
@@ -1366,7 +1372,7 @@ def session_stats(sid):
     for kind in dict.fromkeys(q['kind'] for q in qs):
         kqs=[q for q in qs if q['kind']==kind]; kc=sum(1 for q in kqs if q['status']=='CORRECT')
         kinds.append({'kind':kind,'attempted':len(kqs),'correct':kc,'incorrect':len(kqs)-kc,'accuracy':round(100*kc/len(kqs),1) if kqs else 0,'helpUsed':sum(1 for q in kqs if q.get('help_used'))})
-    result={'id':s['id'],'date':s['started_at'],'activeMs':s['active_ms'],'attempted':len(qs),'correct':len(correct),'incorrect':len(qs)-len(correct),'accuracy':round(100*len(correct)/len(qs),1) if qs else 0,'medianMs':int(statistics.median(times)) if times else None,'helpUsed':sum(1 for q in qs if q.get('help_used')),'categories':kinds,'questions':qs}
+    result={'id':s['id'],'date':s['started_at'],'activeMs':s['active_ms'],'attempted':len(qs),'correct':len(correct),'incorrect':len(qs)-len(correct),'accuracy':round(100*len(correct)/len(qs),1) if qs else 0,'medianMs':int(statistics.median(times)) if times else None,'helpUsed':sum(1 for q in qs if q.get('help_used')),'categories':kinds,'questions':qs,'inProgress':not bool(s['rewarded'])}
     c.close(); return result
 
 init_db()
