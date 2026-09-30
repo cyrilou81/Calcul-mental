@@ -1096,7 +1096,7 @@ def answer(sid):
     if not ok and first_wrong is None: first_wrong=given
     # Une question reste statistiquement en erreur dès le premier essai faux, même si elle est corrigée ensuite.
     status=('INCORRECT' if had_error else 'CORRECT') if ok or attempts>=2 else 'UNANSWERED'
-    c.execute('UPDATE questions SET given_answer=?,last_answer=?,first_wrong_answer=?,status=?,response_ms=?,attempts=?,had_error=? WHERE id=?',(first_answer,given,first_wrong,status,ms,attempts,1 if had_error else 0,qid)); c.commit(); c.close(); return {'correct':ok,'expected':oldq['expected'],'attempts':attempts,'remaining':max(0,2-attempts)}
+    c.execute('UPDATE questions SET given_answer=?,last_answer=?,first_wrong_answer=?,status=?,response_ms=?,attempts=?,had_error=? WHERE id=?',(first_answer,given,first_wrong,status,ms,attempts,1 if had_error else 0,qid)); active_ms=max(0,int((request.json or {}).get('activeMs',0))); c.execute('UPDATE sessions SET active_ms=? WHERE id=? AND rewarded=0',(active_ms,sid)); c.commit(); c.close(); return {'correct':ok,'expected':oldq['expected'],'attempts':attempts,'remaining':max(0,2-attempts)}
 @app.post('/api/session/<int:sid>/help')
 def mark_help(sid):
     if (e:=require_auth()): return e
@@ -1325,9 +1325,9 @@ def stats(pid):
         # Les stats Défi décrivent uniquement le niveau actuellement travaillé.
         p=c.execute('SELECT challenge_level_id FROM profiles WHERE id=?',(pid,)).fetchone()
         current_level_id=p['challenge_level_id'] if p else None
-        ss=[dict(x) for x in c.execute('SELECT id,started_at,active_ms,mode FROM sessions WHERE profile_id=? AND mode=? AND challenge_level_id=? AND rewarded=1 ORDER BY id DESC',(pid,mode,current_level_id))] if current_level_id else []
+        ss=[dict(x) for x in c.execute('SELECT id,started_at,active_ms,mode,rewarded FROM sessions WHERE profile_id=? AND mode=? AND challenge_level_id=? ORDER BY id DESC',(pid,mode,current_level_id))] if current_level_id else []
     else:
-        ss=[dict(x) for x in c.execute('SELECT id,started_at,active_ms,mode FROM sessions WHERE profile_id=? AND mode=? AND rewarded=1 ORDER BY id DESC',(pid,mode))]
+        ss=[dict(x) for x in c.execute('SELECT id,started_at,active_ms,mode,rewarded FROM sessions WHERE profile_id=? AND mode=? ORDER BY id DESC',(pid,mode))]
     out=[]
     for s in ss:
         qs=[dict(x) for x in c.execute("SELECT * FROM questions WHERE session_id=? AND status!='UNANSWERED'",(s['id'],))]
@@ -1337,7 +1337,7 @@ def stats(pid):
         for kind in dict.fromkeys(q['kind'] for q in qs):
             kqs=[q for q in qs if q['kind']==kind]; kc=sum(1 for q in kqs if q['status']=='CORRECT')
             kt=[q['response_ms'] for q in kqs if q['response_ms'] is not None]; cats.append({'kind':kind,'attempted':len(kqs),'correct':kc,'accuracy':round(100*kc/len(kqs),1) if kqs else 0,'medianMs':int(statistics.median(kt)) if kt else None,'helpUsed':sum(1 for q in kqs if q.get('help_used'))})
-        out.append({'id':s['id'],'date':s['started_at'],'activeMs':s['active_ms'],'attempted':len(qs),'correct':len(correct),'incorrect':len(qs)-len(correct),'accuracy':round(100*len(correct)/len(qs),1) if qs else 0,'medianMs':int(statistics.median(times)) if times else None,'avgMs':int(sum(times)/len(times)) if times else None,'helpUsed':sum(1 for q in qs if q.get('help_used')),'categories':cats})
+        out.append({'id':s['id'],'date':s['started_at'],'activeMs':s['active_ms'],'attempted':len(qs),'correct':len(correct),'incorrect':len(qs)-len(correct),'accuracy':round(100*len(correct)/len(qs),1) if qs else 0,'medianMs':int(statistics.median(times)) if times else None,'avgMs':int(sum(times)/len(times)) if times else None,'helpUsed':sum(1 for q in qs if q.get('help_used')),'categories':cats,'inProgress':not bool(s.get('rewarded',0))})
     c.close(); return {'sessions':out,'mode':mode}
 
 @app.delete('/api/session/<int:sid>/stats')
