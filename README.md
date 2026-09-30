@@ -14,3 +14,9 @@ Calcul Mental v212
 - Une seule victoire spéciale par défi terminé.
 - Si une étoile est gagnée, la fenêtre Nouveau record est supprimée pour cette partie.
 - Même priorité pour un changement de niveau/couleur : aucune fenêtre record supplémentaire.
+
+## v231
+- Base: v229 fournie par l'utilisateur (v230 écartée).
+- Rafraîchissement automatique des statistiques toutes les 2 secondes tant que l'écran Stats est visible.
+- Le détail d'une séance ouverte se rafraîchit également en direct, avec conservation de la position de défilement.
+- Requêtes de rafraîchissement en no-store pour éviter les données mises en cache.
