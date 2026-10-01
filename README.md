@@ -25,3 +25,8 @@ Stats live fiables depuis v229 : séances rewarded=0 visibles comme EN COURS, po
 
 ## v236
 - Aide « Compléments » : lorsqu'une question a un écart strictement supérieur à 10, l'exemple proposé est désormais forcé à avoir lui aussi un écart strictement supérieur à 10 afin de rendre visible la méthode en deux sauts via la dizaine supérieure.
+
+## v237
+- Refonte de /admin > Aides pédagogiques en arbre de méthodes : une méthode unique par cas, avec Aide = autre exemple de la même branche et Correction = question réelle.
+- Ajout explicite des branches Compléments (écart <=10 / >10) et Moitiés (partage simple / dizaine impaire / décomposition paire).
+- Le backend force désormais les exemples d’aide à rester dans la même branche pédagogique que la question, notamment pour les deux branches de compléments et les différentes stratégies de moitié.

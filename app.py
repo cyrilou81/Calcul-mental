@@ -1145,22 +1145,31 @@ def mark_help(sid):
         # Triple -> autre triple ; Quadruple -> autre quadruple.
         example_cat['factors']=[current_payload['factor']]
 
-    # Pour un complément dont l'écart de la question dépasse 10, l'exemple
-    # doit lui aussi avoir un écart STRICTEMENT supérieur à 10. Sinon l'exemple
-    # ne montre pas la méthode en deux sauts (dizaine suivante, puis cible).
-    require_large_complement=False
-    if kind=='complement_tens':
-        try:
-            require_large_complement=(float(current_payload.get('target',0))-float(current_payload.get('a',0)))>10
-        except (TypeError,ValueError):
-            require_large_complement=False
+    # L'aide et la correction utilisent UNE SEULE méthode pédagogique.
+    # La correction garde la question réelle ; l'aide tire une autre question,
+    # mais obligatoirement dans la même branche de l'arbre pédagogique.
+    def pedagogical_case(k,payload):
+        if k=='complement_tens':
+            try: return 'gap_gt_10' if float(payload.get('target',0))-float(payload.get('a',0))>10 else 'gap_le_10'
+            except (TypeError,ValueError): return 'gap_le_10'
+        if k=='half':
+            try:
+                x=int(payload.get('n',0))
+                if x>=30 and x%20==10: return 'odd_ten'
+                tens=(x//10)*10; units=x-tens
+                if x>=20 and tens%20==0 and units%2==0: return 'even_decomposition'
+                return 'simple'
+            except (TypeError,ValueError): return 'simple'
+        if k=='decimal_multiplication': return 'x'+str(payload.get('b'))
+        if k=='decimal_division': return 'div'+str(payload.get('divisor'))
+        if k=='multiple_of': return 'factor'+str(payload.get('factor'))
+        return 'default'
 
+    wanted_case=pedagogical_case(kind,current_payload)
     example=None
-    for _ in range(100):
+    for _ in range(200):
         payload,display,expected=gen(kind,example_cat)
-        large_enough=(kind!='complement_tens' or not require_large_complement or
-                      (float(payload.get('target',0))-float(payload.get('a',0)))>10)
-        if display != row['display'] and large_enough:
+        if display != row['display'] and pedagogical_case(kind,payload)==wanted_case:
             example={'kind':kind,'payload':payload,'display':display,'expected':expected}
             break
     if example is None:
