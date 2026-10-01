@@ -1187,7 +1187,17 @@ document.addEventListener('touchend',e=>{
   lastTestTap=now;
 },{passive:false});
 
-</script></body></html>
+</script>
+<style id="tablet-test-lift-v243">
+/* v243 — tablette / écrans tactiles plus larges qu’un iPhone :
+   remonte ensemble le calcul et le pavé numérique sans modifier le layout iPhone. */
+@media (hover:none) and (pointer:coarse) and (min-width:481px) and (min-height:600px){
+  .question-zone{
+    transform:translateY(clamp(-78px,-7vh,-52px))!important;
+  }
+}
+</style>
+</body></html>
 <style>
 /* v199 — mise en page du test adaptée aux petits écrans (notamment iPhone).
    On ne décale plus artificiellement toute la zone : le clavier se place juste

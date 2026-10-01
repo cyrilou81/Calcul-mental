@@ -62,3 +62,8 @@ Stats live fiables depuis v229 : séances rewarded=0 visibles comme EN COURS, po
 ## v242
 - Corrige le chargement du moteur pédagogique partagé : Flask sert les fichiers statiques à la racine (`/pedagogy.js`), pas sous `/static`.
 - Le bouton Aide et /admin chargent désormais la même source pédagogique réelle.
+
+
+## v243
+- Sur tablettes et écrans tactiles de plus de 480 px, le bloc question + clavier est remonté d'environ 50 à 78 px selon la hauteur d'écran.
+- Les règles iPhone (<=480 px) restent inchangées.
