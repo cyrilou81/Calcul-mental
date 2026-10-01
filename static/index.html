@@ -778,7 +778,7 @@ input,select{background:#fffdf7;border:2px solid #9bd8f5;}
 <style id="help-jump-v235">
 .help-jump{max-width:480px;margin:8px auto 16px;padding:12px 16px 8px;background:#fff;border:2px solid #cfe5f3;border-radius:16px}.jump-line{display:grid;grid-template-columns:auto 1fr auto 1fr auto;align-items:center;gap:8px;font-size:clamp(22px,4vw,30px);font-weight:900;color:#174a6b}.jump-arrow{text-align:center;color:#269ee8;font-size:30px}.jump-label{display:inline-block;font-size:17px;font-weight:900;color:#248b5a;text-align:center}.jump-label-1{width:50%;margin-left:10%}.jump-label-2{width:45%;margin-left:52%;margin-top:-22px}
 </style>
-<script src="/static/pedagogy.js?v=238"></script></head><body><div class="app">
+<script src="/static/pedagogy.js?v=239"></script></head><body><div class="app">
 <section id="auth">
   <div class="auth-scene">
     <div class="auth-box">
@@ -991,26 +991,9 @@ function hfmt(n){
   return String(Math.round(x*1000000)/1000000).replace('.',',');
 }
 function contextualHelp(q){return window.Pedagogy.contextualHelp(q)}
-function helpExample(q){
-  const p={...(q.payload||{})}, k=q.kind; let display=q.display;
-  const bump=(x,d=2)=>Number(x)+d;
-  if(['addition','subtraction','tens','tens_sub'].includes(k)){p.a=bump(p.a,10);display=`${hfmt(p.a)} ${k==='addition'||k==='tens'?'+':'−'} ${hfmt(p.b)} = __`}
-  else if(k==='multiplication'){p.b=Math.max(2,Number(p.b)+1);display=`${hfmt(p.a)} × ${hfmt(p.b)} = __`}
-  else if(k==='division'){let quotient=Math.max(2,Math.round(Number(p.dividend)/Number(p.divisor))+1);p.dividend=Number(p.divisor)*quotient;display=`${hfmt(p.dividend)} : ${hfmt(p.divisor)} = __`}
-  else if(k==='double'){p.n=Number(p.n)+2;display=`Double de ${hfmt(p.n)} = __`}
-  else if(k==='half'){p.n=Number(p.n)+2;display=`Moitié de ${hfmt(p.n)} = __`}
-  else if(k==='round_tens_add'){p.b=Number(p.b)>=9?1:Number(p.b)+1;display=`${p.a} + ${p.b} = __`}
-  else if(k==='complement_tens'){let target=Number(p.target),currentGap=target-Number(p.a);if(currentGap>10){let exampleGap=15;if(target-exampleGap<1)exampleGap=11;p.a=Math.max(1,target-exampleGap)}else{let gap=Math.max(1,currentGap);gap=gap>1?gap-1:gap+1;p.a=Math.max(1,target-gap)}display=`${p.a} + __ = ${target}`}
-  else if(k==='addition3'){p.numbers=(p.numbers||[1,2,3]).map((x,i)=>Math.max(1,Math.min(9,Number(x)+(i===0?1:0))));display=`${p.numbers.join(' + ')} = __`}
-  else if(k==='multiple_of'){let f=Number(p.factor)||3;p.n=Math.max(1,Number(p.n)+1);p.factor=f;display=`${f===3?'Triple':'Quadruple'} de ${p.n} = __`}
-  else if(k==='fraction'){let d=Number(p.divisor)||3;p.n=Math.max(d,Number(p.n)+d);p.n-=p.n%d;p.divisor=d;display=`${d===3?'Tiers':'Quart'} de ${p.n} = __`}
-  else if(k==='decimal_multiplication'){p.a=Math.round((Number(p.a)+1.1)*100)/100;display=`${hfmt(p.a)} × ${hfmt(p.b)} = __`}
-  else if(k==='decimal_division'){p.dividend=Math.round((Number(p.dividend)+Number(p.divisor))*100)/100;display=`${hfmt(p.dividend)} : ${hfmt(p.divisor)} = __`}
-  else if(k==='decimal'||k==='decimal_sub'){p.a=Math.round((Number(p.a)+1.1)*100)/100;display=`${hfmt(p.a)} ${k==='decimal'?'+':'−'} ${hfmt(p.b)} = __`}
-  return {...q,payload:p,display};
-}
+function helpExample(q){return window.Pedagogy.exampleFor(q)}
 let helpPurpose='example';
-async function openHelp(){if(!session||helpOpen)return;let q=session.questions[index];if(!q)return;helpPurpose='example';helpOpen=true;helpOpenedAt=performance.now();let ex=null;try{let r=await api('/api/session/'+session.sessionId+'/help',{method:'POST',body:JSON.stringify({questionId:q.id})});ex=r.example||null}catch(e){}if(!ex)ex=helpExample(q);let h=contextualHelp(ex);$('#helpTitle span:last-child').textContent='Regarde comment faire';$('#helpCurrent').textContent='Exemple : '+ex.display.replace('__','?');$('#helpVisual').innerHTML=h.html;$('#helpTip').textContent=h.tip;$('#helpOk').textContent='OK, j’ai compris';$('#helpOverlay').classList.remove('hidden')}
+async function openHelp(){if(!session||helpOpen)return;let q=session.questions[index];if(!q)return;helpPurpose='example';helpOpen=true;helpOpenedAt=performance.now();try{await api('/api/session/'+session.sessionId+'/help',{method:'POST',body:JSON.stringify({questionId:q.id})})}catch(e){}let ex=helpExample(q);let h=contextualHelp(ex);$('#helpTitle span:last-child').textContent='Regarde comment faire';$('#helpCurrent').textContent='Exemple : '+ex.display.replace('__','?');$('#helpVisual').innerHTML=h.html;$('#helpTip').textContent=h.tip;$('#helpOk').textContent='OK, j’ai compris';$('#helpOverlay').classList.remove('hidden')}
 function openCorrection(q){helpPurpose='correction';helpOpen=true;helpOpenedAt=performance.now();let h=contextualHelp(q);$('#helpTitle span:last-child').textContent='Correction';$('#helpCurrent').textContent=q.display.replace('__',hfmt(q.expected));$('#helpVisual').innerHTML=h.html;$('#helpTip').textContent=h.tip;$('#helpOk').textContent='Continuer';$('#helpOverlay').classList.remove('hidden')}
 
 function closeHelp(){if(!helpOpen)return;let paused=performance.now()-helpOpenedAt,purpose=helpPurpose;helpOpen=false;helpOpenedAt=0;qStart+=paused;lastTick=performance.now();$('#helpOverlay').classList.add('hidden');if(purpose==='correction'){correction=false;index++;displayQ()}}

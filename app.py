@@ -1108,75 +1108,14 @@ def mark_help(sid):
     if (e:=require_auth()): return e
     qid=int((request.json or {}).get('questionId',0))
     c=db()
-    row=c.execute('''SELECT q.id,q.kind,q.display,q.payload,s.profile_id,s.mode,s.challenge_level_id
-                     FROM questions q JOIN sessions s ON s.id=q.session_id
+    row=c.execute("""SELECT q.id FROM questions q JOIN sessions s ON s.id=q.session_id
                      JOIN profiles p ON p.id=s.profile_id
-                     WHERE q.id=? AND s.id=? AND p.account_id=?''',(qid,sid,current_account_id())).fetchone()
+                     WHERE q.id=? AND s.id=? AND p.account_id=?""",(qid,sid,current_account_id())).fetchone()
     if not row: c.close(); return {'error':'Question inconnue'},404
-    c.execute('UPDATE questions SET help_used=1 WHERE id=? AND session_id=?',(qid,sid)); c.commit()
-
-    # L'exemple d'aide est un VRAI nouveau tirage du même générateur et avec la
-    # même configuration que la séance. Il n'est donc pas dérivé des nombres de
-    # la question courante et respecte les bornes/tables choisies par le parent.
-    if row['mode']=='challenge' and row['challenge_level_id']:
-        level=c.execute('SELECT data FROM challenge_levels WHERE id=?',(row['challenge_level_id'],)).fetchone()
-        cfg=merged_cfg(json.loads(level['data'])) if level else copy.deepcopy(DEFAULT)
-    else:
-        cfg=get_cfg(row['profile_id'])
-    c.close()
-    kind=row['kind']; cat=cfg.get('categories',{}).get(kind)
-    if not cat: return {'error':'Configuration de la catégorie introuvable'},400
-
-    # Pour ×10/×100/×1000 et ÷10/÷100/÷1000, l'exemple doit entraîner
-    # exactement le même déplacement de virgule que la question courante.
-    # On garde donc le multiplicateur/diviseur courant, tout en retirant un
-    # nouveau nombre au hasard avec le générateur normal de la catégorie.
-    example_cat=copy.deepcopy(cat)
-    try:
-        current_payload=json.loads(row['payload'] or '{}')
-    except (TypeError,ValueError,KeyError):
-        current_payload={}
-    if kind=='decimal_multiplication' and current_payload.get('b') in (10,100,1000):
-        example_cat['multipliers']=[current_payload['b']]
-    elif kind=='decimal_division' and current_payload.get('divisor') in (10,100,1000):
-        example_cat['divisors']=[current_payload['divisor']]
-    elif kind=='multiple_of' and current_payload.get('factor') in (3,4):
-        # L'aide reste strictement dans le même registre :
-        # Triple -> autre triple ; Quadruple -> autre quadruple.
-        example_cat['factors']=[current_payload['factor']]
-
-    # L'aide et la correction utilisent UNE SEULE méthode pédagogique.
-    # La correction garde la question réelle ; l'aide tire une autre question,
-    # mais obligatoirement dans la même branche de l'arbre pédagogique.
-    def pedagogical_case(k,payload):
-        if k=='complement_tens':
-            try: return 'gap_gt_10' if float(payload.get('target',0))-float(payload.get('a',0))>10 else 'gap_le_10'
-            except (TypeError,ValueError): return 'gap_le_10'
-        if k=='half':
-            try:
-                x=int(payload.get('n',0))
-                if x>=30 and x%20==10: return 'odd_ten'
-                tens=(x//10)*10; units=x-tens
-                if x>=20 and tens%20==0 and units%2==0: return 'even_decomposition'
-                return 'simple'
-            except (TypeError,ValueError): return 'simple'
-        if k=='decimal_multiplication': return 'x'+str(payload.get('b'))
-        if k=='decimal_division': return 'div'+str(payload.get('divisor'))
-        if k=='multiple_of': return 'factor'+str(payload.get('factor'))
-        return 'default'
-
-    wanted_case=pedagogical_case(kind,current_payload)
-    example=None
-    for _ in range(200):
-        payload,display,expected=gen(kind,example_cat)
-        if display != row['display'] and pedagogical_case(kind,payload)==wanted_case:
-            example={'kind':kind,'payload':payload,'display':display,'expected':expected}
-            break
-    if example is None:
-        # Cas rarissime d'une configuration qui ne permet qu'un seul calcul.
-        payload,display,expected=gen(kind,example_cat)
-        example={'kind':kind,'payload':payload,'display':display,'expected':expected}
-    return {'ok':True,'example':example}
+    c.execute('UPDATE questions SET help_used=1 WHERE id=? AND session_id=?',(qid,sid)); c.commit(); c.close()
+    # La génération et le choix de la branche pédagogique vivent uniquement dans pedagogy.js.
+    # Cette route ne fait plus que mémoriser l'utilisation de l'aide.
+    return {'ok':True}
 
 @app.delete('/api/session/<int:sid>')
 def cancel_session(sid):

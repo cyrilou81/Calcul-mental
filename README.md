@@ -37,3 +37,10 @@ Stats live fiables depuis v229 : séances rewarded=0 visibles comme EN COURS, po
 - `/admin` affiche directement le texte et le rendu produits par le même moteur que le test.
 - Aide et correction utilisent la même méthode ; seule la question fournie diffère.
 - Dans la fenêtre d’aide, l’explication verte est placée avant le schéma/exemple.
+
+## v239
+- Aide sans boucle : suppression du tirage serveur pouvant chercher jusqu'à 200 exemples.
+- Source de vérité pédagogique consolidée dans `static/pedagogy.js` : branche, exemple d'aide et rendu utilisent le même moteur côté interface.
+- Compléments > 10 : exemple garanti dans la même branche, avec passage par la dizaine supérieure.
+- Moitiés vérifiées : 30/50/70/90 utilisent la dizaine précédente + moitié de 10 ; les autres branches restent distinctes.
+- La route `/help` ne fait plus que mémoriser l'utilisation de l'aide.
