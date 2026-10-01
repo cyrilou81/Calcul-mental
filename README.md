@@ -30,3 +30,10 @@ Stats live fiables depuis v229 : séances rewarded=0 visibles comme EN COURS, po
 - Refonte de /admin > Aides pédagogiques en arbre de méthodes : une méthode unique par cas, avec Aide = autre exemple de la même branche et Correction = question réelle.
 - Ajout explicite des branches Compléments (écart <=10 / >10) et Moitiés (partage simple / dizaine impaire / décomposition paire).
 - Le backend force désormais les exemples d’aide à rester dans la même branche pédagogique que la question, notamment pour les deux branches de compléments et les différentes stratégies de moitié.
+
+
+## v238
+- Source pédagogique unique dans `static/pedagogy.js`, partagée par le test et `/admin`.
+- `/admin` affiche directement le texte et le rendu produits par le même moteur que le test.
+- Aide et correction utilisent la même méthode ; seule la question fournie diffère.
+- Dans la fenêtre d’aide, l’explication verte est placée avant le schéma/exemple.
