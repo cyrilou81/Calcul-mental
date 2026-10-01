@@ -51,3 +51,9 @@ Stats live fiables depuis v229 : séances rewarded=0 visibles comme EN COURS, po
 - Garde pedagogy.js comme source unique pour Aide, Correction et /admin.
 - Ordre visuel corrigé : méthode verte avant l'exemple orange.
 - Vérification conservée de la branche moitié des dizaines impaires (30/50/70/90).
+
+## v241
+- Aide pédagogique : pools explicites d'exemples par branche.
+- Le test tire un seul exemple au hasard dans le pool de la branche, après exclusion de la question identique ; aucune boucle de recherche.
+- /admin affiche directement les pools réellement utilisés par le test : source unique de vérité.
+- Correction et Aide utilisent toujours le même moteur pédagogique ; seule la valeur d'entrée change.

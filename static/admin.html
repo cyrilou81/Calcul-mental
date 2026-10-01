@@ -46,7 +46,7 @@
 .levels-transfer{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:12px 0 16px}
 .levels-transfer button{width:auto}
 #levelsTransferMsg{font-weight:700;color:#16803a}
-</style><script src="/static/pedagogy.js?v=240"></script></head><body><main>
+</style><script src="/static/pedagogy.js?v=241"></script></head><body><main>
 <section id="adminHome" class="card"><h1>Administration</h1><div class="admin-actions"><button id="manageLevels">Gérer les niveaux</button><button id="manageHelp">🐶 Aides pédagogiques</button></div></section>
 <section id="helpView" class="card hidden"><div class="top"><div><h2>Arbre pédagogique</h2><div class="help-legend"><span>Une seule méthode par cas pédagogique.</span><span><b>Aide</b> = autre exemple du même cas · <b>Correction</b> = calcul de la question.</span></div></div><button class="secondary" data-back="home">Retour</button></div><div id="helpCatalog" class="help-catalog"></div></section>
 <section id="classesView" class="card hidden"><div class="top"><h2>Gérer les niveaux</h2><button class="secondary" data-back="home">Retour</button></div><div class="levels-transfer"><button id="exportLevels" class="secondary">Exporter tous les niveaux</button><button id="importLevels" class="secondary">Importer des niveaux</button><input id="importLevelsFile" type="file" accept="application/json,.json" hidden><span id="levelsTransferMsg"></span></div><div id="classes" class="classes"></div></section>
@@ -80,8 +80,8 @@ return {names,order,render,collect,normalize,preview};})();
 </script><script>
 const $=s=>document.querySelector(s), classes=['CP','CE1','CE2','CM1','CM2'];let currentClass=null,levels=[],current=null,cfg=null,classColors={};
 function renderHelpCatalog(){
-  const catalog=window.Pedagogy.catalog;
-  $('#helpCatalog').innerHTML=catalog.map(group=>`<article class="help-card"><h3>▼ ${group.name}</h3><div class="help-id">${group.id}</div><div class="help-tree">${group.samples.map(([title,q])=>{const h=window.Pedagogy.contextualHelp(q);return `<div class="help-case"><strong>├─ ${title}</strong><div class="help-aid"><b>Méthode unique :</b> ${h.tip}</div><div class="help-correction">${h.html}</div><small>↳ Ce rendu est celui utilisé par le test. Aide = autre opération de cette branche · Correction = opération réelle.</small></div>`}).join('')}</div></article>`).join('');
+  const P=window.Pedagogy, catalog=P.catalog;
+  $('#helpCatalog').innerHTML=catalog.map(group=>`<article class="help-card"><h3>▼ ${group.name}</h3><div class="help-id">${group.id}</div><div class="help-tree">${group.cases.map(([title,key])=>{const pool=P.examplePools[key]||[],q=pool[0],h=q?P.contextualHelp(q):{tip:'',html:''};return `<div class="help-case"><strong>├─ ${title}</strong><div class="help-aid"><b>Méthode unique :</b> ${h.tip}</div><div class="help-correction"><b>Pool réellement utilisé par Aide :</b><div style="margin-top:7px;display:flex;gap:6px;flex-wrap:wrap">${pool.map(ex=>`<span style="background:white;border:1px solid #ffd49a;border-radius:8px;padding:5px 8px">${ex.display.replace('__','?')}</span>`).join('')}</div></div><div style="margin-top:8px">${h.html}</div><small>↳ Aide tire 1 exemple au hasard dans ce pool (hors question identique). Correction applique cette même méthode à la question réelle.</small></div>`}).join('')}</div></article>`).join('');
 }
 
 
