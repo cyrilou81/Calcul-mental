@@ -57,3 +57,8 @@ Stats live fiables depuis v229 : séances rewarded=0 visibles comme EN COURS, po
 - Le test tire un seul exemple au hasard dans le pool de la branche, après exclusion de la question identique ; aucune boucle de recherche.
 - /admin affiche directement les pools réellement utilisés par le test : source unique de vérité.
 - Correction et Aide utilisent toujours le même moteur pédagogique ; seule la valeur d'entrée change.
+
+
+## v242
+- Corrige le chargement du moteur pédagogique partagé : Flask sert les fichiers statiques à la racine (`/pedagogy.js`), pas sous `/static`.
+- Le bouton Aide et /admin chargent désormais la même source pédagogique réelle.
