@@ -46,7 +46,7 @@
 .levels-transfer{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:12px 0 16px}
 .levels-transfer button{width:auto}
 #levelsTransferMsg{font-weight:700;color:#16803a}
-</style><script src="/static/pedagogy.js?v=238"></script></head><body><main>
+</style><script src="/static/pedagogy.js?v=240"></script></head><body><main>
 <section id="adminHome" class="card"><h1>Administration</h1><div class="admin-actions"><button id="manageLevels">Gérer les niveaux</button><button id="manageHelp">🐶 Aides pédagogiques</button></div></section>
 <section id="helpView" class="card hidden"><div class="top"><div><h2>Arbre pédagogique</h2><div class="help-legend"><span>Une seule méthode par cas pédagogique.</span><span><b>Aide</b> = autre exemple du même cas · <b>Correction</b> = calcul de la question.</span></div></div><button class="secondary" data-back="home">Retour</button></div><div id="helpCatalog" class="help-catalog"></div></section>
 <section id="classesView" class="card hidden"><div class="top"><h2>Gérer les niveaux</h2><button class="secondary" data-back="home">Retour</button></div><div class="levels-transfer"><button id="exportLevels" class="secondary">Exporter tous les niveaux</button><button id="importLevels" class="secondary">Importer des niveaux</button><input id="importLevelsFile" type="file" accept="application/json,.json" hidden><span id="levelsTransferMsg"></span></div><div id="classes" class="classes"></div></section>

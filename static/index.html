@@ -778,7 +778,7 @@ input,select{background:#fffdf7;border:2px solid #9bd8f5;}
 <style id="help-jump-v235">
 .help-jump{max-width:480px;margin:8px auto 16px;padding:12px 16px 8px;background:#fff;border:2px solid #cfe5f3;border-radius:16px}.jump-line{display:grid;grid-template-columns:auto 1fr auto 1fr auto;align-items:center;gap:8px;font-size:clamp(22px,4vw,30px);font-weight:900;color:#174a6b}.jump-arrow{text-align:center;color:#269ee8;font-size:30px}.jump-label{display:inline-block;font-size:17px;font-weight:900;color:#248b5a;text-align:center}.jump-label-1{width:50%;margin-left:10%}.jump-label-2{width:45%;margin-left:52%;margin-top:-22px}
 </style>
-<script src="/static/pedagogy.js?v=239"></script></head><body><div class="app">
+<script src="/static/pedagogy.js?v=240"></script></head><body><div class="app">
 <section id="auth">
   <div class="auth-scene">
     <div class="auth-box">
@@ -824,7 +824,7 @@ input,select{background:#fffdf7;border:2px solid #9bd8f5;}
 </section>
 <section id="rewards" class="hidden card reward-screen progress-screen"><div class="top reward-head"><h2>Mes progrès</h2><div style="display:flex;gap:12px;align-items:center"><div class="coin-badge"><span class="gold-coin"></span><span id="rewardCoinCount">0</span></div><button id="rewardBack">Retour</button></div></div><div id="rewardContent"></div></section>
 <section id="config" class="hidden card"><div class="top config-top"><div><h2 style="margin-bottom:4px">Configuration — Entraînement</h2><div style="color:#5a7890">Choisissez les types d’exercices et leur fréquence</div></div><div class="config-buttons"><button class="back">Retour</button></div></div><div id="configErr" class="error config-error"></div><div class="cf-session-bar"><label>Nombre de questions <input id="questionCount" type="number" min="1" max="500" step="1"></label><label>Durée (max) <input id="durationMinutes" type="number" min="1" max="60" step="1"> min</label></div><div id="configRows"></div></section>
-<section id="exercise" class="hidden exercise"><div class="exercise-head"><div class="help-side"><button id="helpBtn" class="help-btn">🐶 Aide</button></div><div class="progress" id="progress"></div><div class="test-controls"><div class="timer" id="timer">05:00</div><button id="stop" class="stop">STOP</button></div></div><div class="question-zone"><div id="question" class="question"></div><div id="feedback" class="feedback"></div><div id="keypad" class="keypad"></div></div></section><div id="helpOverlay" class="help-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="helpTitle"><div class="help-dialog"><h2 id="helpTitle" class="help-title"><span class="help-animal">🐶</span><span>Regarde comment faire</span></h2><div id="helpCurrent" class="help-current"></div><div id="helpTip" class="help-tip"></div><div id="helpVisual" class="help-visual"></div><button id="helpOk" class="help-ok">OK, j’ai compris</button></div></div>
+<section id="exercise" class="hidden exercise"><div class="exercise-head"><div class="help-side"><button id="helpBtn" class="help-btn">🐶 Aide</button></div><div class="progress" id="progress"></div><div class="test-controls"><div class="timer" id="timer">05:00</div><button id="stop" class="stop">STOP</button></div></div><div class="question-zone"><div id="question" class="question"></div><div id="feedback" class="feedback"></div><div id="keypad" class="keypad"></div></div></section><div id="helpOverlay" class="help-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="helpTitle"><div class="help-dialog"><h2 id="helpTitle" class="help-title"><span class="help-animal">🐶</span><span>Regarde comment faire</span></h2><div id="helpTip" class="help-tip"></div><div id="helpCurrent" class="help-current"></div><div id="helpVisual" class="help-visual"></div><button id="helpOk" class="help-ok">OK, j’ai compris</button></div></div>
 <section id="stats" class="hidden card"><div class="top"><h2>Statistiques</h2><button class="back">Retour</button></div><div id="statsContent"></div></section>
 <section id="celebration" class="hidden card celebration celebration-playful"><div class="confetti">★ &nbsp; ● &nbsp; ★ &nbsp; ● &nbsp; ★</div><h2>Test terminé !</h2><div class="celebration-main"><div class="celebration-visual"><img class="bravo-dog" src="dog-bravo.png" alt="Petit chien joyeux qui fête la fin du test"><p>Tu as fait de super efforts !</p></div><div class="celebration-rewards"><div id="coinAward" class="daily-bonus-block answer-reward-block"><div class="daily-bonus-label"><span id="answerRewardLabel">0 question réussie</span><span class="daily-bonus-coins"><span class="gold-coin"></span> +<b id="earnedNow">0</b></span></div><div class="daily-bonus-meter"><div id="coinMeterFill" class="daily-bonus-fill"></div></div></div><div id="dailyBonusBlock" class="daily-bonus-block hidden"><div class="daily-bonus-label"><span>✓ Défi quotidien effectué</span><span class="daily-bonus-coins"><span class="gold-coin"></span> +<b id="dailyBonusNow">0</b></span></div><div class="daily-bonus-meter"><div id="dailyBonusFill" class="daily-bonus-fill"></div></div></div><div id="starBonusBlock" class="daily-bonus-block hidden"><div class="daily-bonus-label"><span>⭐ Étoile gagnée</span><span class="daily-bonus-coins"><span class="gold-coin"></span> +<b id="starBonusNow">0</b></span></div><div class="daily-bonus-meter"><div id="starBonusFill" class="daily-bonus-fill"></div></div></div><div id="levelBonusBlock" class="daily-bonus-block hidden"><div class="daily-bonus-label"><span>✓ Niveau validé</span><span class="daily-bonus-coins"><span class="gold-coin"></span> +<b id="levelBonusNow">0</b></span></div><div class="daily-bonus-meter"><div id="levelBonusFill" class="daily-bonus-fill"></div></div></div></div></div><div class="celebration-actions"><button id="celebrationHome" class="primary">⌂ Retour à l’accueil</button></div></section>
 <section id="recordVictory" class="hidden card record-victory">
@@ -993,7 +993,27 @@ function hfmt(n){
 function contextualHelp(q){return window.Pedagogy.contextualHelp(q)}
 function helpExample(q){return window.Pedagogy.exampleFor(q)}
 let helpPurpose='example';
-async function openHelp(){if(!session||helpOpen)return;let q=session.questions[index];if(!q)return;helpPurpose='example';helpOpen=true;helpOpenedAt=performance.now();try{await api('/api/session/'+session.sessionId+'/help',{method:'POST',body:JSON.stringify({questionId:q.id})})}catch(e){}let ex=helpExample(q);let h=contextualHelp(ex);$('#helpTitle span:last-child').textContent='Regarde comment faire';$('#helpCurrent').textContent='Exemple : '+ex.display.replace('__','?');$('#helpVisual').innerHTML=h.html;$('#helpTip').textContent=h.tip;$('#helpOk').textContent='OK, j’ai compris';$('#helpOverlay').classList.remove('hidden')}
+function openHelp(){
+  if(!session||helpOpen)return;
+  const q=session.questions[index]; if(!q)return;
+  helpPurpose='example'; helpOpen=true; helpOpenedAt=performance.now();
+  try{
+    if(!window.Pedagogy)throw new Error('Moteur pédagogique non chargé');
+    const ex=helpExample(q), h=contextualHelp(ex);
+    $('#helpTitle span:last-child').textContent='Regarde comment faire';
+    $('#helpTip').textContent=h.tip;
+    $('#helpCurrent').textContent='Exemple : '+ex.display.replace('__','?');
+    $('#helpVisual').innerHTML=h.html;
+    $('#helpOk').textContent='OK, j’ai compris';
+    $('#helpOverlay').classList.remove('hidden');
+    // La mémorisation statistique ne doit JAMAIS bloquer l'ouverture de l'aide.
+    api('/api/session/'+session.sessionId+'/help',{method:'POST',body:JSON.stringify({questionId:q.id})}).catch(()=>{});
+  }catch(e){
+    helpOpen=false; helpOpenedAt=0;
+    console.error('Aide pédagogique:',e);
+    $('#feedback').textContent='Impossible d’afficher l’aide.';
+  }
+}
 function openCorrection(q){helpPurpose='correction';helpOpen=true;helpOpenedAt=performance.now();let h=contextualHelp(q);$('#helpTitle span:last-child').textContent='Correction';$('#helpCurrent').textContent=q.display.replace('__',hfmt(q.expected));$('#helpVisual').innerHTML=h.html;$('#helpTip').textContent=h.tip;$('#helpOk').textContent='Continuer';$('#helpOverlay').classList.remove('hidden')}
 
 function closeHelp(){if(!helpOpen)return;let paused=performance.now()-helpOpenedAt,purpose=helpPurpose;helpOpen=false;helpOpenedAt=0;qStart+=paused;lastTick=performance.now();$('#helpOverlay').classList.add('hidden');if(purpose==='correction'){correction=false;index++;displayQ()}}

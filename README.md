@@ -44,3 +44,10 @@ Stats live fiables depuis v229 : séances rewarded=0 visibles comme EN COURS, po
 - Compléments > 10 : exemple garanti dans la même branche, avec passage par la dizaine supérieure.
 - Moitiés vérifiées : 30/50/70/90 utilisent la dizaine précédente + moitié de 10 ; les autres branches restent distinctes.
 - La route `/help` ne fait plus que mémoriser l'utilisation de l'aide.
+
+## v240
+- Répare le bouton Aide : l'affichage est désormais immédiat et n'attend plus l'appel statistique /help.
+- Le marquage help_used est asynchrone et ne peut plus bloquer l'interface.
+- Garde pedagogy.js comme source unique pour Aide, Correction et /admin.
+- Ordre visuel corrigé : méthode verte avant l'exemple orange.
+- Vérification conservée de la branche moitié des dizaines impaires (30/50/70/90).
