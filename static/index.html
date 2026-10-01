@@ -775,6 +775,9 @@ input,select{background:#fffdf7;border:2px solid #9bd8f5;}
   .progress-chart-wrap{background-position:62% center!important;}
 }
 </style>
+<style id="help-jump-v235">
+.help-jump{max-width:480px;margin:8px auto 16px;padding:12px 16px 8px;background:#fff;border:2px solid #cfe5f3;border-radius:16px}.jump-line{display:grid;grid-template-columns:auto 1fr auto 1fr auto;align-items:center;gap:8px;font-size:clamp(22px,4vw,30px);font-weight:900;color:#174a6b}.jump-arrow{text-align:center;color:#269ee8;font-size:30px}.jump-label{display:inline-block;font-size:17px;font-weight:900;color:#248b5a;text-align:center}.jump-label-1{width:50%;margin-left:10%}.jump-label-2{width:45%;margin-left:52%;margin-top:-22px}
+</style>
 </head><body><div class="app">
 <section id="auth">
   <div class="auth-scene">
@@ -1019,6 +1022,9 @@ function contextualHelp(q){
   }
   if(k==='half'){
     let x=n,tens=Math.floor(x/10)*10,units=x-tens;
+    // Pour une dizaine « impaire » (30, 50, 70, 90), on revient à la dizaine
+    // précédente dont la moitié est immédiate, puis on ajoute la moitié de 10.
+    if(x>=30 && x%20===10){let previous=x-10;return helpBox(`<div class="help-step"><span class="help-split">${x} = ${previous} + 10</span></div><div class="help-step">Moitié de ${x} = moitié de ${previous} + moitié de 10</div><div class="help-step">= ${previous/2} + 5 <span class="help-arrow">→</span> ${x/2}</div>`,`Prends la dizaine précédente : découpe ${x} en ${previous} + 10. Calcule la moitié de chaque morceau, puis additionne.`)}
     if(x>=20 && tens%20===0 && units%2===0){return helpBox(`<div class="help-step"><span class="help-split">${x} = ${tens} + ${units}</span></div><div class="help-step">${tens} ÷ 2 = ${tens/2}</div>${units?`<div class="help-step">${units} ÷ 2 = ${units/2}</div>`:''}<div class="help-step">${tens/2}${units?` + ${units/2}`:''} <span class="help-arrow">→</span> ${x/2}</div>`,`Partage chaque morceau en deux parts égales.`)}
     return helpBox(`<div class="groups"><span class="group-box">${x/2}</span><span class="group-box">${x/2}</span></div><div class="help-step">${x} ÷ 2 <span class="help-arrow">→</span> ${x/2}</div>`,`Cherche deux parts identiques qui, ensemble, redonnent ${x}.`)
   }
@@ -1026,7 +1032,9 @@ function contextualHelp(q){
     return helpBox(`<div class="help-step">${a} + ${b}</div><div class="help-step">${a} <span class="help-arrow">→</span> ${a+b}</div>`,`Pars de la dizaine ronde ${a} et ajoute ${b}.`)
   }
   if(k==='complement_tens'){
-    let target=Number(p.target),missing=target-a;return helpBox(`<div class="help-step">${a} <span class="help-arrow">→</span> ${target}</div><div class="help-step">Il manque <span class="help-split">${missing}</span></div><div class="help-step">${a} + ${missing} = ${target}</div>`,`Cherche l’écart entre ${a} et ${target}.`)
+    let target=Number(p.target),missing=target-a;
+    if(missing>10){let nextTen=Math.ceil(a/10)*10;if(nextTen===a)nextTen=a+10;let first=nextTen-a,second=target-nextTen;return helpBox(`<div class="help-jump"><div class="jump-label jump-label-1">+${first}</div><div class="jump-label jump-label-2">+${second}</div><div class="jump-line"><span>${a}</span><span class="jump-arrow">→</span><span>${nextTen}</span><span class="jump-arrow">→</span><span>${target}</span></div></div><div class="help-step">${first} + ${second} <span class="help-arrow">→</span> ${missing}</div><div class="help-step">${a} + ${missing} = ${target}</div>`,`Repère d’abord la dizaine supérieure à ${a} : c’est ${nextTen}. Saute de ${a} à ${nextTen} (+${first}), puis de ${nextTen} à ${target} (+${second}). Additionne les deux sauts.`)}
+    return helpBox(`<div class="help-step">${a} <span class="help-arrow">→</span> ${target}</div><div class="help-step">Il manque <span class="help-split">${missing}</span></div><div class="help-step">${a} + ${missing} = ${target}</div>`,`Cherche l’écart entre ${a} et ${target}.`)
   }
   if(k==='place_value'){
     let f=p.factors||{}, order=(p.order||['m','c','d','u']).filter(x=>f[x]), parts=order.map(x=>`${f[x]}${x}`), values={m:1000,c:100,d:10,u:1};
