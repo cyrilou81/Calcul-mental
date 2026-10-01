@@ -22,3 +22,6 @@ Stats live fiables depuis v229 : séances rewarded=0 visibles comme EN COURS, po
 ## v235
 - Aide « moitié » améliorée pour les dizaines impaires : ex. moitié de 70 = moitié de 60 + moitié de 10 = 30 + 5 = 35.
 - Aide « compléments » améliorée lorsque l'écart dépasse 10 : passage visuel par la dizaine supérieure (ex. 45 → 50 → 60, +5 puis +10).
+
+## v236
+- Aide « Compléments » : lorsqu'une question a un écart strictement supérieur à 10, l'exemple proposé est désormais forcé à avoir lui aussi un écart strictement supérieur à 10 afin de rendre visible la méthode en deux sauts via la dizaine supérieure.

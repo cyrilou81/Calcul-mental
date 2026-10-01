@@ -1145,10 +1145,22 @@ def mark_help(sid):
         # Triple -> autre triple ; Quadruple -> autre quadruple.
         example_cat['factors']=[current_payload['factor']]
 
+    # Pour un complément dont l'écart de la question dépasse 10, l'exemple
+    # doit lui aussi avoir un écart STRICTEMENT supérieur à 10. Sinon l'exemple
+    # ne montre pas la méthode en deux sauts (dizaine suivante, puis cible).
+    require_large_complement=False
+    if kind=='complement_tens':
+        try:
+            require_large_complement=(float(current_payload.get('target',0))-float(current_payload.get('a',0)))>10
+        except (TypeError,ValueError):
+            require_large_complement=False
+
     example=None
-    for _ in range(40):
+    for _ in range(100):
         payload,display,expected=gen(kind,example_cat)
-        if display != row['display']:
+        large_enough=(kind!='complement_tens' or not require_large_complement or
+                      (float(payload.get('target',0))-float(payload.get('a',0)))>10)
+        if display != row['display'] and large_enough:
             example={'kind':kind,'payload':payload,'display':display,'expected':expected}
             break
     if example is None:

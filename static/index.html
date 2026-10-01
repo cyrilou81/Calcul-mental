@@ -1094,7 +1094,7 @@ function helpExample(q){
   else if(k==='double'){p.n=Number(p.n)+2;display=`Double de ${hfmt(p.n)} = __`}
   else if(k==='half'){p.n=Number(p.n)+2;display=`Moitié de ${hfmt(p.n)} = __`}
   else if(k==='round_tens_add'){p.b=Number(p.b)>=9?1:Number(p.b)+1;display=`${p.a} + ${p.b} = __`}
-  else if(k==='complement_tens'){let gap=Math.max(1,Number(p.target)-Number(p.a));gap=gap>1?gap-1:gap+1;p.a=Math.max(1,Number(p.target)-gap);display=`${p.a} + __ = ${p.target}`}
+  else if(k==='complement_tens'){let target=Number(p.target),currentGap=target-Number(p.a);if(currentGap>10){let exampleGap=15;if(target-exampleGap<1)exampleGap=11;p.a=Math.max(1,target-exampleGap)}else{let gap=Math.max(1,currentGap);gap=gap>1?gap-1:gap+1;p.a=Math.max(1,target-gap)}display=`${p.a} + __ = ${target}`}
   else if(k==='addition3'){p.numbers=(p.numbers||[1,2,3]).map((x,i)=>Math.max(1,Math.min(9,Number(x)+(i===0?1:0))));display=`${p.numbers.join(' + ')} = __`}
   else if(k==='multiple_of'){let f=Number(p.factor)||3;p.n=Math.max(1,Number(p.n)+1);p.factor=f;display=`${f===3?'Triple':'Quadruple'} de ${p.n} = __`}
   else if(k==='fraction'){let d=Number(p.divisor)||3;p.n=Math.max(d,Number(p.n)+d);p.n-=p.n%d;p.divisor=d;display=`${d===3?'Tiers':'Quart'} de ${p.n} = __`}
