@@ -67,3 +67,9 @@ Stats live fiables depuis v229 : séances rewarded=0 visibles comme EN COURS, po
 ## v243
 - Sur tablettes et écrans tactiles de plus de 480 px, le bloc question + clavier est remonté d'environ 50 à 78 px selon la hauteur d'écran.
 - Les règles iPhone (<=480 px) restent inchangées.
+
+## v244
+- Test tablette : calcul + pavé numérique remontés nettement davantage (~105 à 145 px selon la hauteur).
+- La règle tablette commence à 701 px pour ne pas modifier la mise en page iPhone.
+- Correction tactile : l'anti-double-tap n'annule plus `touchend` sur les boutons/contrôles, ce qui pouvait empêcher le clic STOP sur iPad/tablette.
+- `touch-action: manipulation` appliqué aux boutons du test sur tablette.

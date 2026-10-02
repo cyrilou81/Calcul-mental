@@ -1182,6 +1182,12 @@ document.addEventListener('touchmove',e=>{
 
 document.addEventListener('touchend',e=>{
   if(!testIsActive()) return;
+  // Ne jamais annuler le touchend des contrôles : sur iPad cela peut supprimer
+  // le click synthétique (notamment STOP / Aide / clavier).
+  if(e.target && e.target.closest && e.target.closest('button,input,select,textarea,a')){
+    lastTestTap=0;
+    return;
+  }
   const now=Date.now();
   if(now-lastTestTap<350) e.preventDefault();
   lastTestTap=now;
@@ -1191,10 +1197,13 @@ document.addEventListener('touchend',e=>{
 <style id="tablet-test-lift-v243">
 /* v243 — tablette / écrans tactiles plus larges qu’un iPhone :
    remonte ensemble le calcul et le pavé numérique sans modifier le layout iPhone. */
-@media (hover:none) and (pointer:coarse) and (min-width:481px) and (min-height:600px){
+@media (hover:none) and (pointer:coarse) and (min-width:701px) and (min-height:600px){
+  /* Sur tablette, le centre vertical laissait trop d'espace sous l'en-tête.
+     On remonte franchement question + feedback + pavé comme un seul bloc. */
   .question-zone{
-    transform:translateY(clamp(-78px,-7vh,-52px))!important;
+    transform:translateY(clamp(-145px,-13vh,-105px))!important;
   }
+  #exercise button{touch-action:manipulation;}
 }
 </style>
 </body></html>
