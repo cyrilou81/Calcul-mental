@@ -778,7 +778,13 @@ input,select{background:#fffdf7;border:2px solid #9bd8f5;}
 <style id="help-jump-v235">
 .help-jump{max-width:480px;margin:8px auto 16px;padding:12px 16px 8px;background:#fff;border:2px solid #cfe5f3;border-radius:16px}.jump-line{display:grid;grid-template-columns:auto 1fr auto 1fr auto;align-items:center;gap:8px;font-size:clamp(22px,4vw,30px);font-weight:900;color:#174a6b}.jump-arrow{text-align:center;color:#269ee8;font-size:30px}.jump-label{display:inline-block;font-size:17px;font-weight:900;color:#248b5a;text-align:center}.jump-label-1{width:50%;margin-left:10%}.jump-label-2{width:45%;margin-left:52%;margin-top:-22px}
 </style>
-<script src="/pedagogy.js?v=242"></script></head><body><div class="app">
+<script src="/pedagogy.js?v=242"></script>
+<style id="v249-stats-fixes">
+/* v249 — même espacement vertical Retour→Export et Export→onglets. */
+#stats .top{margin-bottom:0!important;}
+#statsContent>.stats-mode-tabs{margin-top:16px!important;}
+</style>
+</head><body><div class="app">
 <section id="auth">
   <div class="auth-scene">
     <div class="auth-box">
@@ -1136,49 +1142,42 @@ $('#rewardBtn').onclick=openRewards;$('#rewardBack').onclick=()=>show('home');
 function csvCell(v){let x=String(v??'').replace(/"/g,'""');return `"${x}"`}
 async function exportStatsCsv(){
   try{
-    // Export pédagogique : une ligne = un calcul. Les lignes sont regroupées
-    // par catégorie puis classées chronologiquement pour suivre l'évolution.
+    // Une ligne = une catégorie d'opération dans une séance.
+    // L'export sert à suivre l'évolution de chaque catégorie au fil des séances,
+    // sans lignes de statistiques générales de séance.
     let data=await api('/api/stats/'+profile.id+'?mode='+statsMode+'&_='+Date.now(),{cache:'no-store'});
     let sessions=(data.sessions||[]).slice().reverse(); // ancien -> récent
-    let operations=[];
+    let rows=[];
     for(let si=0;si<sessions.length;si++){
-      let x=sessions[si];
-      let detail=await api('/api/session/'+x.id+'/stats?_='+Date.now(),{cache:'no-store'});
-      for(let qi=0;qi<(detail.questions||[]).length;qi++){
-        let q=detail.questions[qi];
-        operations.push({
-          kind:q.kind,
-          category:names[q.kind]||q.kind,
-          date:x.date,
-          sessionId:x.id,
+      let session=sessions[si];
+      for(let cat of (session.categories||[])){
+        rows.push({
+          kind:cat.kind,
+          category:names[cat.kind]||cat.kind,
+          date:session.date,
+          sessionId:session.id,
           sessionNo:si+1,
-          questionNo:qi+1,
-          calculation:String(q.display||'').replace('__','?'),
-          answer:q.last_answer??q.given_answer??'',
-          expected:q.expected??'',
-          result:q.status==='CORRECT'?'Bon':'Erreur',
-          attempts:q.attempts||'',
-          firstWrong:q.first_wrong_answer??'',
-          help:q.help_used?'Oui':'Non',
-          response:q.response_ms!=null?(q.response_ms/1000).toFixed(2):'',
-          state:x.inProgress?'EN COURS':'Terminée'
+          attempted:cat.attempted||0,
+          correct:cat.correct||0,
+          incorrect:(cat.attempted||0)-(cat.correct||0),
+          accuracy:cat.accuracy??0,
+          medianMs:cat.medianMs,
+          helpUsed:cat.helpUsed||0,
+          state:session.inProgress?'EN COURS':'Terminée'
         });
       }
     }
-    operations.sort((a,b)=>a.category.localeCompare(b.category,'fr') || String(a.date).localeCompare(String(b.date)) || a.questionNo-b.questionNo);
-    let header=['Catégorie','Date séance','Mode','N° séance','N° calcul','Calcul','Réponse donnée','Bonne réponse','Résultat','Nombre d’essais','Première erreur','Aide utilisée','Temps de réponse (s)','État séance'];
+    rows.sort((a,b)=>a.category.localeCompare(b.category,'fr') || String(a.date).localeCompare(String(b.date)) || a.sessionNo-b.sessionNo);
+    let header=['Catégorie d’opération','Date séance','Mode','N° séance','Nombre d’opérations','Réussies','Erreurs','Réussite (%)','Temps médian (s)','Aides utilisées','État séance'];
     let lines=[header.map(csvCell).join(';')];
-    let previousCategory=null;
-    for(let op of operations){
-      // Pas de ligne de synthèse : chaque ligne correspond bien à une opération réelle.
+    for(let r of rows){
       lines.push([
-        op.category,new Date(op.date+'Z').toLocaleString('fr-FR'),statsMode==='challenge'?'Défi':'Entraînement',op.sessionNo,op.questionNo,
-        op.calculation,op.answer,op.expected,op.result,op.attempts,op.firstWrong,op.help,op.response,op.state
+        r.category,new Date(r.date+'Z').toLocaleString('fr-FR'),statsMode==='challenge'?'Défi':'Entraînement',r.sessionNo,
+        r.attempted,r.correct,r.incorrect,r.accuracy,r.medianMs!=null?(r.medianMs/1000).toFixed(2):'',r.helpUsed,r.state
       ].map(csvCell).join(';'));
-      previousCategory=op.category;
     }
     let blob=new Blob(['\ufeff'+lines.join('\r\n')],{type:'text/csv;charset=utf-8'}),url=URL.createObjectURL(blob),a=document.createElement('a');
-    a.href=url;a.download=`stats-par-operation-${String(profile.name||'joueur').replace(/[^a-z0-9_-]+/gi,'-')}-${statsMode}-${new Date().toISOString().slice(0,10)}.csv`;
+    a.href=url;a.download=`evolution-par-categorie-${String(profile.name||'joueur').replace(/[^a-z0-9_-]+/gi,'-')}-${statsMode}-${new Date().toISOString().slice(0,10)}.csv`;
     document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
   }catch(e){alert('Impossible d’exporter les statistiques : '+e.message)}
 }
