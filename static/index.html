@@ -1136,21 +1136,49 @@ $('#rewardBtn').onclick=openRewards;$('#rewardBack').onclick=()=>show('home');
 function csvCell(v){let x=String(v??'').replace(/"/g,'""');return `"${x}"`}
 async function exportStatsCsv(){
   try{
-    let data=await api('/api/stats/'+profile.id+'?mode='+statsMode+'&_='+Date.now(),{cache:'no-store'}), sessions=(data.sessions||[]).slice().reverse();
-    let header=['Date séance','Mode','N° séance','N° calcul','Type d’opération','Calcul','Réponse donnée','Bonne réponse','Résultat','Nombre d’essais','Première erreur','Aide utilisée','Temps de réponse (s)','État séance'];
-    let lines=[header.map(csvCell).join(';')];
+    // Export pédagogique : une ligne = un calcul. Les lignes sont regroupées
+    // par catégorie puis classées chronologiquement pour suivre l'évolution.
+    let data=await api('/api/stats/'+profile.id+'?mode='+statsMode+'&_='+Date.now(),{cache:'no-store'});
+    let sessions=(data.sessions||[]).slice().reverse(); // ancien -> récent
+    let operations=[];
     for(let si=0;si<sessions.length;si++){
-      let x=sessions[si], detail=await api('/api/session/'+x.id+'/stats?_='+Date.now(),{cache:'no-store'}), qs=detail.questions||[];
-      for(let qi=0;qi<qs.length;qi++){
-        let q=qs[qi];
-        lines.push([
-          new Date(x.date+'Z').toLocaleString('fr-FR'),statsMode==='challenge'?'Défi':'Entraînement',si+1,qi+1,names[q.kind]||q.kind,
-          String(q.display||'').replace('__','?'),q.last_answer??q.given_answer??'',q.expected??'',q.status==='CORRECT'?'Bon':'Erreur',q.attempts||'',q.first_wrong_answer??'',q.help_used?'Oui':'Non',q.response_ms!=null?(q.response_ms/1000).toFixed(2):'',x.inProgress?'EN COURS':'Terminée'
-        ].map(csvCell).join(';'));
+      let x=sessions[si];
+      let detail=await api('/api/session/'+x.id+'/stats?_='+Date.now(),{cache:'no-store'});
+      for(let qi=0;qi<(detail.questions||[]).length;qi++){
+        let q=detail.questions[qi];
+        operations.push({
+          kind:q.kind,
+          category:names[q.kind]||q.kind,
+          date:x.date,
+          sessionId:x.id,
+          sessionNo:si+1,
+          questionNo:qi+1,
+          calculation:String(q.display||'').replace('__','?'),
+          answer:q.last_answer??q.given_answer??'',
+          expected:q.expected??'',
+          result:q.status==='CORRECT'?'Bon':'Erreur',
+          attempts:q.attempts||'',
+          firstWrong:q.first_wrong_answer??'',
+          help:q.help_used?'Oui':'Non',
+          response:q.response_ms!=null?(q.response_ms/1000).toFixed(2):'',
+          state:x.inProgress?'EN COURS':'Terminée'
+        });
       }
     }
+    operations.sort((a,b)=>a.category.localeCompare(b.category,'fr') || String(a.date).localeCompare(String(b.date)) || a.questionNo-b.questionNo);
+    let header=['Catégorie','Date séance','Mode','N° séance','N° calcul','Calcul','Réponse donnée','Bonne réponse','Résultat','Nombre d’essais','Première erreur','Aide utilisée','Temps de réponse (s)','État séance'];
+    let lines=[header.map(csvCell).join(';')];
+    let previousCategory=null;
+    for(let op of operations){
+      // Pas de ligne de synthèse : chaque ligne correspond bien à une opération réelle.
+      lines.push([
+        op.category,new Date(op.date+'Z').toLocaleString('fr-FR'),statsMode==='challenge'?'Défi':'Entraînement',op.sessionNo,op.questionNo,
+        op.calculation,op.answer,op.expected,op.result,op.attempts,op.firstWrong,op.help,op.response,op.state
+      ].map(csvCell).join(';'));
+      previousCategory=op.category;
+    }
     let blob=new Blob(['\ufeff'+lines.join('\r\n')],{type:'text/csv;charset=utf-8'}),url=URL.createObjectURL(blob),a=document.createElement('a');
-    a.href=url;a.download=`stats-detail-${String(profile.name||'joueur').replace(/[^a-z0-9_-]+/gi,'-')}-${statsMode}-${new Date().toISOString().slice(0,10)}.csv`;
+    a.href=url;a.download=`stats-par-operation-${String(profile.name||'joueur').replace(/[^a-z0-9_-]+/gi,'-')}-${statsMode}-${new Date().toISOString().slice(0,10)}.csv`;
     document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
   }catch(e){alert('Impossible d’exporter les statistiques : '+e.message)}
 }
