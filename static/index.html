@@ -1017,7 +1017,12 @@ function openHelp(){
 function openCorrection(q){helpPurpose='correction';helpOpen=true;helpOpenedAt=performance.now();let h=contextualHelp(q);$('#helpTitle span:last-child').textContent='Correction';$('#helpCurrent').textContent=q.display.replace('__',hfmt(q.expected));$('#helpVisual').innerHTML=h.html;$('#helpTip').textContent=h.tip;$('#helpOk').textContent='Continuer';$('#helpOverlay').classList.remove('hidden')}
 
 function closeHelp(){if(!helpOpen)return;let paused=performance.now()-helpOpenedAt,purpose=helpPurpose;helpOpen=false;helpOpenedAt=0;qStart+=paused;lastTick=performance.now();$('#helpOverlay').classList.add('hidden');if(purpose==='correction'){correction=false;index++;displayQ()}}
-$('#helpBtn').onclick=openHelp;$('#helpOk').onclick=closeHelp;
+function bindReliableTap(el,handler){
+  let lastTouch=0;
+  el.addEventListener('touchend',e=>{lastTouch=Date.now();e.preventDefault();e.stopPropagation();handler(e)},{passive:false});
+  el.addEventListener('click',e=>{if(Date.now()-lastTouch<700)return;handler(e)});
+}
+bindReliableTap($('#helpBtn'),openHelp);$('#helpOk').onclick=closeHelp;
 function questionHtml(){let q=session.questions[index],val=(input?input.replace('.',','):'<span class="caret"></span>');let slot=`<span class="slot ${input?'':'empty'}">${val}</span>`;let html=q.display.replace('__',slot);if(wrongFlash)html+=`<span class="wrong-mark">✕</span>`;return html}
 function renderInput(){let q=$('#question');q.innerHTML=questionHtml();let n=input.length;q.classList.toggle('answer-long',n>=5);q.classList.toggle('answer-very-long',n>=7)}
 let pendingRecordVictory=null;
@@ -1026,7 +1031,8 @@ function flashWrong(remaining){wrongFlash=true;renderInput();let el=$('#question
 async function submit(){let q=session.questions[index],ms=Math.round(performance.now()-qStart);correction=true;let r=await api('/api/session/'+session.sessionId+'/answer',{method:'POST',body:JSON.stringify({questionId:q.id,answer:Number(input),responseMs:ms})});attempts=r.attempts;if(r.correct){soundSuccess();correction=false;index++;displayQ();return}soundFail();if(attempts<2){correction=false;flashWrong(1);return}q.expected=r.expected;wrongFlash=true;renderInput();$('#feedback').textContent='';openCorrection(q)}
 function tick(t){if(!ticking)return;if(!correction&&!helpOpen){if(lastTick)activeMs+=t-lastTick}lastTick=t;let left=Math.max(0,session.duration*1000-activeMs),sec=Math.ceil(left/1000);$('#timer').textContent=String(Math.floor(sec/60)).padStart(2,'0')+':'+String(sec%60).padStart(2,'0');if(left<=0&&!correction){finish();return}timerHandle=requestAnimationFrame(tick)}
 async function finish(){if(!session)return;if(helpOpen)closeHelp();ticking=false;if(timerHandle)cancelAnimationFrame(timerHandle);let sid=session.sessionId,finishedMode=session.mode;session=null;let r=await api('/api/session/'+sid+'/finish',{method:'POST',body:JSON.stringify({activeMs:Math.round(activeMs),localDate:localDateKey()})});if(r.challenge){challengeState={...challengeState,...r.challenge};if(finishedMode==='challenge')challengeState.doneToday=true;if(finishedMode==='challenge'){try{await refreshChallenge()}catch(e){renderChallenge()}}else renderChallenge()}pendingRecordVictory=(finishedMode==='challenge'&&r.newRecord&&!r.starAwarded&&!r.levelUnlocked&&!r.classCompleted)?{level:r.recordLevel||1,score:r.recordScore||0,color:r.recordColor||'#3189dc'}:null;pendingLevelVictory=(finishedMode==='challenge'&&r.levelUnlocked)?{name:r.unlockedLevelName||'',color:(r.challenge&&r.challenge.color)||r.unlockedColor||''}:null;pendingClassVictory=(finishedMode==='challenge'&&r.classCompleted)?{completedColor:r.completedColor,nextColor:r.nextColor,completedColorName:r.completedColorName,nextColorName:r.nextColorName}:null;show('celebration');applause();if(finishedMode==='challenge'&&r.starAwarded){let p=document.querySelector('#celebration p');if(p)p.textContent='⭐ Une étoile gagnée !'}animateCoins(r.coinsEarned||0,r.balance||0,r.dailyBonus||0,r.starBonus||0,r.levelBonus||0)}
-$('#stop').onclick=async()=>{if(!session)return;if(helpOpen)closeHelp();ticking=false;if(timerHandle)cancelAnimationFrame(timerHandle);let sid=session.sessionId;session=null;await api('/api/session/'+sid,{method:'DELETE'});show('home')};
+async function stopCurrentTest(){if(!session)return;if(helpOpen)closeHelp();ticking=false;if(timerHandle)cancelAnimationFrame(timerHandle);let sid=session.sessionId;session=null;await api('/api/session/'+sid,{method:'DELETE'});show('home')}
+bindReliableTap($('#stop'),stopCurrentTest);
 let startingTest=false;
 async function startTest(mode){
   if(startingTest||session)return;
@@ -1130,15 +1136,21 @@ $('#rewardBtn').onclick=openRewards;$('#rewardBack').onclick=()=>show('home');
 function csvCell(v){let x=String(v??'').replace(/"/g,'""');return `"${x}"`}
 async function exportStatsCsv(){
   try{
-    let data=await api('/api/stats/'+profile.id+'?mode='+statsMode+'&_='+Date.now(),{cache:'no-store'}), sessions=data.sessions||[];
-    let header=['Date','Mode','Calculs','Bons','Erreurs','Réussite (%)','Temps actif (s)','Temps moyen/question (s)','Temps médian/question (s)','Aides utilisées','État'];
+    let data=await api('/api/stats/'+profile.id+'?mode='+statsMode+'&_='+Date.now(),{cache:'no-store'}), sessions=(data.sessions||[]).slice().reverse();
+    let header=['Date séance','Mode','N° séance','N° calcul','Type d’opération','Calcul','Réponse donnée','Bonne réponse','Résultat','Nombre d’essais','Première erreur','Aide utilisée','Temps de réponse (s)','État séance'];
     let lines=[header.map(csvCell).join(';')];
-    sessions.slice().reverse().forEach(x=>lines.push([
-      new Date(x.date+'Z').toLocaleString('fr-FR'),statsMode==='challenge'?'Défi':'Entraînement',x.attempted,x.correct,x.incorrect,x.accuracy,
-      x.activeMs!=null?(x.activeMs/1000).toFixed(1):'',x.avgMs!=null?(x.avgMs/1000).toFixed(2):'',x.medianMs!=null?(x.medianMs/1000).toFixed(2):'',x.helpUsed||0,x.inProgress?'EN COURS':'Terminée'
-    ].map(csvCell).join(';')));
+    for(let si=0;si<sessions.length;si++){
+      let x=sessions[si], detail=await api('/api/session/'+x.id+'/stats?_='+Date.now(),{cache:'no-store'}), qs=detail.questions||[];
+      for(let qi=0;qi<qs.length;qi++){
+        let q=qs[qi];
+        lines.push([
+          new Date(x.date+'Z').toLocaleString('fr-FR'),statsMode==='challenge'?'Défi':'Entraînement',si+1,qi+1,names[q.kind]||q.kind,
+          String(q.display||'').replace('__','?'),q.last_answer??q.given_answer??'',q.expected??'',q.status==='CORRECT'?'Bon':'Erreur',q.attempts||'',q.first_wrong_answer??'',q.help_used?'Oui':'Non',q.response_ms!=null?(q.response_ms/1000).toFixed(2):'',x.inProgress?'EN COURS':'Terminée'
+        ].map(csvCell).join(';'));
+      }
+    }
     let blob=new Blob(['\ufeff'+lines.join('\r\n')],{type:'text/csv;charset=utf-8'}),url=URL.createObjectURL(blob),a=document.createElement('a');
-    a.href=url;a.download=`stats-${String(profile.name||'joueur').replace(/[^a-z0-9_-]+/gi,'-')}-${statsMode}-${new Date().toISOString().slice(0,10)}.csv`;
+    a.href=url;a.download=`stats-detail-${String(profile.name||'joueur').replace(/[^a-z0-9_-]+/gi,'-')}-${statsMode}-${new Date().toISOString().slice(0,10)}.csv`;
     document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
   }catch(e){alert('Impossible d’exporter les statistiques : '+e.message)}
 }
@@ -1372,8 +1384,8 @@ document.addEventListener('touchend',e=>{
 
 <style id="v245-fixes">
 /* v245 — boutons de test fiables sur iPad + position tablette. */
-#helpBtn,#stop{position:relative;z-index:20;pointer-events:auto!important;touch-action:manipulation;-webkit-user-select:none;user-select:none;}
-.stats-top-actions{display:flex;flex-direction:column;align-items:stretch;gap:8px;}
+#helpBtn,#stop{position:relative;z-index:200;pointer-events:auto!important;touch-action:manipulation;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;}
+.stats-top-actions{display:flex;flex-direction:column;align-items:stretch;gap:16px;}
 #statsExport{background:#269ee8;color:#fff;box-shadow:0 4px 0 #167ab7;}
 .session-delete-top{display:flex;justify-content:flex-start;margin:12px 0 18px;}
 .session-delete-top .danger{background:#e74b5d;color:#fff;border:2px solid #cf3548;font-weight:800;}
