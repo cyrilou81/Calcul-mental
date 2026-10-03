@@ -67,3 +67,8 @@ Stats live fiables depuis v229 : séances rewarded=0 visibles comme EN COURS, po
 ## v243
 - Sur tablettes et écrans tactiles de plus de 480 px, le bloc question + clavier est remonté d'environ 50 à 78 px selon la hauteur d'écran.
 - Les règles iPhone (<=480 px) restent inchangées.
+
+## v250
+- Multiplications : séparation des tables 1–20 et des multiplicateurs 10/100/1000/10000, avec plages de 2e facteur indépendantes.
+- Migration des anciens réglages 100/1000 vers la nouvelle famille.
+- Moitiés : ajout des options « centaines rondes » et « milliers ronds ».

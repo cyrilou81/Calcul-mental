@@ -70,11 +70,11 @@ DEFAULT={
  'duration':300,'count':50,
  'categories':{
   'double':{'enabled':True,'weight':3,'min':1,'max':9,'doubleMode':'non_tens','tensValues':[10,20,30,40,50,60,70,80,90,100],'display':'both'},
-  'half':{'enabled':False,'weight':3,'min':2,'max':10,'halfMode':'non_tens','tensValues':[10,20,30,40,50,60,70,80,90,100]},
+  'half':{'enabled':False,'weight':3,'min':2,'max':10,'halfMode':'non_tens','tensValues':[10,20,30,40,50,60,70,80,90,100],'roundHundreds':False,'roundThousands':False},
   'addition':{'enabled':True,'weight':4,'aMin':1,'aMax':10,'bMin':1,'bMax':10,'maxResult':100,'withCarry':True},
   'subtraction':{'enabled':True,'weight':3,'aMin':1,'aMax':10,'bMin':1,'bMax':10,'nonNegative':True,'withCarry':True},
   'decimal':{'enabled':False,'weight':3,'min':0,'max':20,'decimals':1,'withCarry':True},
-  'multiplication':{'enabled':True,'weight':3,'tables':[2,3],'factorMin':1,'factorMax':9},
+  'multiplication':{'enabled':True,'weight':3,'tables':[2,3],'factorMin':1,'factorMax':9,'powerTables':[],'powerFactorMin':1,'powerFactorMax':99},
   'division':{'enabled':True,'weight':2,'tables':[2,3,4],'quotientMin':1,'quotientMax':10},
   'complement_tens':{'enabled':False,'weight':3,'targets':[10,20,30,40,50,60,70,80,90,100,1000],'gapMin':5,'gapMax':20},
   'place_value':{'enabled':False,'weight':3,'places':['u'],'absenceProbability':50},
@@ -190,6 +190,14 @@ def merged_cfg(saved):
     for kind,values in (saved or {}).get('categories',{}).items():
         if kind in cfg['categories'] and isinstance(values,dict):
             cfg['categories'][kind].update(values)
+    # Migration douce des anciens réglages : 100/1000 étaient auparavant mélangés
+    # aux tables classiques. On les conserve dans la nouvelle famille dédiée.
+    mul=cfg['categories'].get('multiplication',{})
+    old_tables=[int(x) for x in mul.get('tables',[]) if str(x).lstrip('-').isdigit()]
+    migrated=[x for x in old_tables if x in (100,1000,10000)]
+    if migrated and not mul.get('powerTables'):
+        mul['powerTables']=migrated
+    mul['tables']=[x for x in old_tables if 1 <= x <= 20]
     return cfg
 
 def get_cfg(pid):
@@ -239,6 +247,8 @@ def gen(kind,cfg):
         choices=[]
         if mode in ('non_tens','both'): choices += [n for n in range(max(2,lo),hi+1) if n%2==0 and n%10!=0]
         if mode in ('tens','both'): choices += [int(x) for x in cfg.get('tensValues',[10,20,30,40,50,60,70,80,90,100])]
+        if cfg.get('roundHundreds',False): choices += list(range(100,1000,100))
+        if cfg.get('roundThousands',False): choices += list(range(1000,10000,1000))
         choices=list(dict.fromkeys(choices))
         if not choices: raise ValueError("Aucune moitié possible avec ces réglages.")
         n=random.choice(choices)
@@ -297,7 +307,19 @@ def gen(kind,cfg):
         fmt=lambda x: (f'{x:.{decimals}f}'.rstrip('0').rstrip('.')).replace('.',',')
         return {'a':av,'b':bv,'op':'addition','decimals':decimals},f'{fmt(av)} + {fmt(bv)} = __',expected
     if kind=='multiplication':
-        a=random.choice(cfg['tables']); b=random.randint(cfg['factorMin'],cfg['factorMax']); return {'a':a,'b':b},f'{a} × {b} = __',a*b
+        # Deux familles indépendantes : tables classiques (1–20) et puissances de 10.
+        # Chacune possède sa propre plage de 2e facteur afin de pouvoir, par exemple,
+        # travailler 45 × 1000 sans générer 45 × 5.
+        candidates=[]
+        for a in cfg.get('tables',[]):
+            candidates.append((int(a), int(cfg.get('factorMin',1)), int(cfg.get('factorMax',9))))
+        for a in cfg.get('powerTables',[]):
+            candidates.append((int(a), int(cfg.get('powerFactorMin',1)), int(cfg.get('powerFactorMax',99))))
+        if not candidates: raise ValueError('Choisis au moins une table de multiplication.')
+        a,lo,hi=random.choice(candidates)
+        if lo>hi: lo,hi=hi,lo
+        b=random.randint(lo,hi)
+        return {'a':a,'b':b},f'{a} × {b} = __',a*b
     if kind=='division':
         d=random.choice(cfg['tables']); q=random.randint(cfg['quotientMin'],cfg['quotientMax']); return {'dividend':d*q,'divisor':d},f'{d*q} : {d} = __',q
     if kind=='decimal_multiplication':
@@ -591,8 +613,16 @@ def validate_cfg_data(data):
     normalize_category_weights(cats)
     if not any(v.get('enabled') for v in cats.values()):
         raise ValueError('Choisis au moins un exercice.')
-    if cats.get('multiplication',{}).get('enabled') and not cats['multiplication'].get('tables'):
-        raise ValueError('Choisis au moins une table de multiplication.')
+    if cats.get('multiplication',{}).get('enabled'):
+        m=cats['multiplication']
+        m['tables']=[int(x) for x in m.get('tables',[]) if 1 <= int(x) <= 20]
+        m['powerTables']=[int(x) for x in m.get('powerTables',[]) if int(x) in (10,100,1000,10000)]
+        if not m['tables'] and not m['powerTables']:
+            raise ValueError('Choisis au moins une table de multiplication.')
+        m['factorMin']=int(m.get('factorMin',1)); m['factorMax']=int(m.get('factorMax',9))
+        m['powerFactorMin']=int(m.get('powerFactorMin',1)); m['powerFactorMax']=int(m.get('powerFactorMax',99))
+        if m['factorMin']>m['factorMax']: raise ValueError('La plage du 2e facteur des tables 1 à 20 est invalide.')
+        if m['powerFactorMin']>m['powerFactorMax']: raise ValueError('La plage du 2e facteur des multiples de 10 est invalide.')
     if cats.get('division',{}).get('enabled') and not cats['division'].get('tables'):
         raise ValueError('Choisis au moins une table de division.')
     if cats.get('decimal_multiplication',{}).get('enabled') and not cats['decimal_multiplication'].get('multipliers'):
@@ -616,12 +646,13 @@ def validate_cfg_data(data):
         mode=h.get('halfMode') or ('both' if h.get('tens',False) else 'non_tens')
         if mode not in ('non_tens','tens','both'): mode='non_tens'
         h['halfMode']=mode; h.pop('tens',None)
+        h['roundHundreds']=bool(h.get('roundHundreds',False)); h['roundThousands']=bool(h.get('roundThousands',False))
         h['tensValues']=[int(x) for x in h.get('tensValues',[10,20,30,40,50,60,70,80,90,100]) if int(x) in (10,20,30,40,50,60,70,80,90,100)]
         if mode in ('tens','both') and not h['tensValues']:
             raise ValueError('Choisis au moins une dizaine pour les moitiés.')
         h['min']=int(h.get('min',2)); h['max']=int(h.get('max',10))
         if h['min']>h['max']: raise ValueError('La plage des moitiés est invalide.')
-        if mode in ('non_tens','both') and not any(n%2==0 and n%10!=0 for n in range(max(2,h['min']),h['max']+1)):
+        if mode in ('non_tens','both') and not any(n%2==0 and n%10!=0 for n in range(max(2,h['min']),h['max']+1)) and not (h['roundHundreds'] or h['roundThousands']):
             raise ValueError('Aucune moitié hors dizaine possible dans cette plage.')
     if cats.get('round_tens_add',{}).get('enabled'):
         rta=cats['round_tens_add']
