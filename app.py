@@ -197,7 +197,7 @@ def merged_cfg(saved):
     migrated=[x for x in old_tables if x in (100,1000,10000)]
     if migrated and not mul.get('powerTables'):
         mul['powerTables']=migrated
-    mul['tables']=[x for x in old_tables if 1 <= x <= 20]
+    mul['tables']=[x for x in old_tables if 1 <= x <= 9]
     return cfg
 
 def get_cfg(pid):
@@ -307,7 +307,7 @@ def gen(kind,cfg):
         fmt=lambda x: (f'{x:.{decimals}f}'.rstrip('0').rstrip('.')).replace('.',',')
         return {'a':av,'b':bv,'op':'addition','decimals':decimals},f'{fmt(av)} + {fmt(bv)} = __',expected
     if kind=='multiplication':
-        # Deux familles indépendantes : tables classiques (1–20) et puissances de 10.
+        # Deux familles indépendantes : tables classiques (1–9) et puissances de 10.
         # Chacune possède sa propre plage de 2e facteur afin de pouvoir, par exemple,
         # travailler 45 × 1000 sans générer 45 × 5.
         candidates=[]
@@ -615,13 +615,13 @@ def validate_cfg_data(data):
         raise ValueError('Choisis au moins un exercice.')
     if cats.get('multiplication',{}).get('enabled'):
         m=cats['multiplication']
-        m['tables']=[int(x) for x in m.get('tables',[]) if 1 <= int(x) <= 20]
+        m['tables']=[int(x) for x in m.get('tables',[]) if 1 <= int(x) <= 9]
         m['powerTables']=[int(x) for x in m.get('powerTables',[]) if int(x) in (10,100,1000,10000)]
         if not m['tables'] and not m['powerTables']:
             raise ValueError('Choisis au moins une table de multiplication.')
         m['factorMin']=int(m.get('factorMin',1)); m['factorMax']=int(m.get('factorMax',9))
         m['powerFactorMin']=int(m.get('powerFactorMin',1)); m['powerFactorMax']=int(m.get('powerFactorMax',99))
-        if m['factorMin']>m['factorMax']: raise ValueError('La plage du 2e facteur des tables 1 à 20 est invalide.')
+        if m['factorMin']>m['factorMax']: raise ValueError('La plage du 2e facteur des tables 1 à 9 est invalide.')
         if m['powerFactorMin']>m['powerFactorMax']: raise ValueError('La plage du 2e facteur des multiples de 10 est invalide.')
     if cats.get('division',{}).get('enabled') and not cats['division'].get('tables'):
         raise ValueError('Choisis au moins une table de division.')
@@ -652,7 +652,7 @@ def validate_cfg_data(data):
             raise ValueError('Choisis au moins une dizaine pour les moitiés.')
         h['min']=int(h.get('min',2)); h['max']=int(h.get('max',10))
         if h['min']>h['max']: raise ValueError('La plage des moitiés est invalide.')
-        if mode in ('non_tens','both') and not any(n%2==0 and n%10!=0 for n in range(max(2,h['min']),h['max']+1)) and not (h['roundHundreds'] or h['roundThousands']):
+        if mode in ('non_tens','both') and not any(n%2==0 and n%10!=0 for n in range(max(2,h['min']),h['max']+1)):
             raise ValueError('Aucune moitié hors dizaine possible dans cette plage.')
     if cats.get('round_tens_add',{}).get('enabled'):
         rta=cats['round_tens_add']
@@ -1250,10 +1250,16 @@ def finish(sid):
     current_level_row=c.execute('SELECT position FROM challenge_levels WHERE id=?',(pstate['challenge_level_id'],)).fetchone() if pstate['challenge_level_id'] else None
     current_level_position=current_level_row['position'] if current_level_row else 1
     promoted_level_name=None
+    promoted_level_color=None
     if s['mode']=='challenge' and pstate['challenge_level_id'] and pstate['challenge_level_id']!=s['challenge_level_id']:
-        nr=c.execute('SELECT name FROM challenge_levels WHERE id=?',(pstate['challenge_level_id'],)).fetchone()
+        # La couleur de la médaille de changement de niveau doit venir du niveau
+        # réellement débloqué, jamais d'une couleur par défaut côté navigateur.
+        nr=c.execute('SELECT name,school_class FROM challenge_levels WHERE id=?',(pstate['challenge_level_id'],)).fetchone()
         promoted_level_name=nr['name'] if nr else 'Niveau suivant'
-    c.commit(); c.close(); return {'ok':True,'coinsEarned':earned,'dailyBonus':daily_bonus,'starBonus':star_bonus,'levelBonus':level_bonus,'balance':balance,'starAwarded':star_awarded,'levelUnlocked':bool(promoted_level_name),'unlockedLevelName':promoted_level_name,'classCompleted':class_completed,'completedClass':completed_class,'nextClass':next_class,'completedColor':completed_color,'nextColor':next_color,'completedColorName':color_name_fr(completed_color) if completed_color else None,'nextColorName':color_name_fr(next_color) if next_color else None,'newRecord':new_record,'recordScore':record_score,'previousRecord':previous_record,'recordLevel':record_level_position,'recordColor':record_level_color,'challenge':{'level':current_level_position,'stars':pstate['challenge_stars']}}
+        if nr:
+            nrc=c.execute('SELECT color FROM class_settings WHERE school_class=?',(nr['school_class'],)).fetchone()
+            promoted_level_color=nrc['color'] if nrc else '#3189dc'
+    c.commit(); c.close(); return {'ok':True,'coinsEarned':earned,'dailyBonus':daily_bonus,'starBonus':star_bonus,'levelBonus':level_bonus,'balance':balance,'starAwarded':star_awarded,'levelUnlocked':bool(promoted_level_name),'unlockedLevelName':promoted_level_name,'unlockedColor':promoted_level_color,'classCompleted':class_completed,'completedClass':completed_class,'nextClass':next_class,'completedColor':completed_color,'nextColor':next_color,'completedColorName':color_name_fr(completed_color) if completed_color else None,'nextColorName':color_name_fr(next_color) if next_color else None,'newRecord':new_record,'recordScore':record_score,'previousRecord':previous_record,'recordLevel':record_level_position,'recordColor':record_level_color,'challenge':{'level':current_level_position,'stars':pstate['challenge_stars']}}
 
 @app.get('/api/rewards/<int:pid>')
 def rewards(pid):
