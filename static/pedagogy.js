@@ -32,14 +32,15 @@ function contextualHelp(q){
     // Une seule pédagogie, déterminée par le nombre affiché et non par la catégorie
     // technique qui l'a généré. Ainsi un même type de double reçoit toujours la même aide.
     if(x>=10&&units){return helpBox(`<div class="help-step">${x} + ${x}</div><div class="help-step">= (${tens} + ${units}) + (${tens} + ${units})</div><div class="help-step">= ${tens} + ${tens} + ${units} + ${units}</div><div class="help-step">= double de ${tens} + double de ${units}</div><div class="help-step">= ${tens*2} + ${units*2} <span class="help-arrow">→</span> ${x*2}</div>`,`Sépare les dizaines et les unités : double les dizaines, double les unités, puis additionne les deux résultats.`)}
-    if(x>=10){let d=x/10;return helpBox(`<div class="help-step">${x} = ${d} dizaine${d>1?'s':''}</div><div class="help-step">Double de ${d} dizaine${d>1?'s':''} = ${d*2} dizaines</div><div class="help-step">${d*2} dizaines <span class="help-arrow">→</span> ${x*2}</div>`,`Calcule le double pour les dizaines et ajoute le zéro des unités.`)}
+    if(x>=10){let d=x/10;return helpBox(`<div class="help-step">${x} = ${d} dizaine${d>1?'s':''}</div><div class="help-step">Double de ${d} dizaine${d>1?'s':''} = ${d*2} dizaines</div><div class="help-step">${d*2} dizaines <span class="help-arrow">→</span> ${x*2}</div>`,`Calcule le double du chiffre des dizaines et ajoute le zéro des unités.`)}
     return helpBox(`<div class="help-step">${x} + ${x} <span class="help-arrow">→</span> ${x*2}</div>`,`Un double, c’est deux fois le même nombre.`)
   }
   if(k==='half'){
     let x=n,tens=Math.floor(x/10)*10,units=x-tens;
     // Pour une dizaine « impaire » (30, 50, 70, 90), on revient à la dizaine
     // précédente dont la moitié est immédiate, puis on ajoute la moitié de 10.
-    if(x>=30 && x%20===10){let previous=x-10;return helpBox(`<div class="help-step"><span class="help-split">${x} = ${previous} + 10</span></div><div class="help-step">Moitié de ${x} = moitié de ${previous} + moitié de 10</div><div class="help-step">= ${previous/2} + 5 <span class="help-arrow">→</span> ${x/2}</div>`,`Prends la dizaine précédente : découpe ${x} en ${previous} + 10. Calcule la moitié de chaque morceau, puis additionne.`)}
+    if(x>=30 && x<=90 && x%20===10){let previous=x-10;return helpBox(`<div class="help-step"><span class="help-split">${x} = ${previous} + 10</span></div><div class="help-step">Moitié de ${x} = moitié de ${previous} + moitié de 10</div><div class="help-step">= ${previous/2} + 5 <span class="help-arrow">→</span> ${x/2}</div>`,`Prends la dizaine précédente : découpe ${x} en ${previous} + 10. Calcule la moitié de chaque morceau, puis additionne.`)}
+    if(x>=20 && x<=80 && x%20===0){let digit=x/10,halfDigit=digit/2;return helpBox(`<div class="help-step">Moitié de ${digit} <span class="help-arrow">→</span> ${halfDigit}</div><div class="help-step">On ajoute le zéro des unités : ${halfDigit} <span class="help-arrow">→</span> ${halfDigit}0</div><div class="help-step">Moitié de ${x} <span class="help-arrow">→</span> ${x/2}</div>`,`Trouve la moitié du chiffre des dizaines et ajoute le zéro derrière.`)}
     if(x>=20 && tens%20===0 && units%2===0){return helpBox(`<div class="help-step"><span class="help-split">${x} = ${tens} + ${units}</span></div><div class="help-step">${tens} ÷ 2 = ${tens/2}</div>${units?`<div class="help-step">${units} ÷ 2 = ${units/2}</div>`:''}<div class="help-step">${tens/2}${units?` + ${units/2}`:''} <span class="help-arrow">→</span> ${x/2}</div>`,`Partage chaque morceau en deux parts égales.`)}
     return helpBox(`<div class="groups"><span class="group-box">${x/2}</span><span class="group-box">${x/2}</span></div><div class="help-step">${x} ÷ 2 <span class="help-arrow">→</span> ${x/2}</div>`,`Cherche deux parts identiques qui, ensemble, redonnent ${x}.`)
   }
@@ -107,7 +108,8 @@ function pedagogicalCase(q){
   if(k==='complement_tens') return Number(p.target)-a>10?'gap_gt_10':'gap_le_10';
   if(k==='half'){
     const x=Number(p.n), tens=Math.floor(x/10)*10, units=x-tens;
-    if(x>=30 && x%20===10) return 'odd_ten';
+    if(x>=30 && x<=90 && x%20===10) return 'odd_ten';
+    if(x>=20 && x<=80 && x%20===0) return 'even_ten';
     if(x>=20 && tens%20===0 && units%2===0) return 'even_decomposition';
     return 'simple';
   }
@@ -137,6 +139,7 @@ const EXAMPLE_POOLS={
   'double:round_ten':[Q('double',{n:30},'Double de 30 = __'),Q('double',{n:40},'Double de 40 = __'),Q('double',{n:60},'Double de 60 = __')],
   'half:simple':[Q('half',{n:18},'Moitié de 18 = __'),Q('half',{n:16},'Moitié de 16 = __'),Q('half',{n:14},'Moitié de 14 = __')],
   'half:odd_ten':[Q('half',{n:30},'Moitié de 30 = __'),Q('half',{n:50},'Moitié de 50 = __'),Q('half',{n:70},'Moitié de 70 = __'),Q('half',{n:90},'Moitié de 90 = __')],
+  'half:even_ten':[Q('half',{n:20},'Moitié de 20 = __'),Q('half',{n:40},'Moitié de 40 = __'),Q('half',{n:60},'Moitié de 60 = __'),Q('half',{n:80},'Moitié de 80 = __')],
   'half:even_decomposition':[Q('half',{n:48},'Moitié de 48 = __'),Q('half',{n:64},'Moitié de 64 = __'),Q('half',{n:86},'Moitié de 86 = __')],
   'complement_tens:gap_le_10':[Q('complement_tens',{a:43,target:50},'43 + __ = 50'),Q('complement_tens',{a:54,target:60},'54 + __ = 60'),Q('complement_tens',{a:72,target:80},'72 + __ = 80')],
   'complement_tens:gap_gt_10':[Q('complement_tens',{a:37,target:50},'37 + __ = 50'),Q('complement_tens',{a:45,target:60},'45 + __ = 60'),Q('complement_tens',{a:58,target:70},'58 + __ = 70'),Q('complement_tens',{a:64,target:80},'64 + __ = 80'),Q('complement_tens',{a:76,target:90},'76 + __ = 90')],
@@ -176,7 +179,7 @@ const catalog=[
  {id:'addition',name:'Additions',cases:[['Passage par 10','addition:bridge_10'],['Décomposition','addition:decompose']]},
  {id:'subtraction',name:'Soustractions',cases:[['Passage par la dizaine','subtraction:bridge_ten'],['Décomposition','subtraction:decompose']]},
  {id:'double',name:'Doubles',cases:[['Petit nombre','double:simple'],['Nombre à 2 chiffres','double:two_digits'],['Dizaine ronde','double:round_ten']]},
- {id:'half',name:'Moitiés',cases:[['Partage simple','half:simple'],['Dizaine impaire : 30 / 50 / 70 / 90','half:odd_ten'],['Décomposition paire','half:even_decomposition']]},
+ {id:'half',name:'Moitiés',cases:[['Partage simple','half:simple'],['Dizaine impaire : 30 / 50 / 70 / 90','half:odd_ten'],['Dizaine paire : 20 / 40 / 60 / 80','half:even_ten'],['Décomposition paire','half:even_decomposition']]},
  {id:'complement_tens',name:'Compléments',cases:[['Écart ≤ 10','complement_tens:gap_le_10'],['Écart > 10','complement_tens:gap_gt_10']]},
  {id:'multiplication',name:'Multiplications',cases:[['× 4','multiplication:x4'],['× 5','multiplication:x5'],['× 6, 7, 8','multiplication:default'],['× 9','multiplication:x9'],['× 10 / 100 / 1000','multiplication:power10']]},
  {id:'division',name:'Divisions',cases:[['Multiplication inverse','division:default']]},

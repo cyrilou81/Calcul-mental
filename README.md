@@ -72,3 +72,8 @@ Stats live fiables depuis v229 : séances rewarded=0 visibles comme EN COURS, po
 - Multiplications : séparation des tables 1–20 et des multiplicateurs 10/100/1000/10000, avec plages de 2e facteur indépendantes.
 - Migration des anciens réglages 100/1000 vers la nouvelle famille.
 - Moitiés : ajout des options « centaines rondes » et « milliers ronds ».
+
+## v256
+- Aide Moitiés : nouvelle branche « Dizaine paire : 20 / 40 / 60 / 80 » avec moitié du chiffre des dizaines puis ajout du zéro.
+- Aide Moitiés : branche impaire 30 / 50 / 70 / 90 conservée.
+- Aide Doubles des dizaines rondes : consigne reformulée « Calcule le double du chiffre des dizaines et ajoute le zéro des unités. »
