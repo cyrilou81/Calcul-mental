@@ -1090,8 +1090,8 @@ function puzzleHtml(c,revealed,extra=''){let rev=new Set(revealed||[]);return `<
 function bindCompletedCards(root){root.querySelectorAll('.collection-grid .reward-card').forEach(el=>el.onclick=()=>openRewardViewer(el.dataset.card,false))}
 let rewardCategory=null;
 function renderRewards(r,root=$('#rewardContent')){rewardState=r;let completed=r.completed||[];if(!r.currentCard){
-if(rewardCategory){let meta={robot:['🤖','Robots'],fairy:['🧚','Fées'],dinosaur:['🦕','Dinosaures'],animal:['🦎','Animaux']}[rewardCategory]||['🎁','Cartes'];let cards=r.cards.filter(c=>c.type===rewardCategory&&!completed.includes(c.id));root.innerHTML=`<div class="reward-category-head"><button class="reward-category-back">← Catégories</button><h3>${meta[0]} ${meta[1]}</h3></div><p style="text-align:center">Choisis la carte que tu veux débloquer.</p><div class="reward-choice">${cards.map(c=>rewardCardHtml(c,true).replace('reward-card locked','reward-card locked silhouette selectable')).join('')||'<p>Toutes les cartes de cette catégorie sont révélées !</p>'}</div>${completed.length?`<h3 class="reward-section-title">Cartes déjà révélées</h3><div class="collection-scroll"><div class="collection-grid">${completed.map(id=>rewardCardHtml(rewardCardMap[id])).join('')}</div></div>`:''}`;root.querySelector('.reward-category-back').onclick=()=>{rewardCategory=null;renderRewards(r,root)};root.querySelectorAll('.reward-card.selectable').forEach(el=>el.onclick=()=>confirmRewardCard(el.dataset.card));bindCompletedCards(root);return}
-let themes=[['robot','🤖','Robot'],['fairy','🧚','Fée'],['dinosaur','🦕','Dinosaure'],['animal','🦎','Animaux']];
+if(rewardCategory){let meta={robot:['🤖','Robots'],fairy:['🧚','Fées'],dinosaur:['🦕','Dinosaures'],animal:['🦎','Animaux'],construction:['🚧','Engins de chantier'],princess:['👑','Princesses']}[rewardCategory]||['🎁','Cartes'];let cards=r.cards.filter(c=>c.type===rewardCategory&&!completed.includes(c.id));root.innerHTML=`<div class="reward-category-head"><button class="reward-category-back">← Catégories</button><h3>${meta[0]} ${meta[1]}</h3></div><p style="text-align:center">Choisis la carte que tu veux débloquer.</p><div class="reward-choice">${cards.map(c=>rewardCardHtml(c,true).replace('reward-card locked','reward-card locked silhouette selectable')).join('')||'<p>Toutes les cartes de cette catégorie sont révélées !</p>'}</div>${completed.length?`<h3 class="reward-section-title">Cartes déjà révélées</h3><div class="collection-scroll"><div class="collection-grid">${completed.map(id=>rewardCardHtml(rewardCardMap[id])).join('')}</div></div>`:''}`;root.querySelector('.reward-category-back').onclick=()=>{rewardCategory=null;renderRewards(r,root)};root.querySelectorAll('.reward-card.selectable').forEach(el=>el.onclick=()=>confirmRewardCard(el.dataset.card));bindCompletedCards(root);return}
+let themes=[['robot','🤖','Robot'],['fairy','🧚','Fée'],['dinosaur','🦕','Dinosaure'],['animal','🦎','Animaux'],['construction','🚧','Engins de chantier'],['princess','👑','Princesses']];
 let choices=themes.filter(([type])=>r.cards.some(c=>c.type===type&&!completed.includes(c.id))).map(([type,icon,label])=>`<div class="reward-card locked reward-type-choice" data-type="${type}"><div class="reward-mystery">${icon}</div><div class="reward-card-name">${label}</div></div>`).join('');
 root.innerHTML=`<h3 style="text-align:center">Choisis un thème :</h3><div class="reward-choice">${choices||'<p>Toutes les cartes sont révélées !</p>'}</div>${completed.length?`<h3 class="reward-section-title">Cartes déjà révélées</h3><div class="collection-scroll"><div class="collection-grid">${completed.map(id=>rewardCardHtml(rewardCardMap[id])).join('')}</div></div>`:''}`;
 root.querySelectorAll('.reward-type-choice').forEach(el=>el.onclick=()=>{rewardCategory=el.dataset.type;renderRewards(r,root)});bindCompletedCards(root);return}
@@ -1397,3 +1397,24 @@ document.addEventListener('touchend',e=>{
   #exercise .question-zone{transform:translateY(clamp(-145px,-12vh,-105px))!important;}
 }
 </style>
+
+/* v260 — 4 étoiles compactes : grille 2 × 2 sans agrandir la carte */
+.challenge-level-card .challenge-level-stars{
+  display:grid;
+  grid-template-columns:repeat(2, 27px);
+  grid-template-rows:repeat(2, 25px);
+  place-items:center;
+  justify-content:center;
+  align-content:center;
+  gap:0 3px;
+  width:60px;
+  height:52px;
+  margin:-5px auto -4px;
+  overflow:visible;
+  flex:0 0 52px;
+}
+.challenge-level-card .level-star{font-size:27px;line-height:25px}
+@media(max-width:650px){
+  .challenge-level-card .challenge-level-stars{grid-template-columns:repeat(2,25px);grid-template-rows:repeat(2,23px);width:55px;height:48px;margin:-4px auto -4px;flex-basis:48px}
+  .challenge-level-card .level-star{font-size:25px;line-height:23px}
+}
