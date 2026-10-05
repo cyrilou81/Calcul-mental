@@ -70,7 +70,7 @@ DEFAULT={
  'duration':300,'count':50,
  'categories':{
   'double':{'enabled':True,'weight':3,'min':1,'max':9,'doubleMode':'non_tens','tensValues':[10,20,30,40,50,60,70,80,90,100],'display':'both'},
-  'half':{'enabled':False,'weight':3,'min':2,'max':10,'halfMode':'non_tens','tensValues':[10,20,30,40,50,60,70,80,90,100],'roundHundreds':False,'roundThousands':False},
+  'half':{'enabled':False,'weight':3,'min':2,'max':10,'halfMode':'non_tens','tensValues':[10,20,30,40,50,60,70,80,90,100],'roundHundreds':False,'roundThousands':False,'withCarry':False},
   'addition':{'enabled':True,'weight':4,'aMin':1,'aMax':10,'bMin':1,'bMax':10,'maxResult':100,'withCarry':True},
   'subtraction':{'enabled':True,'weight':3,'aMin':1,'aMax':10,'bMin':1,'bMax':10,'nonNegative':True,'withCarry':True},
   'decimal':{'enabled':False,'weight':3,'min':0,'max':20,'decimals':1,'withCarry':True},
@@ -81,9 +81,9 @@ DEFAULT={
   'addition3':{'enabled':False,'weight':3,'maxResult':27},
   'multiple_of':{'enabled':False,'weight':3,'min':1,'max':10,'factors':[3,4]},
   'fraction':{'enabled':False,'weight':3,'min':1,'max':10,'divisors':[3,4]},
-  'tens':{'enabled':True,'weight':3,'startMin':10,'startMax':99,'mode':'10','multiples':[10,20,30,40,50,60,70,80,90],'maxResult':100,'withCarry':True},
+  'tens':{'enabled':True,'weight':3,'startMin':10,'startMax':99,'multiples':[10],'maxResult':100,'withCarry':True},
   'round_tens_add':{'enabled':False,'weight':3,'aMin':10,'aMax':90,'secondMode':'non_tens','bMin':1,'bMax':9,'bTensValues':[10,20,30,40,50,60,70,80,90,100],'maxResult':100},
-  'tens_sub':{'enabled':False,'weight':3,'startMin':20,'startMax':100,'mode':'10','multiples':[10,20,30,40,50,60,70,80,90],'nonNegative':True,'withCarry':True},
+  'tens_sub':{'enabled':False,'weight':3,'startMin':20,'startMax':100,'multiples':[10],'nonNegative':True,'withCarry':True},
   'decimal_sub':{'enabled':False,'weight':3,'min':0,'max':20,'decimals':1,'withBorrow':True},
   'decimal_multiplication':{'enabled':False,'weight':3,'multipliers':[10,100,1000],'min':0.1,'max':20,'decimals':1},
   'decimal_division':{'enabled':False,'weight':3,'divisors':[10,100,1000],'min':1,'max':1000,'decimals':1}
@@ -250,7 +250,11 @@ def gen(kind,cfg):
         if cfg.get('roundHundreds',False): choices += list(range(100,1000,100))
         if cfg.get('roundThousands',False): choices += list(range(1000,10000,1000))
         choices=list(dict.fromkeys(choices))
-        if not choices: raise ValueError("Aucune moitié possible avec ces réglages.")
+        # Sans retenue : la moitié se calcule chiffre par chiffre. Chaque chiffre doit donc être pair.
+        # Ex. 64 -> 32 est naturel ; 74 -> 37 demande de transférer une dizaine vers les unités.
+        if not cfg.get('withCarry',False):
+            choices=[n for n in choices if all(int(d)%2==0 for d in str(abs(int(n))))]
+        if not choices: raise ValueError("Aucune moitié possible avec ces réglages sans retenue." if not cfg.get('withCarry',False) else "Aucune moitié possible avec ces réglages.")
         n=random.choice(choices)
         return {'n':n}, f'Moitié de {n} = __', n//2
     if kind=='addition':
@@ -377,7 +381,7 @@ def gen(kind,cfg):
         word='Tiers' if divisor==3 else 'Quart'
         return {'n':n,'divisor':divisor},f'{word} de {n} = __',q
     if kind=='tens':
-        choices=[10] if cfg.get('mode')=='10' else [int(x) for x in cfg.get('multiples',[10])]
+        choices=[int(x) for x in cfg.get('multiples',[10])]
         def no_carry(x,y):
             while x or y:
                 if (x%10)+(y%10)>=10: return False
@@ -409,7 +413,7 @@ def gen(kind,cfg):
         a,b=random.choice(candidates)
         return {'a':a,'b':b},f'{a} + {b} = __',a+b
     if kind=='tens_sub':
-        choices=[10] if cfg.get('mode')=='10' else [int(x) for x in cfg.get('multiples',[10])]
+        choices=[int(x) for x in cfg.get('multiples',[10])]
         def no_borrow_tens(x,y):
             while x or y:
                 if (x%10)<(y%10): return False
@@ -646,7 +650,7 @@ def validate_cfg_data(data):
         mode=h.get('halfMode') or ('both' if h.get('tens',False) else 'non_tens')
         if mode not in ('non_tens','tens','both'): mode='non_tens'
         h['halfMode']=mode; h.pop('tens',None)
-        h['roundHundreds']=bool(h.get('roundHundreds',False)); h['roundThousands']=bool(h.get('roundThousands',False))
+        h['roundHundreds']=bool(h.get('roundHundreds',False)); h['roundThousands']=bool(h.get('roundThousands',False)); h['withCarry']=bool(h.get('withCarry',False))
         h['tensValues']=[int(x) for x in h.get('tensValues',[10,20,30,40,50,60,70,80,90,100]) if int(x) in (10,20,30,40,50,60,70,80,90,100)]
         if mode in ('tens','both') and not h['tensValues']:
             raise ValueError('Choisis au moins une dizaine pour les moitiés.')
@@ -654,6 +658,14 @@ def validate_cfg_data(data):
         if h['min']>h['max']: raise ValueError('La plage des moitiés est invalide.')
         if mode in ('non_tens','both') and not any(n%2==0 and n%10!=0 for n in range(max(2,h['min']),h['max']+1)):
             raise ValueError('Aucune moitié hors dizaine possible dans cette plage.')
+    for key,label in (('tens','additions de dizaines'),('tens_sub','soustractions de dizaines')):
+        if cats.get(key,{}).get('enabled'):
+            t=cats[key]
+            # Migration des anciens réglages : le vieux mode « Seulement 10 » devient simplement la case 10 cochée.
+            if t.get('mode')=='10': t['multiples']=[10]
+            t.pop('mode',None)
+            t['multiples']=[int(x) for x in t.get('multiples',[]) if int(x) in (10,20,30,40,50,60,70,80,90)]
+            if not t['multiples']: raise ValueError(f'Choisis au moins une dizaine pour les {label}.')
     if cats.get('round_tens_add',{}).get('enabled'):
         rta=cats['round_tens_add']
         rta['aMin']=int(rta.get('aMin',10)); rta['aMax']=int(rta.get('aMax',90))
