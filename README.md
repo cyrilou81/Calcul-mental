@@ -1,6 +1,5 @@
-# Calcul mental v260
+# Calcul mental — v269
 
-- Les 4 étoiles des défis sont disposées en grille 2 × 2 sans modifier la taille des cartes de niveau.
-- La récompense « Princesse Diana » est remplacée par « Princesse Kaguya ».
-
-v265: étoiles des niveaux réduites et alignées horizontalement, incrustées dans la bordure inférieure des cartes sans modifier leur taille.
+- Correction robuste de l’écran de victoire Étoile : illustration Piko embarquée directement dans la page (plus aucune dépendance à une URL de fichier statique/cache pour cette image).
+- Conservation de la hiérarchie à écran de victoire unique.
+- Conservation du record par palier d’étoile : pas à la première tentative et minimum 15 points.

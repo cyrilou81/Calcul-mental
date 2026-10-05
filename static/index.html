@@ -833,31 +833,31 @@ input,select{background:#fffdf7;border:2px solid #9bd8f5;}
 <section id="exercise" class="hidden exercise"><div class="exercise-head"><div class="help-side"><button id="helpBtn" class="help-btn">🐶 Aide</button></div><div class="progress" id="progress"></div><div class="test-controls"><div class="timer" id="timer">05:00</div><button id="stop" class="stop">STOP</button></div></div><div class="question-zone"><div id="question" class="question"></div><div id="feedback" class="feedback"></div><div id="keypad" class="keypad"></div></div></section><div id="helpOverlay" class="help-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="helpTitle"><div class="help-dialog"><h2 id="helpTitle" class="help-title"><span class="help-animal">🐶</span><span>Regarde comment faire</span></h2><div id="helpTip" class="help-tip"></div><div id="helpCurrent" class="help-current"></div><div id="helpVisual" class="help-visual"></div><button id="helpOk" class="help-ok">OK, j’ai compris</button></div></div>
 <section id="stats" class="hidden card"><div class="top"><h2>Statistiques</h2><div class="stats-top-actions"><button class="back">Retour</button><button id="statsExport" class="hidden">Export</button></div></div><div id="statsContent"></div></section>
 <section id="celebration" class="hidden card celebration celebration-playful"><div class="confetti">★ &nbsp; ● &nbsp; ★ &nbsp; ● &nbsp; ★</div><h2>Test terminé !</h2><div class="celebration-main"><div class="celebration-visual"><img class="bravo-dog" src="dog-bravo.png" alt="Petit chien joyeux qui fête la fin du test"><p>Tu as fait de super efforts !</p></div><div class="celebration-rewards"><div id="coinAward" class="daily-bonus-block answer-reward-block"><div class="daily-bonus-label"><span id="answerRewardLabel">0 question réussie</span><span class="daily-bonus-coins"><span class="gold-coin"></span> +<b id="earnedNow">0</b></span></div><div class="daily-bonus-meter"><div id="coinMeterFill" class="daily-bonus-fill"></div></div></div><div id="dailyBonusBlock" class="daily-bonus-block hidden"><div class="daily-bonus-label"><span>✓ Défi quotidien effectué</span><span class="daily-bonus-coins"><span class="gold-coin"></span> +<b id="dailyBonusNow">0</b></span></div><div class="daily-bonus-meter"><div id="dailyBonusFill" class="daily-bonus-fill"></div></div></div><div id="starBonusBlock" class="daily-bonus-block hidden"><div class="daily-bonus-label"><span>⭐ Étoile gagnée</span><span class="daily-bonus-coins"><span class="gold-coin"></span> +<b id="starBonusNow">0</b></span></div><div class="daily-bonus-meter"><div id="starBonusFill" class="daily-bonus-fill"></div></div></div><div id="levelBonusBlock" class="daily-bonus-block hidden"><div class="daily-bonus-label"><span>✓ Niveau validé</span><span class="daily-bonus-coins"><span class="gold-coin"></span> +<b id="levelBonusNow">0</b></span></div><div class="daily-bonus-meter"><div id="levelBonusFill" class="daily-bonus-fill"></div></div></div></div></div><div class="celebration-actions"><button id="celebrationHome" class="primary">⌂ Retour à l’accueil</button></div></section>
-<section id="recordVictory" class="hidden card record-victory">
-  <div class="record-victory-header">
+<section id="recordVictory" class="hidden card victory-screen record-victory">
+  <div class="victory-header record-victory-header">
     <h2>Nouveau record !</h2>
-    <p class="record-victory-message">Bravo ! Sur le Défi <span id="recordVictoryMedal" class="record-victory-medal">4</span>, tu as un nouveau record de <strong id="recordVictoryScore" class="record-victory-score">0</strong> !</p>
+    <p class="victory-message record-victory-message">Bravo ! Sur le Défi <span id="recordVictoryMedal" class="record-victory-medal">4</span>, tu as un nouveau record de <strong id="recordVictoryScore" class="record-victory-score">0</strong> !</p>
   </div>
-  <img class="record-victory-animals" src="record-victory-asia.png" alt="Panda roux et animaux d’Asie qui applaudissent">
-  <div class="record-victory-actions"><button id="recordVictoryBack" class="primary">Continuer</button></div>
+  <img class="victory-image record-victory-animals" src="record-victory-asia.png" alt="Panda roux et animaux d’Asie qui applaudissent">
+  <div class="victory-actions record-victory-actions"><button id="recordVictoryBack" class="primary">Continuer</button></div>
 </section>
-<section id="starVictory" class="hidden card star-victory">
-  <div class="star-victory-header">
+<section id="starVictory" class="hidden card victory-screen record-victory star-victory">
+  <div class="victory-header record-victory-header">
     <h2>Bravo !</h2>
-    <p>Bravo, tu viens de remporter une étoile !!</p>
+    <p class="victory-message record-victory-message">Bravo, tu viens de remporter une étoile !!</p>
   </div>
-  <img class="star-victory-animals" src="/star-victory-v268.png?v=268" alt="Piko brandit fièrement une étoile au milieu des animaux de la forêt">
-  <div class="star-victory-actions"><button id="starVictoryBack" class="primary">Continuer</button></div>
+  <img class="victory-image record-victory-animals" src="star-victory.png" alt="">
+  <div class="victory-actions record-victory-actions"><button id="starVictoryBack" class="primary">Continuer</button></div>
 </section>
-<section id="levelVictory" class="hidden card level-victory">
-  <div class="level-victory-header">
+<section id="levelVictory" class="hidden card victory-screen level-victory">
+  <div class="victory-header level-victory-header">
     <h2 id="levelVictoryTitle">Bravo !</h2>
     <p id="levelVictoryText">Tu es passé au niveau</p>
     <div id="unlockedLevelName" class="unlocked-level-name"></div>
     <div id="classTransitionColors" class="class-transition-colors hidden"><span id="completedColorDot" class="class-transition-dot"></span><span class="class-transition-arrow">→</span><span id="nextColorDot" class="class-transition-dot"></span></div>
   </div>
-  <img class="level-victory-animals" src="level-victory-animals.png" alt="Animaux qui applaudissent">
-  <div class="level-victory-actions">
+  <img class="victory-image level-victory-animals" src="level-victory-animals.png" alt="Animaux qui applaudissent">
+  <div class="victory-actions level-victory-actions">
     <button id="levelVictoryBack" class="primary">Continuer</button>
   </div>
 </section>
@@ -1456,14 +1456,24 @@ document.addEventListener('touchend',e=>{
 }
 
 /* v266 — victoire étoile dédiée */
-#starVictory.star-victory{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;width:min(980px,96vw);min-height:0;max-height:94dvh;margin:0 auto;padding:14px 18px 18px;overflow-y:auto;background:linear-gradient(180deg,#fff9dc 0%,#f7fcff 100%);border-radius:28px;box-sizing:border-box;text-align:center}
-#starVictory.hidden{display:none!important}
-.star-victory-header{width:100%;padding:2px 10px 10px;text-align:center}
-.star-victory-header h2{margin:0;color:#0b397d;font-size:clamp(40px,6vw,62px);line-height:1}
-.star-victory-header p{margin:8px auto 4px;color:#164b70;font-size:clamp(21px,3vw,30px);font-weight:850;line-height:1.18}
-.star-victory-animals{display:block;width:min(900px,100%);height:auto;max-height:60dvh;object-fit:contain;border-radius:22px;border:3px solid rgba(255,255,255,.95);box-shadow:0 7px 20px rgba(24,83,118,.14)}
-.star-victory-actions{width:100%;padding-top:10px;text-align:center}
-#starVictoryBack{display:block;min-width:180px;margin:0 auto;background:linear-gradient(#27c76a,#0ba34b);border-color:#07873d;box-shadow:0 4px 0 #067335;color:#fff}
-@media(max-width:600px){#starVictory.star-victory{padding:9px 12px 12px}.star-victory-header{padding:0 4px 7px}.star-victory-header h2{font-size:34px}.star-victory-header p{font-size:19px}.star-victory-animals{max-height:55dvh}}
+
+/* v271 — contrat visuel commun à tous les écrans de victoire */
+.victory-screen{
+  position:relative!important;display:flex!important;flex-direction:column;align-items:center;justify-content:flex-start;
+  width:min(980px,96vw)!important;min-height:0!important;max-height:94dvh!important;margin:0 auto!important;
+  padding:16px 18px 18px!important;overflow-y:auto!important;background:linear-gradient(180deg,#e8f8ff 0%,#f7fcff 100%)!important;
+  border-radius:28px!important;box-sizing:border-box!important;text-align:center!important;
+}
+.victory-screen.hidden{display:none!important}
+.victory-header{position:relative;z-index:2;width:100%;padding:2px 12px 10px;text-align:center;box-sizing:border-box}
+.victory-image{display:block;width:min(900px,100%)!important;height:auto!important;max-height:48dvh!important;object-fit:cover!important;border-radius:22px!important;border:3px solid rgba(255,255,255,.95)!important;box-shadow:0 7px 20px rgba(24,83,118,.14)!important;background:#dff5ff!important;box-sizing:border-box}
+.victory-actions{width:100%;padding-top:12px;text-align:center}
+.victory-actions .primary{min-width:180px}
+@media(max-width:600px){
+  .victory-screen{padding:10px 12px 12px!important}
+  .victory-header{padding-bottom:8px}
+  .victory-image{max-height:48dvh!important}
+  .victory-actions{padding-top:8px}
+}
 </style>
 
