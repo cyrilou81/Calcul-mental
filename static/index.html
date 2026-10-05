@@ -1398,44 +1398,50 @@ document.addEventListener('touchend',e=>{
 }
 
 
-/* v261 — 4 étoiles réellement en carré 2 × 2, contenues dans la carte */
+/* v265 — étoiles compactes incrustées dans la bordure basse du niveau */
 .challenge-level-card{position:relative;overflow:hidden}
 .challenge-level-card .challenge-level-stars{
   position:absolute;
   left:50%;
-  bottom:5px;
+  bottom:0;
   transform:translateX(-50%);
-  display:grid!important;
-  grid-template-columns:repeat(2,24px)!important;
-  grid-template-rows:repeat(2,22px)!important;
-  place-items:center!important;
-  gap:0 2px!important;
-  width:50px!important;
-  height:44px!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  gap:1px!important;
+  width:auto!important;
+  height:22px!important;
   margin:0!important;
+  padding:0 4px 1px!important;
   font-size:0!important;
   line-height:1!important;
-  white-space:normal!important;
-  z-index:3;
+  white-space:nowrap!important;
+  z-index:4;
 }
 .challenge-level-card .level-star{
   display:block!important;
-  width:24px;
-  height:22px;
-  font-size:24px!important;
-  line-height:22px!important;
+  width:18px!important;
+  height:19px!important;
+  font-size:19px!important;
+  line-height:19px!important;
   text-align:center;
+  flex:0 0 18px;
 }
 .challenge-level-card .challenge-medal{z-index:2}
 @media(max-width:650px){
   .challenge-level-card .challenge-level-stars{
-    grid-template-columns:repeat(2,22px)!important;
-    grid-template-rows:repeat(2,20px)!important;
-    width:46px!important;
-    height:40px!important;
-    bottom:4px;
+    bottom:0;
+    height:20px!important;
+    gap:0!important;
+    padding:0 3px 1px!important;
   }
-  .challenge-level-card .level-star{width:22px;height:20px;font-size:22px!important;line-height:20px!important}
+  .challenge-level-card .level-star{
+    width:16px!important;
+    height:17px!important;
+    font-size:17px!important;
+    line-height:17px!important;
+    flex-basis:16px;
+  }
 }
 </style>
 
