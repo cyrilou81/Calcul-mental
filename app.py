@@ -560,7 +560,18 @@ def initial_challenge_school(real_school):
 
 def required_stars_for(challenge_school, real_school):
     # Tout palier inférieur à la classe réelle sert de validation rapide : 1 étoile.
-    return 1 if class_rank(challenge_school) < class_rank(real_school) else 3
+    return 1 if class_rank(challenge_school) < class_rank(real_school) else 4
+
+def challenge_score_threshold(challenge_school, real_school, current_stars):
+    """Score requis pour gagner la prochaine étoile du niveau.
+
+    Niveau normal : 45, 46, 47 puis 48 pour les étoiles 1 à 4.
+    Classe de défi inférieure à la classe réelle : validation rapide inchangée à 45.
+    """
+    if class_rank(challenge_school) < class_rank(real_school):
+        return 45
+    return 45 + max(0, int(current_stars or 0))
+
 
 def color_name_fr(hex_color):
     """Nom simple de la couleur configurée, par proximité RGB, pour le message enfant."""
@@ -1042,7 +1053,7 @@ def challenge_status(pid):
     if re.fullmatch(r'\d{4}-\d{2}-\d{2}',day):
         done_today=bool(c.execute("SELECT 1 FROM sessions WHERE profile_id=? AND mode='challenge' AND rewarded=1 AND challenge_day=? LIMIT 1",(pid,day)).fetchone())
     c.close()
-    return {'schoolClass':challenge_school,'realSchoolClass':p['school_class'],'classColor':class_color,'level':current,'levelName':level_name,'stars':p['challenge_stars'],'requiredStars':needed,'maxLevel':max_level,'threshold':45,'doneToday':done_today,'levels':[{'id':x['id'],'name':x['name'],'position':x['position']} for x in levels]}
+    return {'schoolClass':challenge_school,'realSchoolClass':p['school_class'],'classColor':class_color,'level':current,'levelName':level_name,'stars':p['challenge_stars'],'requiredStars':needed,'maxLevel':max_level,'threshold':challenge_score_threshold(challenge_school,p['school_class'],p['challenge_stars']),'doneToday':done_today,'levels':[{'id':x['id'],'name':x['name'],'position':x['position']} for x in levels]}
 
 def clear_challenge_stats(c,pid,keep_session_id=None):
     # Lors d'une promotion automatique, on conserve uniquement la séance qui vient
@@ -1235,7 +1246,8 @@ def finish(sid):
         same_level=(p['challenge_level_id']==s['challenge_level_id'])
         challenge_school=current_row['school_class'] if current_row else (s['challenge_class'] or p['school_class'])
         needed=required_stars_for(challenge_school,p['school_class'])
-        if correct>=45 and same_level and p['challenge_stars']<needed:
+        score_needed=challenge_score_threshold(challenge_school,p['school_class'],p['challenge_stars'])
+        if correct>=score_needed and same_level and p['challenge_stars']<needed:
             new_stars=p['challenge_stars']+1
             c.execute('UPDATE profiles SET challenge_stars=? WHERE id=?',(new_stars,s['profile_id']))
             star_awarded=True

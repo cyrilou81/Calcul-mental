@@ -929,7 +929,7 @@ $('#profilesBack').onclick=async()=>{await loadProfiles();show('welcome')};
 $('#createProfileBtn').onclick=async()=>{try{await api('/api/profiles',{method:'POST',body:JSON.stringify({name:$('#newProfileName').value,school_class:$('#newProfileClass').value,color:newProfileColor})});$('#newProfileName').value='';$('#newProfileClass').value='';$('#profileManagerErr').textContent='';await renderProfileManager();await loadProfiles()}catch(x){$('#profileManagerErr').textContent=x.message}};
 function updateSessionSummary(){if(!cfg)return;let mins=Math.max(1,Math.round((cfg.duration||300)/60));$('#sessionSummary').textContent=`${cfg.count||50} questions · ${mins} minute${mins>1?'s':''}`}
 function renderChallenge(){if(!challengeState)return;
-let progress=$('#challengeProgress'),levels=challengeState.levels||[],needed=Math.max(1,challengeState.requiredStars||3);
+let progress=$('#challengeProgress'),levels=challengeState.levels||[],needed=Math.max(1,challengeState.requiredStars||4);
 progress.innerHTML=levels.map((x,i)=>{
   let pos=i+1,isDone=pos<challengeState.level,isCurrent=pos===challengeState.level;
   let stars=isDone?needed:(isCurrent?challengeState.stars:0);
@@ -1075,7 +1075,7 @@ function progressChartHtml(sessions,threshold=45){
  return `<div class="progress-chart-wrap"><div class="progress-chart-title">Mon score</div><svg class="progress-chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Progression des bonnes réponses vers l'objectif ${threshold}"><rect x="${L}" y="${T}" width="${W-L-R}" height="${Math.max(0,targetY-T)}" fill="#dff5e5" opacity=".30"/>${grid}<path d="${area}" fill="#8de49f" opacity=".16"/><path d="${path}" fill="none" stroke="#1f9d55" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/><rect x="${targetLabelX-66}" y="${targetY-31}" width="132" height="25" rx="12.5" fill="#e7f8e9" stroke="#a9ddb7"/><text x="${targetLabelX}" y="${targetY-14}" text-anchor="middle" font-size="12.5" font-weight="950" fill="#237c43">🎯 Objectif ${threshold}</text>${dots}</svg></div>`;
 }
 function challengeProgressHtml(ch){
- let needed=Math.max(1,ch?.requiredStars||3),stars=Math.max(0,ch?.stars||0),symbols='⭐'.repeat(stars)+'☆'.repeat(Math.max(0,needed-stars));
+ let needed=Math.max(1,ch?.requiredStars||4),stars=Math.max(0,ch?.stars||0),symbols='⭐'.repeat(stars)+'☆'.repeat(Math.max(0,needed-stars));
  return `<div class="progress-challenge-card"><div class="challenge-medal" style="--medal:${escapeHtml(ch?.classColor||'#3189dc')}" aria-label="Niveau ${ch?.level||1}">${ch?.level||1}</div><div class="progress-challenge-copy"><div class="progress-kicker">Défi en cours</div><div class="progress-level">Niveau ${ch?.level||1}</div><div class="progress-stars">${symbols}</div></div></div>`;
 }
 async function openRewards(){

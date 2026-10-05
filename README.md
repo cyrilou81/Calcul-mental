@@ -77,3 +77,10 @@ Stats live fiables depuis v229 : séances rewarded=0 visibles comme EN COURS, po
 - Aide Moitiés : nouvelle branche « Dizaine paire : 20 / 40 / 60 / 80 » avec moitié du chiffre des dizaines puis ajout du zéro.
 - Aide Moitiés : branche impaire 30 / 50 / 70 / 90 conservée.
 - Aide Doubles des dizaines rondes : consigne reformulée « Calcule le double du chiffre des dizaines et ajoute le zéro des unités. »
+
+
+## v258
+- Défis normaux : 4 étoiles nécessaires par niveau.
+- Seuil progressif pour chaque étoile d'un même niveau : 45, 46, 47 puis 48 bonnes réponses.
+- Validation rapide des défis d'une classe inférieure inchangée : 1 étoile à 45 bonnes réponses.
+- L'objectif affiché dans Mes progrès correspond désormais au seuil de la prochaine étoile.
