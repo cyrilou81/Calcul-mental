@@ -42,7 +42,7 @@ def init_db():
         id INTEGER PRIMARY KEY AUTOINCREMENT, profile_id INTEGER NOT NULL, started_at TEXT DEFAULT CURRENT_TIMESTAMP,
         active_ms INTEGER NOT NULL DEFAULT 0, rewarded INTEGER NOT NULL DEFAULT 0, mode TEXT NOT NULL DEFAULT 'learning',
         challenge_class TEXT, challenge_level_id INTEGER, star_awarded INTEGER NOT NULL DEFAULT 0, challenge_day TEXT,
-        daily_bonus_awarded INTEGER NOT NULL DEFAULT 0, FOREIGN KEY(profile_id) REFERENCES profiles(id)
+        daily_bonus_awarded INTEGER NOT NULL DEFAULT 0, challenge_stars_start INTEGER NOT NULL DEFAULT 0, FOREIGN KEY(profile_id) REFERENCES profiles(id)
     );
     CREATE TABLE IF NOT EXISTS questions(
         id INTEGER PRIMARY KEY AUTOINCREMENT, session_id INTEGER NOT NULL, position INTEGER NOT NULL, kind TEXT NOT NULL,
@@ -61,6 +61,12 @@ def init_db():
     );
     CREATE TABLE IF NOT EXISTS class_settings(school_class TEXT PRIMARY KEY, color TEXT NOT NULL);
     """)
+    # Migration v268 : mémorise le nombre d'étoiles au début de chaque Défi.
+    # Cela permet d'avoir un record indépendant pour chaque étape d'étoile.
+    session_columns={r['name'] for r in c.execute('PRAGMA table_info(sessions)')}
+    if 'challenge_stars_start' not in session_columns:
+        c.execute('ALTER TABLE sessions ADD COLUMN challenge_stars_start INTEGER NOT NULL DEFAULT 0')
+
     class_defaults={'CP':'#ef5350','CE1':'#f5b82e','CE2':'#2fbd68','CM1':'#3189dc','CM2':'#8b4de3'}
     for school,color in class_defaults.items():
         c.execute('INSERT OR IGNORE INTO class_settings(school_class,color) VALUES(?,?)',(school,color))
@@ -1073,10 +1079,10 @@ def start(pid):
     if not owns_profile(pid): return {'error':'Profil introuvable'},404
     mode=(request.args.get('mode') or 'learning').lower()
     if mode not in ('learning','challenge'): mode='learning'
-    challenge_class=None; challenge_level=None; challenge_level_id=None
+    challenge_class=None; challenge_level=None; challenge_level_id=None; challenge_stars_start=0
     if mode=='challenge':
-        c0=db(); p0=c0.execute('SELECT school_class,challenge_level_id FROM profiles WHERE id=?',(pid,)).fetchone()
-        challenge_class,row,challenge_level,_=resolve_profile_level(c0,p0); challenge_level_id=row['id'] if row else None
+        c0=db(); p0=c0.execute('SELECT school_class,challenge_level_id,challenge_stars FROM profiles WHERE id=?',(pid,)).fetchone()
+        challenge_class,row,challenge_level,_=resolve_profile_level(c0,p0); challenge_level_id=row['id'] if row else None; challenge_stars_start=int(p0['challenge_stars'] or 0)
         if row:
             c0.execute('UPDATE profiles SET challenge_level_id=? WHERE id=?',(challenge_level_id,pid)); c0.commit()
             cfg=merged_cfg(json.loads(row['data']))
@@ -1129,7 +1135,7 @@ def start(pid):
     for old_sid in abandoned:
         c.execute('DELETE FROM questions WHERE session_id=?',(old_sid,))
         c.execute('DELETE FROM sessions WHERE id=?',(old_sid,))
-    cur=c.execute('INSERT INTO sessions(profile_id,mode,challenge_class,challenge_level_id) VALUES(?,?,?,?)',(pid,mode,challenge_class,challenge_level_id)); sid=cur.lastrowid
+    cur=c.execute('INSERT INTO sessions(profile_id,mode,challenge_class,challenge_level_id,challenge_stars_start) VALUES(?,?,?,?,?)',(pid,mode,challenge_class,challenge_level_id,challenge_stars_start)); sid=cur.lastrowid
     for i,q in enumerate(qs): c.execute('INSERT INTO questions(session_id,position,kind,payload,display,expected,status,source,retry_from) VALUES(?,?,?,?,?,?,\'UNANSWERED\',?,?)',(sid,i,q['kind'],json.dumps(q['payload']),q['display'],q['expected'],q['source'],q['retry_from']))
     c.commit()
     rows=[]
@@ -1184,7 +1190,7 @@ def finish(sid):
     data=request.json or {}; ms=max(0,int(data.get('activeMs',0)))
     local_day=str(data.get('localDate',''))[:10]
     if not re.fullmatch(r'\d{4}-\d{2}-\d{2}',local_day): local_day=None
-    c=db(); s=c.execute('SELECT s.id,s.profile_id,s.rewarded,s.mode,s.challenge_class,s.challenge_level_id,s.star_awarded,s.daily_bonus_awarded FROM sessions s JOIN profiles p ON p.id=s.profile_id WHERE s.id=? AND p.account_id=?',(sid,current_account_id())).fetchone()
+    c=db(); s=c.execute('SELECT s.id,s.profile_id,s.rewarded,s.mode,s.challenge_class,s.challenge_level_id,s.challenge_stars_start,s.star_awarded,s.daily_bonus_awarded FROM sessions s JOIN profiles p ON p.id=s.profile_id WHERE s.id=? AND p.account_id=?',(sid,current_account_id())).fetchone()
     if not s: c.close(); return {'error':'Séance inconnue'},404
     earned=0
     if not s['rewarded']:
@@ -1217,19 +1223,25 @@ def finish(sid):
     record_level_color=None
     if s['mode']=='challenge':
         record_score=c.execute("SELECT COUNT(*) n FROM questions WHERE session_id=? AND status='CORRECT'",(sid,)).fetchone()['n']
-        # Record du même niveau de Défi uniquement, en excluant la séance qui vient de finir.
-        # Un record est célébré à partir de 15 bonnes réponses incluses.
+        # Record propre à l'étape d'étoile courante : même niveau ET même nombre
+        # d'étoiles possédées au début de la tentative. Gagner une étoile remet
+        # donc naturellement le record à zéro pour l'étape suivante.
+        # La première tentative de l'étape ne peut jamais être un record et il
+        # faut toujours au moins 15 bonnes réponses.
+        star_stage=int(s['challenge_stars_start'] or 0)
         previous_attempts=c.execute("""SELECT COUNT(*) n FROM sessions ss
             WHERE ss.profile_id=? AND ss.mode='challenge' AND ss.challenge_level_id=?
+              AND COALESCE(ss.challenge_stars_start,0)=?
               AND ss.rewarded=1 AND ss.id<>?
-        """,(s['profile_id'],s['challenge_level_id'],sid)).fetchone()['n']
+        """,(s['profile_id'],s['challenge_level_id'],star_stage,sid)).fetchone()['n']
         prev=c.execute("""SELECT MAX(score) best FROM (
             SELECT ss.id, COUNT(CASE WHEN q.status='CORRECT' THEN 1 END) score
             FROM sessions ss LEFT JOIN questions q ON q.session_id=ss.id
             WHERE ss.profile_id=? AND ss.mode='challenge' AND ss.challenge_level_id=?
+              AND COALESCE(ss.challenge_stars_start,0)=?
               AND ss.rewarded=1 AND ss.id<>?
             GROUP BY ss.id
-        )""",(s['profile_id'],s['challenge_level_id'],sid)).fetchone()
+        )""",(s['profile_id'],s['challenge_level_id'],star_stage,sid)).fetchone()
         previous_record=int((prev['best'] if prev else 0) or 0)
         # La toute première partie d'un niveau établit la référence : elle ne peut jamais être un « nouveau record ».
         # À partir de la deuxième partie : score >= 15 ET strictement supérieur au meilleur score précédent.
