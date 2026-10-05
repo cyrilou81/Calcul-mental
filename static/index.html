@@ -841,6 +841,14 @@ input,select{background:#fffdf7;border:2px solid #9bd8f5;}
   <img class="record-victory-animals" src="record-victory-asia.png" alt="Panda roux et animaux d’Asie qui applaudissent">
   <div class="record-victory-actions"><button id="recordVictoryBack" class="primary">Continuer</button></div>
 </section>
+<section id="starVictory" class="hidden card star-victory">
+  <div class="star-victory-header">
+    <h2>Bravo !</h2>
+    <p>Bravo, tu viens de remporter une étoile !!</p>
+  </div>
+  <img class="star-victory-animals" src="star-victory.png" alt="Piko brandit fièrement une étoile au milieu des animaux de la forêt">
+  <div class="star-victory-actions"><button id="starVictoryBack" class="primary">Continuer</button></div>
+</section>
 <section id="levelVictory" class="hidden card level-victory">
   <div class="level-victory-header">
     <h2 id="levelVictoryTitle">Bravo !</h2>
@@ -913,7 +921,7 @@ if(loginResult==='error'){
 }else if(loginResult==='ok'){
   history.replaceState(null,'',location.pathname);
 }
-function show(id){['auth','welcome','profileManager','home','rewards','config','exercise','stats','celebration','recordVictory','levelVictory'].forEach(x=>$('#'+x).classList.toggle('hidden',x!==id))}
+function show(id){['auth','welcome','profileManager','home','rewards','config','exercise','stats','celebration','recordVictory','starVictory','levelVictory'].forEach(x=>$('#'+x).classList.toggle('hidden',x!==id))}
 const profileColors=['#8be36b','#dda5f5','#8fd7f7','#ffd36a','#ff9f8f','#9bb6ff','#7de0c3','#f6a6cf'];
 let newProfileColor=profileColors[0];
 function colorPickerHtml(selected){return profileColors.map(c=>`<button type="button" class="color-dot ${c.toLowerCase()===String(selected).toLowerCase()?'selected':''}" data-color="${c}" style="background:${c}" aria-label="Choisir cette couleur"></button>`).join('')}
@@ -1008,11 +1016,12 @@ bindReliableTap($('#helpBtn'),openHelp);$('#helpOk').onclick=closeHelp;
 function questionHtml(){let q=session.questions[index],val=(input?input.replace('.',','):'<span class="caret"></span>');let slot=`<span class="slot ${input?'':'empty'}">${val}</span>`;let html=q.display.replace('__',slot);if(wrongFlash)html+=`<span class="wrong-mark">✕</span>`;return html}
 function renderInput(){let q=$('#question');q.innerHTML=questionHtml();let n=input.length;q.classList.toggle('answer-long',n>=5);q.classList.toggle('answer-very-long',n>=7)}
 let pendingRecordVictory=null;
+let pendingStarVictory=false;
 function displayQ(){if(index>=session.questions.length||activeMs>=session.duration*1000)return finish();input='';attempts=0;wrongFlash=false;correction=false;$('#feedback').textContent='';$('#progress').textContent=`Question ${index+1} / ${session.questions.length}`;qStart=performance.now();renderInput()}
 function flashWrong(remaining){wrongFlash=true;renderInput();let el=$('#question');el.classList.remove('shake');void el.offsetWidth;el.classList.add('shake');$('#feedback').textContent=remaining>0?`Essaie encore · ${remaining} essai${remaining>1?'s':''}`:'';setTimeout(()=>{wrongFlash=false;input='';renderInput();},520)}
 async function submit(){let q=session.questions[index],ms=Math.round(performance.now()-qStart);correction=true;let r=await api('/api/session/'+session.sessionId+'/answer',{method:'POST',body:JSON.stringify({questionId:q.id,answer:Number(input),responseMs:ms})});attempts=r.attempts;if(r.correct){soundSuccess();correction=false;index++;displayQ();return}soundFail();if(attempts<2){correction=false;flashWrong(1);return}q.expected=r.expected;wrongFlash=true;renderInput();$('#feedback').textContent='';openCorrection(q)}
 function tick(t){if(!ticking)return;if(!correction&&!helpOpen){if(lastTick)activeMs+=t-lastTick}lastTick=t;let left=Math.max(0,session.duration*1000-activeMs),sec=Math.ceil(left/1000);$('#timer').textContent=String(Math.floor(sec/60)).padStart(2,'0')+':'+String(sec%60).padStart(2,'0');if(left<=0&&!correction){finish();return}timerHandle=requestAnimationFrame(tick)}
-async function finish(){if(!session)return;if(helpOpen)closeHelp();ticking=false;if(timerHandle)cancelAnimationFrame(timerHandle);let sid=session.sessionId,finishedMode=session.mode;session=null;let r=await api('/api/session/'+sid+'/finish',{method:'POST',body:JSON.stringify({activeMs:Math.round(activeMs),localDate:localDateKey()})});if(r.challenge){challengeState={...challengeState,...r.challenge};if(finishedMode==='challenge')challengeState.doneToday=true;if(finishedMode==='challenge'){try{await refreshChallenge()}catch(e){renderChallenge()}}else renderChallenge()}pendingRecordVictory=(finishedMode==='challenge'&&r.newRecord&&!r.starAwarded&&!r.levelUnlocked&&!r.classCompleted)?{level:r.recordLevel||1,score:r.recordScore||0,color:r.recordColor||'#3189dc'}:null;pendingLevelVictory=(finishedMode==='challenge'&&r.levelUnlocked)?{name:r.unlockedLevelName||'',color:r.unlockedColor||(r.challenge&&r.challenge.classColor)||(challengeState&&challengeState.classColor)||''}:null;pendingClassVictory=(finishedMode==='challenge'&&r.classCompleted)?{completedColor:r.completedColor,nextColor:r.nextColor,completedColorName:r.completedColorName,nextColorName:r.nextColorName}:null;show('celebration');applause();if(finishedMode==='challenge'&&r.starAwarded){let p=document.querySelector('#celebration p');if(p)p.textContent='⭐ Une étoile gagnée !'}animateCoins(r.coinsEarned||0,r.balance||0,r.dailyBonus||0,r.starBonus||0,r.levelBonus||0)}
+async function finish(){if(!session)return;if(helpOpen)closeHelp();ticking=false;if(timerHandle)cancelAnimationFrame(timerHandle);let sid=session.sessionId,finishedMode=session.mode;session=null;let r=await api('/api/session/'+sid+'/finish',{method:'POST',body:JSON.stringify({activeMs:Math.round(activeMs),localDate:localDateKey()})});if(r.challenge){challengeState={...challengeState,...r.challenge};if(finishedMode==='challenge')challengeState.doneToday=true;if(finishedMode==='challenge'){try{await refreshChallenge()}catch(e){renderChallenge()}}else renderChallenge()}pendingRecordVictory=null;pendingStarVictory=false;pendingLevelVictory=null;pendingClassVictory=null;if(finishedMode==='challenge'){if(r.classCompleted){pendingClassVictory={completedColor:r.completedColor,nextColor:r.nextColor,completedColorName:r.completedColorName,nextColorName:r.nextColorName}}else if(r.levelUnlocked){pendingLevelVictory={name:r.unlockedLevelName||'',color:r.unlockedColor||(r.challenge&&r.challenge.classColor)||(challengeState&&challengeState.classColor)||''}}else if(r.starAwarded){pendingStarVictory=true}else if(r.newRecord){pendingRecordVictory={level:r.recordLevel||1,score:r.recordScore||0,color:r.recordColor||'#3189dc'}}}let celebrationText=document.querySelector('#celebration .celebration-visual p');if(celebrationText)celebrationText.textContent='Tu as fait de super efforts !';show('celebration');applause();animateCoins(r.coinsEarned||0,r.balance||0,r.dailyBonus||0,r.starBonus||0,r.levelBonus||0)}
 async function stopCurrentTest(){if(!session)return;if(helpOpen)closeHelp();ticking=false;if(timerHandle)cancelAnimationFrame(timerHandle);let sid=session.sessionId;session=null;await api('/api/session/'+sid,{method:'DELETE'});show('home')}
 bindReliableTap($('#stop'),stopCurrentTest);
 let startingTest=false;
@@ -1175,10 +1184,12 @@ renderSessionStats=async function(id){statsLiveSessionId=id;return renderSession
 const renderStatsBase=renderStats;
 renderStats=async function(){statsLiveSessionId=null;return renderStatsBase()};
 $('#statsBtn').onclick=async()=>{statsMode=currentMode==='challenge'?'challenge':'learning';await renderStats();show('stats');startStatsLiveRefresh()};
-function showPendingPostTestVictory(){if(pendingRecordVictory){let r=pendingRecordVictory;$('#recordVictoryScore').textContent=r.score;let m=$('#recordVictoryMedal');m.textContent=r.level;m.style.setProperty('--record-medal',r.color||'#3189dc');pendingRecordVictory=null;show('recordVictory');applause();return}if(pendingClassVictory){$('#levelVictory').classList.add('class-victory-mode');$('#levelVictoryTitle').textContent='Bravo !';$('#levelVictoryText').textContent=`Tu as complété la couleur ${pendingClassVictory.completedColorName||''} et tu passes maintenant à la couleur ${pendingClassVictory.nextColorName||''} !`;$('#unlockedLevelName').textContent='';$('#classTransitionColors').classList.remove('hidden');$('#completedColorDot').style.background=pendingClassVictory.completedColor||'#999';$('#nextColorDot').style.background=pendingClassVictory.nextColor||'#999';show('levelVictory');applause();pendingClassVictory=null;pendingLevelVictory=null;return}if(pendingLevelVictory){$('#levelVictory').classList.remove('class-victory-mode');$('#levelVictoryTitle').textContent='Bravo !';$('#levelVictoryText').textContent='Tu es passé au niveau';let raw=pendingLevelVictory.name||'';let num=(raw.match(/(?:-|\s)(\d+)$/)||raw.match(/(\d+)$/)||[])[1]||raw;let col=pendingLevelVictory.color||(challengeState&&challengeState.classColor)||'#3189dc';let u=$('#unlockedLevelName');u.textContent=num;u.style.background=col;u.style.borderColor=col;u.classList.add('level-number-circle');$('#classTransitionColors').classList.add('hidden');show('levelVictory');applause();pendingLevelVictory=null;return}selectMode('challenge');show('home')}
+function returnHomeAfterVictory(){pendingRecordVictory=null;pendingStarVictory=false;pendingLevelVictory=null;pendingClassVictory=null;selectMode('challenge');show('home')}
+function showPendingPostTestVictory(){if(pendingClassVictory){$('#levelVictory').classList.add('class-victory-mode');$('#levelVictoryTitle').textContent='Bravo !';$('#levelVictoryText').textContent=`Tu as complété la couleur ${pendingClassVictory.completedColorName||''} et tu passes maintenant à la couleur ${pendingClassVictory.nextColorName||''} !`;$('#unlockedLevelName').textContent='';$('#classTransitionColors').classList.remove('hidden');$('#completedColorDot').style.background=pendingClassVictory.completedColor||'#999';$('#nextColorDot').style.background=pendingClassVictory.nextColor||'#999';show('levelVictory');applause();return}if(pendingLevelVictory){$('#levelVictory').classList.remove('class-victory-mode');$('#levelVictoryTitle').textContent='Bravo !';$('#levelVictoryText').textContent='Tu es passé au niveau';let raw=pendingLevelVictory.name||'';let num=(raw.match(/(?:-|\s)(\d+)$/)||raw.match(/(\d+)$/)||[])[1]||raw;let col=pendingLevelVictory.color||(challengeState&&challengeState.classColor)||'#3189dc';let u=$('#unlockedLevelName');u.textContent=num;u.style.background=col;u.style.borderColor=col;u.classList.add('level-number-circle');$('#classTransitionColors').classList.add('hidden');show('levelVictory');applause();return}if(pendingStarVictory){show('starVictory');applause();return}if(pendingRecordVictory){let r=pendingRecordVictory;$('#recordVictoryScore').textContent=r.score;let m=$('#recordVictoryMedal');m.textContent=r.level;m.style.setProperty('--record-medal',r.color||'#3189dc');show('recordVictory');applause();return}selectMode('challenge');show('home')}
 $('#celebrationHome').onclick=showPendingPostTestVictory;
-$('#recordVictoryBack').onclick=showPendingPostTestVictory;
-$('#levelVictoryBack').onclick=showPendingPostTestVictory;
+$('#recordVictoryBack').onclick=returnHomeAfterVictory;
+$('#starVictoryBack').onclick=returnHomeAfterVictory;
+$('#levelVictoryBack').onclick=returnHomeAfterVictory;
 $('#accountLogout').onclick=async()=>{await api('/api/auth/logout',{method:'POST'});profile=null;$('#authPassword').value='';show('auth')};
 $('#playerLogout').onclick=async()=>{await api('/api/auth/logout',{method:'POST'});profile=null;$('#authPassword').value='';show('auth')};
 async function boot(){
@@ -1443,5 +1454,16 @@ document.addEventListener('touchend',e=>{
     flex-basis:16px;
   }
 }
+
+/* v266 — victoire étoile dédiée */
+#starVictory.star-victory{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;width:min(980px,96vw);min-height:0;max-height:94dvh;margin:0 auto;padding:14px 18px 18px;overflow-y:auto;background:linear-gradient(180deg,#fff9dc 0%,#f7fcff 100%);border-radius:28px;box-sizing:border-box;text-align:center}
+#starVictory.hidden{display:none!important}
+.star-victory-header{width:100%;padding:2px 10px 10px;text-align:center}
+.star-victory-header h2{margin:0;color:#0b397d;font-size:clamp(40px,6vw,62px);line-height:1}
+.star-victory-header p{margin:8px auto 4px;color:#164b70;font-size:clamp(21px,3vw,30px);font-weight:850;line-height:1.18}
+.star-victory-animals{display:block;width:min(900px,100%);height:auto;max-height:60dvh;object-fit:contain;border-radius:22px;border:3px solid rgba(255,255,255,.95);box-shadow:0 7px 20px rgba(24,83,118,.14)}
+.star-victory-actions{width:100%;padding-top:10px;text-align:center}
+#starVictoryBack{display:block;min-width:180px;margin:0 auto;background:linear-gradient(#27c76a,#0ba34b);border-color:#07873d;box-shadow:0 4px 0 #067335;color:#fff}
+@media(max-width:600px){#starVictory.star-victory{padding:9px 12px 12px}.star-victory-header{padding:0 4px 7px}.star-victory-header h2{font-size:34px}.star-victory-header p{font-size:19px}.star-victory-animals{max-height:55dvh}}
 </style>
 
