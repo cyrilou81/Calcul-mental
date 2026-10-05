@@ -1396,25 +1396,46 @@ document.addEventListener('touchend',e=>{
 @media (hover:none) and (pointer:coarse) and (min-width:481px) and (min-height:600px){
   #exercise .question-zone{transform:translateY(clamp(-145px,-12vh,-105px))!important;}
 }
+
+
+/* v261 — 4 étoiles réellement en carré 2 × 2, contenues dans la carte */
+.challenge-level-card{position:relative;overflow:hidden}
+.challenge-level-card .challenge-level-stars{
+  position:absolute;
+  left:50%;
+  bottom:5px;
+  transform:translateX(-50%);
+  display:grid!important;
+  grid-template-columns:repeat(2,24px)!important;
+  grid-template-rows:repeat(2,22px)!important;
+  place-items:center!important;
+  gap:0 2px!important;
+  width:50px!important;
+  height:44px!important;
+  margin:0!important;
+  font-size:0!important;
+  line-height:1!important;
+  white-space:normal!important;
+  z-index:3;
+}
+.challenge-level-card .level-star{
+  display:block!important;
+  width:24px;
+  height:22px;
+  font-size:24px!important;
+  line-height:22px!important;
+  text-align:center;
+}
+.challenge-level-card .challenge-medal{z-index:2}
+@media(max-width:650px){
+  .challenge-level-card .challenge-level-stars{
+    grid-template-columns:repeat(2,22px)!important;
+    grid-template-rows:repeat(2,20px)!important;
+    width:46px!important;
+    height:40px!important;
+    bottom:4px;
+  }
+  .challenge-level-card .level-star{width:22px;height:20px;font-size:22px!important;line-height:20px!important}
+}
 </style>
 
-/* v260 — 4 étoiles compactes : grille 2 × 2 sans agrandir la carte */
-.challenge-level-card .challenge-level-stars{
-  display:grid;
-  grid-template-columns:repeat(2, 27px);
-  grid-template-rows:repeat(2, 25px);
-  place-items:center;
-  justify-content:center;
-  align-content:center;
-  gap:0 3px;
-  width:60px;
-  height:52px;
-  margin:-5px auto -4px;
-  overflow:visible;
-  flex:0 0 52px;
-}
-.challenge-level-card .level-star{font-size:27px;line-height:25px}
-@media(max-width:650px){
-  .challenge-level-card .challenge-level-stars{grid-template-columns:repeat(2,25px);grid-template-rows:repeat(2,23px);width:55px;height:48px;margin:-4px auto -4px;flex-basis:48px}
-  .challenge-level-card .level-star{font-size:25px;line-height:23px}
-}
