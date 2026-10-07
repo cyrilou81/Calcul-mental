@@ -868,8 +868,14 @@ def config_preview():
                     return {'error':str(ex)},400
         questions=balanced_question_order(questions)
         return {'questions':[q['display'] for q in questions[:count]]}
-    except (ValueError,TypeError,KeyError) as ex:
-        return {'error':str(ex)},400
+    except (ValueError,TypeError,KeyError,IndexError) as ex:
+        return jsonify({'error':str(ex) or 'Configuration invalide.'}),400
+    except Exception as ex:
+        # L'aperçu est consommé en JSON par l'admin et l'entraînement : ne jamais
+        # laisser Flask renvoyer sa page HTML d'erreur (qui provoque
+        # `Unexpected token '<'` côté navigateur).
+        app.logger.exception('Erreur pendant la génération de l’aperçu de configuration')
+        return jsonify({'error':f'Aperçu impossible : {type(ex).__name__}: {ex}'}),400
 
 @app.get('/api/admin/class-colors')
 def admin_class_colors():
