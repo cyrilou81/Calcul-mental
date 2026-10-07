@@ -91,7 +91,7 @@ DEFAULT={
   'place_value':{'enabled':False,'weight':3,'places':['u'],'absenceProbability':50},
   'addition3':{'enabled':False,'weight':3,'maxResult':27},
   'multiple_of':{'enabled':False,'weight':3,'min':1,'max':10,'factors':[3,4]},
-  'fraction':{'enabled':False,'weight':3,'min':1,'max':10,'divisors':[3,4]},
+  'fraction':{'enabled':False,'weight':3,'min':1,'max':10,'divisors':[3,4],'withCarry':False},
   'tens':{'enabled':True,'weight':3,'startMin':10,'startMax':99,'multiples':[10],'maxResult':100,'withCarry':True},
   'round_tens_add':{'enabled':False,'weight':3,'aMin':10,'aMax':90,'secondMode':'non_tens','bMin':1,'bMax':9,'bTensValues':[10,20,30,40,50,60,70,80,90,100],'maxResult':100},
   'tens_sub':{'enabled':False,'weight':3,'startMin':20,'startMax':100,'multiples':[10],'nonNegative':True,'withCarry':True},
@@ -399,7 +399,23 @@ def gen(kind,cfg):
     if kind=='fraction':
         divisors=[int(x) for x in cfg.get('divisors',[3,4]) if int(x) in (3,4)]
         if not divisors: raise ValueError("Choisis au moins Tiers ou Quart.")
-        divisor=random.choice(divisors); q=random.randint(int(cfg.get('min',1)),int(cfg.get('max',10))); n=q*divisor
+        q_min=int(cfg.get('min',1)); q_max=int(cfg.get('max',10))
+        if q_min>q_max: q_min,q_max=q_max,q_min
+        with_carry=bool(cfg.get('withCarry',False))
+        # Sans retenue : dans la division posée, chaque chiffre du nombre à partager
+        # est divisible directement par le diviseur ; aucun reste n'est transmis
+        # au chiffre suivant. Ex. quart de 84 = 21 oui, tiers de 12 = 4 non.
+        def division_without_carry(n,d):
+            return all(int(digit)%d==0 for digit in str(abs(int(n))))
+        candidates=[]
+        for divisor in divisors:
+            for q in range(q_min,q_max+1):
+                n=q*divisor
+                if with_carry or division_without_carry(n,divisor):
+                    candidates.append((divisor,q,n))
+        if not candidates:
+            raise ValueError("Aucune fraction sans retenue possible avec ces réglages. Active « Avec retenue » ou élargis la plage.")
+        divisor,q,n=random.choice(candidates)
         word='Tiers' if divisor==3 else 'Quart'
         return {'n':n,'divisor':divisor},f'{word} de {n} = __',q
     if kind=='tens':
@@ -737,9 +753,23 @@ def validate_cfg_data(data):
         if not factors: raise ValueError('Choisis au moins Triple ou Quadruple.')
         cats['multiple_of']['factors']=factors
     if cats.get('fraction',{}).get('enabled'):
-        divisors=[int(x) for x in cats['fraction'].get('divisors',[]) if int(x) in (3,4)]
+        frac=cats['fraction']
+        divisors=[int(x) for x in frac.get('divisors',[]) if int(x) in (3,4)]
         if not divisors: raise ValueError('Choisis au moins Tiers ou Quart.')
-        cats['fraction']['divisors']=divisors
+        frac['divisors']=divisors
+        frac['withCarry']=bool(frac.get('withCarry',False))
+        q_min=int(frac.get('min',1)); q_max=int(frac.get('max',10))
+        if q_min>q_max: q_min,q_max=q_max,q_min
+        if not frac['withCarry']:
+            def fraction_without_carry_exists():
+                for divisor in divisors:
+                    for q in range(q_min,q_max+1):
+                        n=q*divisor
+                        if all(int(digit)%divisor==0 for digit in str(abs(n))):
+                            return True
+                return False
+            if not fraction_without_carry_exists():
+                raise ValueError('Aucune fraction sans retenue possible avec ces réglages. Active « Avec retenue » ou élargis la plage.')
     return data
 
 def balanced_question_order(items):
