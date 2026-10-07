@@ -46,13 +46,14 @@
 .levels-transfer{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:12px 0 16px}
 .levels-transfer button{width:auto}
 #levelsTransferMsg{font-weight:700;color:#16803a}
+.template-replace{display:flex;align-items:end;gap:10px;flex-wrap:wrap;margin:14px 0 18px;padding:12px 14px;background:#f7fbfd;border:1px solid #d5e7ef;border-radius:15px}.template-replace label{display:flex;flex-direction:column;gap:5px;font-weight:700;flex:1;min-width:260px}.template-replace select{width:100%}.template-replace-msg{font-weight:700;color:#16803a}
 </style><script src="/pedagogy.js?v=256"></script></head><body><main>
 <section id="adminHome" class="card"><h1>Administration</h1><div class="admin-actions"><button id="manageLevels">Gérer les niveaux</button><button id="manageHelp">🐶 Aides pédagogiques</button></div></section>
 <section id="helpView" class="card hidden"><div class="top"><div><h2>Arbre pédagogique</h2><div class="help-legend"><span>Une seule méthode par cas pédagogique.</span><span><b>Aide</b> = autre exemple du même cas · <b>Correction</b> = calcul de la question.</span></div></div><button class="secondary" data-back="home">Retour</button></div><div id="helpCatalog" class="help-catalog"></div></section>
 <section id="classesView" class="card hidden"><div class="top"><h2>Gérer les niveaux</h2><button class="secondary" data-back="home">Retour</button></div><div class="levels-transfer"><button id="exportLevels" class="secondary">Exporter tous les niveaux</button><button id="importLevels" class="secondary">Importer des niveaux</button><input id="importLevelsFile" type="file" accept="application/json,.json" hidden><span id="levelsTransferMsg"></span></div><div id="classes" class="classes"></div></section>
 <section id="levelsView" class="card hidden"><div class="top"><h2 id="classTitle"></h2><button class="secondary" data-back="classes">Retour</button></div><div class="class-color-row"><strong>Couleur affichée à l’enfant</strong><span id="classColorPreview" class="class-color-preview"></span><input id="classColor" type="color" aria-label="Couleur de la classe"><span id="classColorSaved" style="color:#16803a;font-weight:700"></span></div><button id="manageList">＋ Ajouter / gérer les niveaux</button><div id="levelList" class="level-list"></div></section>
 <section id="managerView" class="card hidden"><div class="top"><h2 id="managerTitle">Ajouter / gérer les niveaux</h2><button class="secondary" data-back="levels">Retour</button></div><div class="manager-row"><label>Nom du nouveau niveau<input id="newName"></label><label>Recopier la configuration depuis<select id="copyFrom"><option value="">Configuration vide</option></select></label><button id="addLevel">Ajouter</button></div><div id="managerList" class="level-list"></div><div id="managerErr" class="error"></div></section>
-<section id="configView" class="card hidden"><div class="top"><div><small id="configClass"></small><h2 style="margin-bottom:4px"><input id="levelName" style="font-size:1em;font-weight:800"></h2><div style="color:#5a7890">Configuration du template — même interface que l’entraînement</div></div><button class="secondary" data-back="levels">Retour</button></div><div class="cf-savebar"><div class="cf-session-bar"><label>Nombre de questions <input id="questionCount" type="number" min="1" max="500"></label><label>Durée (max) <input id="durationMinutes" type="number" min="1" max="60"> min</label></div></div><div id="configErr" class="error"></div><div id="configRows"></div></section>
+<section id="configView" class="card hidden"><div class="top"><div><small id="configClass"></small><h2 style="margin-bottom:4px"><input id="levelName" style="font-size:1em;font-weight:800"></h2><div style="color:#5a7890">Configuration du template — même interface que l’entraînement</div></div><button class="secondary" data-back="levels">Retour</button></div><div class="template-replace"><label>Importer la configuration d’un autre niveau<select id="replaceFrom"><option value="">Choisir un niveau…</option></select></label><button id="replaceTemplate" class="secondary">Importer ce template</button><span id="replaceTemplateMsg" class="template-replace-msg"></span></div><div class="cf-savebar"><div class="cf-session-bar"><label>Nombre de questions <input id="questionCount" type="number" min="1" max="500"></label><label>Durée (max) <input id="durationMinutes" type="number" min="1" max="60"> min</label></div></div><div id="configErr" class="error"></div><div id="configRows"></div></section>
 </main><script src="/config-form.js?v=257"></script><script>
 const $=s=>document.querySelector(s), classes=['CP','CE1','CE2','CM1','CM2'];let currentClass=null,levels=[],current=null,cfg=null,classColors={};
 function renderHelpCatalog(){
@@ -103,8 +104,14 @@ document.querySelectorAll('[data-back]').forEach(b=>b.onclick=async()=>{let x=b.
 $('#manageList').onclick=()=>{renderManager();show('managerView')};
 function renderManager(){let sel=$('#copyFrom');sel.innerHTML='<option value="">Configuration vide</option>'+levels.map(x=>`<option value="${x.id}">${x.school_class} · ${x.name}</option>`).join('');let r=$('#managerList');r.innerHTML='';levels.filter(x=>x.school_class===currentClass).sort((a,b)=>a.position-b.position).forEach(x=>{let d=document.createElement('div');d.className='level-item';d.innerHTML=`<button class="level-open">${x.name}</button><button class="danger">Supprimer</button>`;d.children[0].onclick=()=>openConfig(x.id);d.children[1].onclick=async()=>{if(confirm('Supprimer « '+x.name+' » ?')){await api('/api/admin/levels/'+x.id,{method:'DELETE'});await loadLevels();renderManager()}};r.appendChild(d)})}
 $('#addLevel').onclick=async()=>{try{let created=await api('/api/admin/levels',{method:'POST',body:JSON.stringify({school_class:currentClass,name:$('#newName').value,copy_from:$('#copyFrom').value||null})});$('#newName').value='';await loadLevels();renderManager();renderLevelList();$('#managerErr').textContent='';if(created?.id)await openConfig(created.id)}catch(e){$('#managerErr').textContent=e.message}};
+function fillReplaceTemplates(){
+  const sel=$('#replaceFrom');
+  sel.innerHTML='<option value="">Choisir un niveau…</option>'+levels.filter(x=>!current||x.id!==current.id).map(x=>`<option value="${x.id}">${x.school_class} · ${x.name}</option>`).join('');
+  $('#replaceTemplateMsg').textContent='';
+}
 async function openConfig(id){
   try{
+    await loadLevels();
     current=await api('/api/admin/levels/'+id);
     cfg=current.config;
     $('#configClass').textContent=current.school_class;
@@ -112,6 +119,7 @@ async function openConfig(id){
     $('#durationMinutes').value=Math.round(cfg.duration/60);
     $('#questionCount').value=cfg.count;
     ConfigForm.render($('#configRows'),cfg);
+    fillReplaceTemplates();
     $('#configErr').textContent='';
     show('configView');
   }catch(e){
@@ -120,6 +128,28 @@ async function openConfig(id){
   }
 }
 let levelSaveTimer=null,levelSaveSeq=0;
+$('#replaceTemplate').onclick=async()=>{
+  if(!current)return;
+  const sourceId=+$('#replaceFrom').value;
+  if(!sourceId){$('#replaceTemplateMsg').textContent='';alert('Choisis d’abord le niveau à importer.');return}
+  const source=levels.find(x=>x.id===sourceId);
+  const label=source?`${source.school_class} · ${source.name}`:'ce niveau';
+  if(!confirm(`Importer « ${label} » ?\n\nToute la configuration actuelle de « ${current.name} » sera remplacée. Le nom, la classe, la position et l’état actif de ce niveau seront conservés.`))return;
+  try{
+    clearTimeout(levelSaveTimer);
+    const result=await api('/api/admin/levels/'+current.id+'/copy-config',{method:'POST',body:JSON.stringify({source_id:sourceId})});
+    cfg=result.config;
+    $('#durationMinutes').value=Math.round(cfg.duration/60);
+    $('#questionCount').value=cfg.count;
+    ConfigForm.render($('#configRows'),cfg);
+    $('#configErr').textContent='';
+    $('#replaceTemplateMsg').textContent='Template importé ✓';
+  }catch(e){
+    $('#replaceTemplateMsg').textContent='';
+    alert('Import impossible : '+e.message);
+  }
+};
+
 async function autoSaveLevel(){
   if(!cfg||!current)return;
   cfg.duration=Math.max(60,(+$('#durationMinutes').value||5)*60);cfg.count=Math.max(1,+$('#questionCount').value||50);ConfigForm.collect($('#configRows'),cfg);

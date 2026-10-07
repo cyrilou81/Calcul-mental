@@ -923,6 +923,29 @@ def admin_level_save(lid):
     try: cfg=validate_cfg_data(d.get('config',{}))
     except ValueError as ex:c.close();return {'error':str(ex)},400
     name=(d.get('name') or '').strip() or 'Niveau'; c.execute('UPDATE challenge_levels SET name=?,data=? WHERE id=?',(name,json.dumps(cfg),lid));c.commit();c.close();return {'ok':True}
+@app.post('/api/admin/levels/<int:lid>/copy-config')
+def admin_level_copy_config(lid):
+    if (e:=require_admin()): return e
+    d=request.json or {}
+    try: source_id=int(d.get('source_id'))
+    except (TypeError,ValueError): return {'error':'Niveau source invalide.'},400
+    if source_id==lid: return {'error':'Choisis un autre niveau comme template.'},400
+    c=db()
+    target=c.execute('SELECT id FROM challenge_levels WHERE id=?',(lid,)).fetchone()
+    source=c.execute('SELECT data FROM challenge_levels WHERE id=?',(source_id,)).fetchone()
+    if not target:
+        c.close(); return {'error':'Niveau à modifier introuvable.'},404
+    if not source:
+        c.close(); return {'error':'Template source introuvable.'},404
+    try:
+        cfg=validate_cfg_data(json.loads(source['data']))
+        c.execute('UPDATE challenge_levels SET data=? WHERE id=?',(json.dumps(cfg),lid))
+        c.commit()
+    except (ValueError,TypeError,KeyError,json.JSONDecodeError) as ex:
+        c.rollback(); c.close(); return {'error':'La configuration du template source est invalide.'},400
+    c.close()
+    return {'ok':True,'config':merged_cfg(cfg)}
+
 @app.put('/api/admin/levels/<int:lid>/active')
 def admin_level_active(lid):
     if (e:=require_admin()): return e
