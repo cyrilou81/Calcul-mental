@@ -286,34 +286,53 @@ def gen(kind,cfg):
         return {'n':n}, f'Moitié de {n} = __', n//2
     if kind=='addition':
         # "Sans retenue" = aucune colonne décimale ne produit une somme >= 10.
+        # IMPORTANT : ne jamais construire le produit cartésien complet des plages.
+        # Sur les niveaux CM1/CM2 il peut représenter des millions/milliards de couples
+        # et faire tuer le worker Gunicorn par manque de mémoire / timeout.
         def no_carry(x,y):
             while x or y:
                 if (x % 10) + (y % 10) >= 10: return False
                 x//=10; y//=10
             return True
-        candidates=[]
-        for x in range(int(cfg['aMin']),int(cfg['aMax'])+1):
-            for y in range(int(cfg['bMin']),int(cfg['bMax'])+1):
-                if cfg.get('maxResult') and x+y>cfg['maxResult']: continue
-                if cfg.get('withCarry',True) or no_carry(x,y): candidates.append((x,y))
-        if not candidates: raise ValueError("Aucune addition possible avec ces réglages sans retenue")
-        a,b=random.choice(candidates)
-        return {'a':a,'b':b},f'{a} + {b} = __',a+b
+        amin,amax=int(cfg['aMin']),int(cfg['aMax']); bmin,bmax=int(cfg['bMin']),int(cfg['bMax'])
+        if amin>amax: amin,amax=amax,amin
+        if bmin>bmax: bmin,bmax=bmax,bmin
+        max_result=int(cfg.get('maxResult') or 0)
+        with_carry=bool(cfg.get('withCarry',True))
+        # Tirage borné : mémoire constante, même avec de très grandes plages.
+        for _ in range(3000):
+            a=random.randint(amin,amax); b=random.randint(bmin,bmax)
+            if max_result and a+b>max_result: continue
+            if with_carry or no_carry(a,b):
+                return {'a':a,'b':b},f'{a} + {b} = __',a+b
+        # Petit fallback exhaustif uniquement lorsque la plage est réellement petite.
+        if (amax-amin+1)*(bmax-bmin+1) <= 100000:
+            candidates=[(a,b) for a in range(amin,amax+1) for b in range(bmin,bmax+1)
+                        if (not max_result or a+b<=max_result) and (with_carry or no_carry(a,b))]
+            if candidates:
+                a,b=random.choice(candidates); return {'a':a,'b':b},f'{a} + {b} = __',a+b
+        raise ValueError("Aucune addition possible avec ces réglages.")
     if kind=='subtraction':
         def no_borrow(x,y):
             while x or y:
                 if (x%10)<(y%10): return False
                 x//=10; y//=10
             return True
-        candidates=[]
-        for a in range(int(cfg['aMin']),int(cfg['aMax'])+1):
-            for b in range(int(cfg['bMin']),int(cfg['bMax'])+1):
-                if cfg.get('nonNegative',True) and a<b: continue
-                if not cfg.get('withCarry',True) and not no_borrow(a,b): continue
-                candidates.append((a,b))
-        if not candidates: raise ValueError("Aucune soustraction possible avec ces réglages.")
-        a,b=random.choice(candidates)
-        return {'a':a,'b':b},f'{a} − {b} = __',a-b
+        amin,amax=int(cfg['aMin']),int(cfg['aMax']); bmin,bmax=int(cfg['bMin']),int(cfg['bMax'])
+        if amin>amax: amin,amax=amax,amin
+        if bmin>bmax: bmin,bmax=bmax,bmin
+        non_negative=bool(cfg.get('nonNegative',True)); with_carry=bool(cfg.get('withCarry',True))
+        for _ in range(3000):
+            a=random.randint(amin,amax); b=random.randint(bmin,bmax)
+            if non_negative and a<b: continue
+            if not with_carry and not no_borrow(a,b): continue
+            return {'a':a,'b':b},f'{a} − {b} = __',a-b
+        if (amax-amin+1)*(bmax-bmin+1) <= 100000:
+            candidates=[(a,b) for a in range(amin,amax+1) for b in range(bmin,bmax+1)
+                        if (not non_negative or a>=b) and (with_carry or no_borrow(a,b))]
+            if candidates:
+                a,b=random.choice(candidates); return {'a':a,'b':b},f'{a} − {b} = __',a-b
+        raise ValueError("Aucune soustraction possible avec ces réglages.")
     if kind=='decimal':
         # Addition de décimaux uniquement. Sans retenue, chaque colonne de chiffres
         # (partie décimale et partie entière) doit rester strictement inférieure à 10.
@@ -341,8 +360,11 @@ def gen(kind,cfg):
         candidates=[]
         with_carry=bool(cfg.get('withCarry',False))
         def multiplication_without_carry(a,b):
-            # Aucune multiplication d'un chiffre du 2e facteur ne doit atteindre 10.
-            return all(a*int(d) < 10 for d in str(abs(int(b))))
+            # Définition pédagogique : une retenue n'existe que si elle doit être
+            # reportée vers une colonne suivante. Le chiffre le plus à gauche peut
+            # donc produire 2 chiffres : 8×9 et 8×20 sont sans retenue ; 8×12 ne l'est pas.
+            digits=str(abs(int(b)))
+            return all(a*int(d) < 10 for d in digits[1:])
         lo=int(cfg.get('factorMin',1)); hi=int(cfg.get('factorMax',9))
         if lo>hi: lo,hi=hi,lo
         for a in cfg.get('tables',[]):
@@ -690,7 +712,8 @@ def validate_cfg_data(data):
         m['withCarry']=bool(m.get('withCarry',False))
         if not m['withCarry']:
             def multiplication_without_carry(a,b):
-                return all(a*int(d) < 10 for d in str(abs(int(b))))
+                digits=str(abs(int(b)))
+                return all(a*int(d) < 10 for d in digits[1:])
             if not any(multiplication_without_carry(a,b) for a in m['tables'] for b in range(m['factorMin'],m['factorMax']+1)):
                 raise ValueError('Aucune multiplication possible avec ces réglages sans retenue.')
     if cats.get('multiplication_tens',{}).get('enabled'):
@@ -868,14 +891,8 @@ def config_preview():
                     return {'error':str(ex)},400
         questions=balanced_question_order(questions)
         return {'questions':[q['display'] for q in questions[:count]]}
-    except (ValueError,TypeError,KeyError,IndexError) as ex:
-        return jsonify({'error':str(ex) or 'Configuration invalide.'}),400
-    except Exception as ex:
-        # L'aperçu est consommé en JSON par l'admin et l'entraînement : ne jamais
-        # laisser Flask renvoyer sa page HTML d'erreur (qui provoque
-        # `Unexpected token '<'` côté navigateur).
-        app.logger.exception('Erreur pendant la génération de l’aperçu de configuration')
-        return jsonify({'error':f'Aperçu impossible : {type(ex).__name__}: {ex}'}),400
+    except (ValueError,TypeError,KeyError) as ex:
+        return {'error':str(ex)},400
 
 @app.get('/api/admin/class-colors')
 def admin_class_colors():

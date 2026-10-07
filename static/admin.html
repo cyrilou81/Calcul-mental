@@ -62,7 +62,7 @@ function renderHelpCatalog(){
 }
 
 
-async function api(url,opt={}){let r=await fetch(url,{headers:{'Content-Type':'application/json'},...opt}),txt=await r.text(),j;try{j=txt?JSON.parse(txt):{}}catch(_){throw Error(`Réponse serveur invalide (HTTP ${r.status}). Recharge la page puis réessaie.`)}if(!r.ok)throw Error(j.error||`Erreur HTTP ${r.status}`);return j}
+async function api(url,opt={}){let r=await fetch(url,{headers:{'Content-Type':'application/json'},...opt}),j=await r.json();if(!r.ok)throw Error(j.error||'Erreur');return j}
 function show(id){['adminHome','helpView','classesView','levelsView','managerView','configView'].forEach(x=>$('#'+x).classList.toggle('hidden',x!==id))}
 async function ensureAuth(){let s=await api('/api/auth/status');if(!s.authenticated){location.href='/';return false}return true}
 async function loadLevels(){levels=await api('/api/admin/levels');classColors=await api('/api/admin/class-colors')}
