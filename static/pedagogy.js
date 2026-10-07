@@ -68,9 +68,9 @@ function contextualHelp(q){
   if(k==='fraction'){
     let divisor=Number(p.divisor)||(/Quart/i.test(q.display)?4:3), qn=n/divisor, word=divisor===3?'tiers':'quart';return helpBox(`<div class="help-step">${n} ÷ ${divisor} <span class="help-arrow">→</span> ${qn}</div>`,`Le ${word} d’un nombre, c’est le partager en ${divisor} parts égales.`)
   }
-  if(k==='multiplication'){
+  if(k==='multiplication'||k==='multiplication_tens'){
     let x=a,y=b; if(x>y){let t=x;x=y;y=t} // x = petit facteur / stratégie
-    if([10,100,1000].includes(x)||[10,100,1000].includes(y)){let m=[10,100,1000].includes(x)?x:y,base=m===x?y:x,steps=Math.round(Math.log10(m)),zeros='0'.repeat(steps);return helpBox(`<div class="help-step">${hfmt(base)} × ${m}</div><div class="decimal-track">${hfmt(base)} <span class="help-arrow">→</span> ${hfmt(base*m)}</div><div class="help-note">Ajoute ${steps} zéro${steps>1?'s':''} à droite.</div>`,`Pour multiplier un entier par ${m}, ajoute ${steps} zéro${steps>1?'s':''} à droite.`)};
+    if([10,100,1000,10000].includes(x)||[10,100,1000,10000].includes(y)){let m=[10,100,1000,10000].includes(x)?x:y,base=m===x?y:x,steps=Math.round(Math.log10(m)),zeros='0'.repeat(steps);return helpBox(`<div class="help-step">${hfmt(base)} × ${m}</div><div class="decimal-track">${hfmt(base)} <span class="help-arrow">→</span> ${hfmt(base*m)}</div><div class="help-note">Ajoute ${steps} zéro${steps>1?'s':''} à droite.</div>`,`Pour multiplier un entier par ${m}, ajoute ${steps} zéro${steps>1?'s':''} à droite.`)};
     if(x===9){return helpBox(`<div class="help-step">10 × ${y} = ${10*y}</div><div class="help-step">${10*y} − ${y} <span class="help-arrow">→</span> ${9*y}</div>`,`× 9, c’est × 10 puis enlever une fois le nombre.`)}
     if(x===5){return helpBox(`<div class="help-step">10 × ${y} = ${10*y}</div><div class="help-step">Moitié de ${10*y} <span class="help-arrow">→</span> ${5*y}</div>`,`× 5, c’est la moitié de × 10.`)}
     if(x===4){return helpBox(`<div class="help-step">Double de ${y} = ${2*y}</div><div class="help-step">Double de ${2*y} <span class="help-arrow">→</span> ${4*y}</div>`,`× 4, c’est doubler deux fois.`)}
@@ -116,9 +116,9 @@ function pedagogicalCase(q){
   if(k==='addition'){const to10=10-(a%10||10);return a%10!==0&&b>to10&&to10>0?'bridge_10':'decompose'}
   if(k==='subtraction') return b<10&&a%10<b?'bridge_ten':'decompose';
   if(k==='double'){const x=Number(p.n);return x>=10&&x%10?'two_digits':(x>=10?'round_ten':'simple')}
-  if(k==='multiplication'){
+  if(k==='multiplication'||k==='multiplication_tens'){
     const x=Math.min(a,b), y=Math.max(a,b);
-    if([10,100,1000].includes(x)||[10,100,1000].includes(y))return 'power10';
+    if([10,100,1000,10000].includes(x)||[10,100,1000,10000].includes(y))return 'power10';
     if(x===9)return 'x9'; if(x===5)return 'x5'; if(x===4)return 'x4'; return 'default';
   }
   if(k==='decimal_multiplication') return 'x'+p.b;
@@ -146,7 +146,7 @@ const EXAMPLE_POOLS={
   'multiplication:x4':[Q('multiplication',{a:4,b:7},'4 × 7 = __'),Q('multiplication',{a:4,b:6},'4 × 6 = __'),Q('multiplication',{a:4,b:8},'4 × 8 = __')],
   'multiplication:x5':[Q('multiplication',{a:5,b:7},'5 × 7 = __'),Q('multiplication',{a:5,b:6},'5 × 6 = __'),Q('multiplication',{a:5,b:8},'5 × 8 = __')],
   'multiplication:x9':[Q('multiplication',{a:9,b:7},'9 × 7 = __'),Q('multiplication',{a:9,b:6},'9 × 6 = __'),Q('multiplication',{a:9,b:8},'9 × 8 = __')],
-  'multiplication:power10':[Q('multiplication',{a:10,b:7},'10 × 7 = __'),Q('multiplication',{a:100,b:6},'100 × 6 = __'),Q('multiplication',{a:1000,b:4},'1000 × 4 = __')],
+  'multiplication_tens:power10':[Q('multiplication_tens',{a:10,b:7},'10 × 7 = __'),Q('multiplication_tens',{a:100,b:6},'100 × 6 = __'),Q('multiplication_tens',{a:1000,b:4},'1000 × 4 = __')],
   'multiplication:default':[Q('multiplication',{a:7,b:6},'7 × 6 = __'),Q('multiplication',{a:8,b:7},'8 × 7 = __'),Q('multiplication',{a:6,b:6},'6 × 6 = __')],
   'division:default':[Q('division',{dividend:42,divisor:6},'42 : 6 = __'),Q('division',{dividend:56,divisor:7},'56 : 7 = __'),Q('division',{dividend:72,divisor:8},'72 : 8 = __')],
   'tens:default':[Q('tens',{a:34,b:20},'34 + 20 = __'),Q('tens',{a:52,b:30},'52 + 30 = __'),Q('tens',{a:26,b:40},'26 + 40 = __')],
@@ -181,7 +181,8 @@ const catalog=[
  {id:'double',name:'Doubles',cases:[['Petit nombre','double:simple'],['Nombre à 2 chiffres','double:two_digits'],['Dizaine ronde','double:round_ten']]},
  {id:'half',name:'Moitiés',cases:[['Partage simple','half:simple'],['Dizaine impaire : 30 / 50 / 70 / 90','half:odd_ten'],['Dizaine paire : 20 / 40 / 60 / 80','half:even_ten'],['Décomposition paire','half:even_decomposition']]},
  {id:'complement_tens',name:'Compléments',cases:[['Écart ≤ 10','complement_tens:gap_le_10'],['Écart > 10','complement_tens:gap_gt_10']]},
- {id:'multiplication',name:'Multiplications',cases:[['× 4','multiplication:x4'],['× 5','multiplication:x5'],['× 6, 7, 8','multiplication:default'],['× 9','multiplication:x9'],['× 10 / 100 / 1000','multiplication:power10']]},
+ {id:'multiplication',name:'Multiplications',cases:[['× 4','multiplication:x4'],['× 5','multiplication:x5'],['× 6, 7, 8','multiplication:default'],['× 9','multiplication:x9']]},
+ {id:'multiplication_tens',name:'Multiplication de dizaines',cases:[['× 10 / 100 / 1000','multiplication_tens:power10']]},
  {id:'division',name:'Divisions',cases:[['Multiplication inverse','division:default']]},
  {id:'tens',name:'Additions de dizaines',cases:[['Dizaines / unités','tens:default']]},
  {id:'tens_sub',name:'Soustractions de dizaines',cases:[['Dizaines / unités','tens_sub:default']]},

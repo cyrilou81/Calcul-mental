@@ -85,7 +85,8 @@ DEFAULT={
   'addition':{'enabled':True,'weight':4,'aMin':1,'aMax':10,'bMin':1,'bMax':10,'maxResult':100,'withCarry':True},
   'subtraction':{'enabled':True,'weight':3,'aMin':1,'aMax':10,'bMin':1,'bMax':10,'nonNegative':True,'withCarry':True},
   'decimal':{'enabled':False,'weight':3,'min':0,'max':20,'decimals':1,'withCarry':True},
-  'multiplication':{'enabled':True,'weight':3,'tables':[2,3],'factorMin':1,'factorMax':9,'powerTables':[],'powerFactorMin':1,'powerFactorMax':99,'withCarry':False},
+  'multiplication':{'enabled':True,'weight':3,'tables':[2,3],'factorMin':1,'factorMax':9,'withCarry':False},
+  'multiplication_tens':{'enabled':False,'weight':3,'tables':[10],'factorMin':1,'factorMax':99},
   'division':{'enabled':True,'weight':2,'tables':[2,3,4],'quotientMin':1,'quotientMax':10},
   'complement_tens':{'enabled':False,'weight':3,'targets':[10,20,30,40,50,60,70,80,90,100,1000],'gapMin':5,'gapMax':20},
   'place_value':{'enabled':False,'weight':3,'places':['u'],'absenceProbability':50},
@@ -201,14 +202,29 @@ def merged_cfg(saved):
     for kind,values in (saved or {}).get('categories',{}).items():
         if kind in cfg['categories'] and isinstance(values,dict):
             cfg['categories'][kind].update(values)
-    # Migration douce des anciens réglages : 100/1000 étaient auparavant mélangés
-    # aux tables classiques. On les conserve dans la nouvelle famille dédiée.
+    # Migration douce des anciens réglages de multiplication.
+    # Les anciennes configs pouvaient stocker 10 dans `tables` et 10/100/1000/10000
+    # dans `powerTables`. On les déplace vers la catégorie dédiée sans modifier
+    # l'activation ni les réglages des multiplications classiques.
+    saved_mul=((saved or {}).get('categories',{}).get('multiplication',{}) or {})
     mul=cfg['categories'].get('multiplication',{})
-    old_tables=[int(x) for x in mul.get('tables',[]) if str(x).lstrip('-').isdigit()]
-    migrated=[x for x in old_tables if x in (100,1000,10000)]
-    if migrated and not mul.get('powerTables'):
-        mul['powerTables']=migrated
-    mul['tables']=[x for x in old_tables if 1 <= x <= 9]
+    mt=cfg['categories'].get('multiplication_tens',{})
+    old_tables=[int(x) for x in saved_mul.get('tables',[]) if str(x).lstrip('-').isdigit()]
+    old_powers=[int(x) for x in saved_mul.get('powerTables',[]) if str(x).lstrip('-').isdigit()]
+    migrated=[]
+    for x in old_tables + old_powers:
+        if x in (10,100,1000,10000) and x not in migrated:
+            migrated.append(x)
+    mul['tables']=[int(x) for x in mul.get('tables',[]) if 1 <= int(x) <= 9]
+    # Supprime les anciens champs de la config fusionnée : ils ne servent plus.
+    mul.pop('powerTables',None); mul.pop('powerFactorMin',None); mul.pop('powerFactorMax',None)
+    # Ne migre que si la nouvelle catégorie n'existait pas déjà dans la sauvegarde.
+    if migrated and 'multiplication_tens' not in ((saved or {}).get('categories',{})):
+        mt['tables']=migrated
+        mt['factorMin']=int(saved_mul.get('powerFactorMin',saved_mul.get('factorMin',1)))
+        mt['factorMax']=int(saved_mul.get('powerFactorMax',saved_mul.get('factorMax',99)))
+        mt['enabled']=bool(saved_mul.get('enabled',False))
+        mt['weight']=int(saved_mul.get('weight',3) or 3)
     return cfg
 
 def get_cfg(pid):
@@ -322,29 +338,27 @@ def gen(kind,cfg):
         fmt=lambda x: (f'{x:.{decimals}f}'.rstrip('0').rstrip('.')).replace('.',',')
         return {'a':av,'b':bv,'op':'addition','decimals':decimals},f'{fmt(av)} + {fmt(bv)} = __',expected
     if kind=='multiplication':
-        # Deux familles indépendantes : tables classiques (1–9) et puissances de 10.
-        # Chacune possède sa propre plage de 2e facteur afin de pouvoir, par exemple,
-        # travailler 45 × 1000 sans générer 45 × 5.
         candidates=[]
         with_carry=bool(cfg.get('withCarry',False))
         def multiplication_without_carry(a,b):
-            # Multiplication posée par un chiffre : aucune multiplication d'un chiffre
-            # du 2e facteur ne doit atteindre 10. Les puissances de 10 ne créent
-            # jamais de retenue : elles décalent simplement les chiffres.
-            if a in (10,100,1000,10000): return True
+            # Aucune multiplication d'un chiffre du 2e facteur ne doit atteindre 10.
             return all(a*int(d) < 10 for d in str(abs(int(b))))
+        lo=int(cfg.get('factorMin',1)); hi=int(cfg.get('factorMax',9))
+        if lo>hi: lo,hi=hi,lo
         for a in cfg.get('tables',[]):
-            a=int(a); lo=int(cfg.get('factorMin',1)); hi=int(cfg.get('factorMax',9))
-            if lo>hi: lo,hi=hi,lo
+            a=int(a)
             for b in range(lo,hi+1):
                 if with_carry or multiplication_without_carry(a,b): candidates.append((a,b))
-        for a in cfg.get('powerTables',[]):
-            a=int(a); lo=int(cfg.get('powerFactorMin',1)); hi=int(cfg.get('powerFactorMax',99))
-            if lo>hi: lo,hi=hi,lo
-            for b in range(lo,hi+1): candidates.append((a,b))
         if not candidates:
             raise ValueError('Aucune multiplication possible avec ces réglages sans retenue.' if not with_carry else 'Choisis au moins une table de multiplication.')
         a,b=random.choice(candidates)
+        return {'a':a,'b':b},f'{a} × {b} = __',a*b
+    if kind=='multiplication_tens':
+        tables=[int(x) for x in cfg.get('tables',[]) if int(x) in (10,100,1000,10000)]
+        if not tables: raise ValueError('Choisis au moins une multiplication de dizaines.')
+        lo=int(cfg.get('factorMin',1)); hi=int(cfg.get('factorMax',99))
+        if lo>hi: lo,hi=hi,lo
+        a=random.choice(tables); b=random.randint(lo,hi)
         return {'a':a,'b':b},f'{a} × {b} = __',a*b
     if kind=='division':
         d=random.choice(cfg['tables']); q=random.randint(cfg['quotientMin'],cfg['quotientMax']); return {'dividend':d*q,'divisor':d},f'{d*q} : {d} = __',q
@@ -669,21 +683,23 @@ def validate_cfg_data(data):
     if cats.get('multiplication',{}).get('enabled'):
         m=cats['multiplication']
         m['tables']=[int(x) for x in m.get('tables',[]) if 1 <= int(x) <= 9]
-        m['powerTables']=[int(x) for x in m.get('powerTables',[]) if int(x) in (10,100,1000,10000)]
-        if not m['tables'] and not m['powerTables']:
+        if not m['tables']:
             raise ValueError('Choisis au moins une table de multiplication.')
         m['factorMin']=int(m.get('factorMin',1)); m['factorMax']=int(m.get('factorMax',9))
-        m['powerFactorMin']=int(m.get('powerFactorMin',1)); m['powerFactorMax']=int(m.get('powerFactorMax',99))
         if m['factorMin']>m['factorMax']: raise ValueError('La plage du 2e facteur des tables 1 à 9 est invalide.')
-        if m['powerFactorMin']>m['powerFactorMax']: raise ValueError('La plage du 2e facteur des multiples de 10 est invalide.')
         m['withCarry']=bool(m.get('withCarry',False))
-        if not m['withCarry'] and m['tables']:
+        if not m['withCarry']:
             def multiplication_without_carry(a,b):
                 return all(a*int(d) < 10 for d in str(abs(int(b))))
-            has_plain=any(multiplication_without_carry(a,b) for a in m['tables'] for b in range(m['factorMin'],m['factorMax']+1))
-            # Les puissances de 10 restent toujours possibles sans retenue.
-            if not has_plain and not m['powerTables']:
+            if not any(multiplication_without_carry(a,b) for a in m['tables'] for b in range(m['factorMin'],m['factorMax']+1)):
                 raise ValueError('Aucune multiplication possible avec ces réglages sans retenue.')
+    if cats.get('multiplication_tens',{}).get('enabled'):
+        m=cats['multiplication_tens']
+        m['tables']=[int(x) for x in m.get('tables',[]) if int(x) in (10,100,1000,10000)]
+        if not m['tables']:
+            raise ValueError('Choisis au moins une multiplication de dizaines.')
+        m['factorMin']=int(m.get('factorMin',1)); m['factorMax']=int(m.get('factorMax',99))
+        if m['factorMin']>m['factorMax']: raise ValueError('La plage du 2e facteur des multiplications de dizaines est invalide.')
     if cats.get('division',{}).get('enabled') and not cats['division'].get('tables'):
         raise ValueError('Choisis au moins une table de division.')
     if cats.get('decimal_multiplication',{}).get('enabled') and not cats['decimal_multiplication'].get('multipliers'):
@@ -804,7 +820,7 @@ def balanced_question_order(items):
 def operation_key(kind, payload):
     """Identifie une opération uniquement à l'intérieur de sa catégorie."""
     if kind in ('double','half'): return (kind, payload.get('n'))
-    if kind in ('addition','subtraction','multiplication','decimal_multiplication','tens','tens_sub'):
+    if kind in ('addition','subtraction','multiplication','multiplication_tens','decimal_multiplication','tens','tens_sub'):
         return (kind, payload.get('a'), payload.get('b'))
     if kind in ('decimal','decimal_sub'):
         return (kind, payload.get('a'), payload.get('b'), payload.get('op'))
