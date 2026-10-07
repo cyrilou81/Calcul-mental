@@ -42,13 +42,13 @@ def init_db():
         id INTEGER PRIMARY KEY AUTOINCREMENT, profile_id INTEGER NOT NULL, started_at TEXT DEFAULT CURRENT_TIMESTAMP,
         active_ms INTEGER NOT NULL DEFAULT 0, rewarded INTEGER NOT NULL DEFAULT 0, mode TEXT NOT NULL DEFAULT 'learning',
         challenge_class TEXT, challenge_level_id INTEGER, star_awarded INTEGER NOT NULL DEFAULT 0, challenge_day TEXT,
-        daily_bonus_awarded INTEGER NOT NULL DEFAULT 0, challenge_stars_start INTEGER NOT NULL DEFAULT 0, FOREIGN KEY(profile_id) REFERENCES profiles(id)
+        daily_bonus_awarded INTEGER NOT NULL DEFAULT 0, challenge_stars_start INTEGER NOT NULL DEFAULT 0, duration_seconds INTEGER NOT NULL DEFAULT 300, FOREIGN KEY(profile_id) REFERENCES profiles(id)
     );
     CREATE TABLE IF NOT EXISTS questions(
         id INTEGER PRIMARY KEY AUTOINCREMENT, session_id INTEGER NOT NULL, position INTEGER NOT NULL, kind TEXT NOT NULL,
         payload TEXT NOT NULL, display TEXT NOT NULL, expected REAL NOT NULL, given_answer REAL, status TEXT NOT NULL,
         response_ms INTEGER, source TEXT NOT NULL, retry_from INTEGER, attempts INTEGER NOT NULL DEFAULT 0,
-        had_error INTEGER NOT NULL DEFAULT 0, first_wrong_answer REAL, last_answer REAL, help_used INTEGER NOT NULL DEFAULT 0,
+        had_error INTEGER NOT NULL DEFAULT 0, first_wrong_answer REAL, last_answer REAL, help_used INTEGER NOT NULL DEFAULT 0, timed_out INTEGER NOT NULL DEFAULT 0,
         FOREIGN KEY(session_id) REFERENCES sessions(id)
     );
     CREATE TABLE IF NOT EXISTS reward_progress(
@@ -66,6 +66,11 @@ def init_db():
     session_columns={r['name'] for r in c.execute('PRAGMA table_info(sessions)')}
     if 'challenge_stars_start' not in session_columns:
         c.execute('ALTER TABLE sessions ADD COLUMN challenge_stars_start INTEGER NOT NULL DEFAULT 0')
+    if 'duration_seconds' not in session_columns:
+        c.execute('ALTER TABLE sessions ADD COLUMN duration_seconds INTEGER NOT NULL DEFAULT 300')
+    question_columns={r['name'] for r in c.execute('PRAGMA table_info(questions)')}
+    if 'timed_out' not in question_columns:
+        c.execute('ALTER TABLE questions ADD COLUMN timed_out INTEGER NOT NULL DEFAULT 0')
 
     class_defaults={'CP':'#ef5350','CE1':'#f5b82e','CE2':'#2fbd68','CM1':'#3189dc','CM2':'#8b4de3'}
     for school,color in class_defaults.items():
@@ -80,7 +85,7 @@ DEFAULT={
   'addition':{'enabled':True,'weight':4,'aMin':1,'aMax':10,'bMin':1,'bMax':10,'maxResult':100,'withCarry':True},
   'subtraction':{'enabled':True,'weight':3,'aMin':1,'aMax':10,'bMin':1,'bMax':10,'nonNegative':True,'withCarry':True},
   'decimal':{'enabled':False,'weight':3,'min':0,'max':20,'decimals':1,'withCarry':True},
-  'multiplication':{'enabled':True,'weight':3,'tables':[2,3],'factorMin':1,'factorMax':9,'powerTables':[],'powerFactorMin':1,'powerFactorMax':99},
+  'multiplication':{'enabled':True,'weight':3,'tables':[2,3],'factorMin':1,'factorMax':9,'powerTables':[],'powerFactorMin':1,'powerFactorMax':99,'withCarry':False},
   'division':{'enabled':True,'weight':2,'tables':[2,3,4],'quotientMin':1,'quotientMax':10},
   'complement_tens':{'enabled':False,'weight':3,'targets':[10,20,30,40,50,60,70,80,90,100,1000],'gapMin':5,'gapMax':20},
   'place_value':{'enabled':False,'weight':3,'places':['u'],'absenceProbability':50},
@@ -321,14 +326,25 @@ def gen(kind,cfg):
         # Chacune possède sa propre plage de 2e facteur afin de pouvoir, par exemple,
         # travailler 45 × 1000 sans générer 45 × 5.
         candidates=[]
+        with_carry=bool(cfg.get('withCarry',False))
+        def multiplication_without_carry(a,b):
+            # Multiplication posée par un chiffre : aucune multiplication d'un chiffre
+            # du 2e facteur ne doit atteindre 10. Les puissances de 10 ne créent
+            # jamais de retenue : elles décalent simplement les chiffres.
+            if a in (10,100,1000,10000): return True
+            return all(a*int(d) < 10 for d in str(abs(int(b))))
         for a in cfg.get('tables',[]):
-            candidates.append((int(a), int(cfg.get('factorMin',1)), int(cfg.get('factorMax',9))))
+            a=int(a); lo=int(cfg.get('factorMin',1)); hi=int(cfg.get('factorMax',9))
+            if lo>hi: lo,hi=hi,lo
+            for b in range(lo,hi+1):
+                if with_carry or multiplication_without_carry(a,b): candidates.append((a,b))
         for a in cfg.get('powerTables',[]):
-            candidates.append((int(a), int(cfg.get('powerFactorMin',1)), int(cfg.get('powerFactorMax',99))))
-        if not candidates: raise ValueError('Choisis au moins une table de multiplication.')
-        a,lo,hi=random.choice(candidates)
-        if lo>hi: lo,hi=hi,lo
-        b=random.randint(lo,hi)
+            a=int(a); lo=int(cfg.get('powerFactorMin',1)); hi=int(cfg.get('powerFactorMax',99))
+            if lo>hi: lo,hi=hi,lo
+            for b in range(lo,hi+1): candidates.append((a,b))
+        if not candidates:
+            raise ValueError('Aucune multiplication possible avec ces réglages sans retenue.' if not with_carry else 'Choisis au moins une table de multiplication.')
+        a,b=random.choice(candidates)
         return {'a':a,'b':b},f'{a} × {b} = __',a*b
     if kind=='division':
         d=random.choice(cfg['tables']); q=random.randint(cfg['quotientMin'],cfg['quotientMax']); return {'dividend':d*q,'divisor':d},f'{d*q} : {d} = __',q
@@ -644,6 +660,14 @@ def validate_cfg_data(data):
         m['powerFactorMin']=int(m.get('powerFactorMin',1)); m['powerFactorMax']=int(m.get('powerFactorMax',99))
         if m['factorMin']>m['factorMax']: raise ValueError('La plage du 2e facteur des tables 1 à 9 est invalide.')
         if m['powerFactorMin']>m['powerFactorMax']: raise ValueError('La plage du 2e facteur des multiples de 10 est invalide.')
+        m['withCarry']=bool(m.get('withCarry',False))
+        if not m['withCarry'] and m['tables']:
+            def multiplication_without_carry(a,b):
+                return all(a*int(d) < 10 for d in str(abs(int(b))))
+            has_plain=any(multiplication_without_carry(a,b) for a in m['tables'] for b in range(m['factorMin'],m['factorMax']+1))
+            # Les puissances de 10 restent toujours possibles sans retenue.
+            if not has_plain and not m['powerTables']:
+                raise ValueError('Aucune multiplication possible avec ces réglages sans retenue.')
     if cats.get('division',{}).get('enabled') and not cats['division'].get('tables'):
         raise ValueError('Choisis au moins une table de division.')
     if cats.get('decimal_multiplication',{}).get('enabled') and not cats['decimal_multiplication'].get('multipliers'):
@@ -1158,7 +1182,8 @@ def start(pid):
     for old_sid in abandoned:
         c.execute('DELETE FROM questions WHERE session_id=?',(old_sid,))
         c.execute('DELETE FROM sessions WHERE id=?',(old_sid,))
-    cur=c.execute('INSERT INTO sessions(profile_id,mode,challenge_class,challenge_level_id,challenge_stars_start) VALUES(?,?,?,?,?)',(pid,mode,challenge_class,challenge_level_id,challenge_stars_start)); sid=cur.lastrowid
+    duration_seconds=max(60,min(3600,int(cfg.get('duration',300))))
+    cur=c.execute('INSERT INTO sessions(profile_id,mode,challenge_class,challenge_level_id,challenge_stars_start,duration_seconds) VALUES(?,?,?,?,?,?)',(pid,mode,challenge_class,challenge_level_id,challenge_stars_start,duration_seconds)); sid=cur.lastrowid
     for i,q in enumerate(qs): c.execute('INSERT INTO questions(session_id,position,kind,payload,display,expected,status,source,retry_from) VALUES(?,?,?,?,?,?,\'UNANSWERED\',?,?)',(sid,i,q['kind'],json.dumps(q['payload']),q['display'],q['expected'],q['source'],q['retry_from']))
     c.commit()
     rows=[]
@@ -1167,7 +1192,7 @@ def start(pid):
         try: row['payload']=json.loads(row.get('payload') or '{}')
         except (TypeError,ValueError): row['payload']={}
         rows.append(row)
-    c.close(); return {'sessionId':sid,'duration':cfg.get('duration',300),'questions':rows}
+    c.close(); return {'sessionId':sid,'duration':duration_seconds,'questions':rows}
 @app.post('/api/session/<int:sid>/answer')
 def answer(sid):
     if (e:=require_auth()): return e
@@ -1186,6 +1211,24 @@ def answer(sid):
     # Une question reste statistiquement en erreur dès le premier essai faux, même si elle est corrigée ensuite.
     status=('INCORRECT' if had_error else 'CORRECT') if ok or attempts>=2 else 'UNANSWERED'
     c.execute('UPDATE questions SET given_answer=?,last_answer=?,first_wrong_answer=?,status=?,response_ms=?,attempts=?,had_error=? WHERE id=?',(first_answer,given,first_wrong,status,ms,attempts,1 if had_error else 0,qid)); c.commit(); c.close(); return {'correct':ok,'expected':oldq['expected'],'attempts':attempts,'remaining':max(0,2-attempts)}
+@app.post('/api/session/<int:sid>/timeout')
+def timeout_question(sid):
+    if (e:=require_auth()): return e
+    data=request.json or {}; qid=int(data.get('questionId',0)); ms=max(60000,int(data.get('responseMs',60000))); active_ms=max(0,int(data.get('activeMs',0)))
+    c=db(); row=c.execute('''SELECT q.id,q.expected,q.attempts FROM questions q JOIN sessions s ON s.id=q.session_id JOIN profiles p ON p.id=s.profile_id WHERE q.id=? AND s.id=? AND p.account_id=?''',(qid,sid,current_account_id())).fetchone()
+    if not row: c.close(); return {'error':'Question inconnue'},404
+    c.execute("UPDATE questions SET status='INCORRECT',response_ms=?,had_error=1,timed_out=1 WHERE id=? AND session_id=?",(ms,qid,sid))
+    c.execute('UPDATE sessions SET active_ms=? WHERE id=? AND rewarded=0',(active_ms,sid)); c.commit(); c.close()
+    return {'ok':True,'expected':row['expected']}
+
+@app.post('/api/session/<int:sid>/heartbeat')
+def session_heartbeat(sid):
+    if (e:=require_auth()): return e
+    active_ms=max(0,int((request.json or {}).get('activeMs',0)))
+    c=db(); own=c.execute('SELECT 1 FROM sessions s JOIN profiles p ON p.id=s.profile_id WHERE s.id=? AND p.account_id=? AND s.rewarded=0',(sid,current_account_id())).fetchone()
+    if not own: c.close(); return {'error':'Séance inconnue'},404
+    c.execute('UPDATE sessions SET active_ms=? WHERE id=?',(active_ms,sid)); c.commit(); c.close(); return {'ok':True}
+
 @app.post('/api/session/<int:sid>/help')
 def mark_help(sid):
     if (e:=require_auth()): return e
@@ -1419,16 +1462,16 @@ def delete_session_stats(sid):
 @app.get('/api/session/<int:sid>/stats')
 def session_stats(sid):
     if (e:=require_auth()): return e
-    c=db(); s=c.execute('SELECT id,profile_id,started_at,active_ms,rewarded FROM sessions WHERE id=?',(sid,)).fetchone()
+    c=db(); s=c.execute('SELECT id,profile_id,started_at,active_ms,rewarded,duration_seconds FROM sessions WHERE id=?',(sid,)).fetchone()
     if not s: c.close(); return {'error':'Séance inconnue'},404
     if not owns_profile(s['profile_id']): c.close(); return {'error':'Séance inconnue'},404
-    qs=[dict(x) for x in c.execute("SELECT id,position,kind,display,expected,given_answer,last_answer,first_wrong_answer,status,response_ms,source,attempts,had_error,help_used FROM questions WHERE session_id=? AND status!='UNANSWERED' ORDER BY position",(sid,))]
+    qs=[dict(x) for x in c.execute("SELECT id,position,kind,display,expected,given_answer,last_answer,first_wrong_answer,status,response_ms,source,attempts,had_error,help_used,timed_out FROM questions WHERE session_id=? AND status!='UNANSWERED' ORDER BY position",(sid,))]
     correct=[q for q in qs if q['status']=='CORRECT']; times=[q['response_ms'] for q in correct if q['response_ms'] is not None]
     kinds=[]
     for kind in dict.fromkeys(q['kind'] for q in qs):
         kqs=[q for q in qs if q['kind']==kind]; kc=sum(1 for q in kqs if q['status']=='CORRECT')
         kinds.append({'kind':kind,'attempted':len(kqs),'correct':kc,'incorrect':len(kqs)-kc,'accuracy':round(100*kc/len(kqs),1) if kqs else 0,'helpUsed':sum(1 for q in kqs if q.get('help_used'))})
-    result={'id':s['id'],'date':s['started_at'],'activeMs':s['active_ms'],'attempted':len(qs),'correct':len(correct),'incorrect':len(qs)-len(correct),'accuracy':round(100*len(correct)/len(qs),1) if qs else 0,'medianMs':int(statistics.median(times)) if times else None,'helpUsed':sum(1 for q in qs if q.get('help_used')),'categories':kinds,'questions':qs,'inProgress':not bool(s['rewarded'])}
+    result={'id':s['id'],'date':s['started_at'],'activeMs':s['active_ms'],'attempted':len(qs),'correct':len(correct),'incorrect':len(qs)-len(correct),'accuracy':round(100*len(correct)/len(qs),1) if qs else 0,'medianMs':int(statistics.median(times)) if times else None,'helpUsed':sum(1 for q in qs if q.get('help_used')),'categories':kinds,'questions':qs,'inProgress':not bool(s['rewarded']),'durationSeconds':int(s['duration_seconds'] or 300)}
     c.close(); return result
 
 init_db()
