@@ -1046,7 +1046,7 @@ def clear_challenge_stats(c,pid,keep_session_id=None):
         c.execute("DELETE FROM sessions WHERE profile_id=? AND mode='challenge' AND id<>?",(pid,keep_session_id))
 
 def prune_challenge_stats(c,pid,keep=5):
-    """V192 : fenêtre glissante — on conserve les \`keep\` derniers paliers de défi
+    """V192 : fenêtre glissante — on conserve les `keep` derniers paliers de défi
     visités (palier courant inclus). Les séances des paliers plus anciens sont
     supprimées définitivement. Les questions n'ont pas de cascade FK garantie
     dans les anciennes BDD : on supprime toujours questions puis sessions."""
