@@ -37,13 +37,13 @@ La base SQLite est créée dans le dossier du projet. Pour sauvegarder toutes le
 
 ## Comptes utilisateurs
 
-L’application utilise maintenant des comptes (identifiant + mot de passe) plutôt qu’un code d’accès global. Chaque profil appartient au compte qui l’a créé. Le premier compte créé dans une base provenant d’une ancienne version récupère les profils historiques. Les mots de passe sont hachés avec Werkzeug et ne sont jamais stockés en clair.
+L'application utilise maintenant des comptes (identifiant + mot de passe) plutôt qu'un code d'accès global. Chaque profil appartient au compte qui l'a créé. Le premier compte créé dans une base provenant d'une ancienne version récupère les profils historiques. Les mots de passe sont hachés avec Werkzeug et ne sont jamais stockés en clair.
 
 En production, définissez `SECRET_KEY` avec une valeur longue et aléatoire. La base SQLite doit rester hors de Git et être placée sur le disque persistant du serveur via `DB_PATH`.
 
 
 ## V30 — Gestionnaire de mots de passe
-Le formulaire de connexion expose `name=username`, `autocomplete=username`, `name=password` et `autocomplete=current-password` afin que Safari, Chrome et les gestionnaires de mots de passe puissent proposer l’enregistrement et le remplissage automatique des identifiants.
+Le formulaire de connexion expose `name=username`, `autocomplete=username`, `name=password` et `autocomplete=current-password` afin que Safari, Chrome et les gestionnaires de mots de passe puissent proposer l'enregistrement et le remplissage automatique des identifiants.
 
 
 ## V32 — Déploiement Render
@@ -68,7 +68,7 @@ Après `pip install -r requirements.txt` :
 ## V145b (rebase V144 utilisateur)
 - Multiplications : ajout de 1000 aux choix de tables.
 - Aide doubles 10–100 : décomposition explicite en dizaines et unités (ex. 15+15).
-- Repart strictement de la V144 fournie par l’utilisateur pour éviter les régressions de V145.
+- Repart strictement de la V144 fournie par l'utilisateur pour éviter les régressions de V145.
 
 
 ## V148
@@ -109,7 +109,7 @@ Après `pip install -r requirements.txt` :
 
 
 ## V156
-- Génération : évite les doublons par type d’opération ; si les possibilités sont épuisées, répartit les doublons avant d’autoriser des triplons, etc.
+- Génération : évite les doublons par type d'opération ; si les possibilités sont épuisées, répartit les doublons avant d'autoriser des triplons, etc.
 - Admin : bouton Supprimer restauré directement dans la liste des niveaux, en plus de la case Actif.
 
 ## V157
@@ -137,7 +137,7 @@ Après `pip install -r requirements.txt` :
 
 V161
 - Écran de fin réorganisé en deux colonnes sur écran large : illustration à gauche, jauges de récompense à droite.
-- Les jauges utilisent désormais la largeur disponible au lieu de s’empiler sous l’illustration.
+- Les jauges utilisent désormais la largeur disponible au lieu de s'empiler sous l'illustration.
 - Retour automatique à une colonne sur mobile ; adaptation supplémentaire pour les écrans peu hauts.
 
 
@@ -333,3 +333,13 @@ V161
 - Même règle pour les vrais tests, l'aperçu général et les aperçus/exemples de chaque catégorie.
 - La comparaison reste strictement limitée à une même catégorie.
 - En cas de doublon : 3 relances maximum, puis acceptation du doublon.
+
+
+## V192
+- Départ des défis : tout nouveau profil démarre au CP, palier le plus facile. La règle « une classe sous la classe réelle » est abandonnée pour les nouveaux profils ; les profils existants ne sont pas migrés et restent où ils sont.
+- Les paliers sous la classe réelle demandent toujours 1 étoile, 3 étoiles à partir de la classe réelle (inchangé).
+- Fin de la purge des stats à chaque montée de palier : chaque palier conserve désormais ses propres statistiques, comparables entre elles puisque les questions y sont du même niveau de difficulté.
+- Fenêtre glissante : à chaque montée de palier, seuls les 5 derniers paliers visités sont conservés (palier courant inclus). Les séances de défi des paliers plus anciens sont supprimées définitivement.
+- Écran Stats défis : une rangée de pastilles (rond coloré de la classe + numéro du palier) permet de consulter les stats palier par palier. Les pastilles apparaissent de gauche à droite au fil du jeu ; l'onglet par défaut est le palier en cours (le plus récent, à droite). Les graphiques et le tableau des séances se filtrent sur le palier sélectionné.
+- Le changement de classe d'un profil côté admin continue de réinitialiser complètement les stats de défi (comportement inchangé).
+- Optimisation : les deux images inline en base64 de la fenêtre de victoire (chien bravo et animaux) sont désormais servies depuis les fichiers statiques existants, visuellement identiques ; index.html passe de 3,5 Mo à 147 Ko.
