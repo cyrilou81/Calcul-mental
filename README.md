@@ -37,13 +37,14 @@ La base SQLite est créée dans le dossier du projet. Pour sauvegarder toutes le
 
 ## Comptes utilisateurs
 
-L'application utilise maintenant des comptes (identifiant + mot de passe) plutôt qu'un code d'accès global. Chaque profil appartient au compte qui l'a créé. Le premier compte créé dans une base provenant d'une ancienne version récupère les profils historiques. Les mots de passe sont hachés avec Werkzeug et ne sont jamais stockés en clair.
+L’application utilise maintenant des comptes (identifiant + mot de passe) plutôt qu’un code d’accès global. Chaque profil appartient au compte qui l’a créé. Le premier compte créé dans une base provenant d’une ancienne version récupère les profils historiques. Les mots de passe sont hachés avec Werkzeug et ne sont jamais stockés en clair.
 
 En production, définissez `SECRET_KEY` avec une valeur longue et aléatoire. La base SQLite doit rester hors de Git et être placée sur le disque persistant du serveur via `DB_PATH`.
 
 
 ## V30 — Gestionnaire de mots de passe
-Le formulaire de connexion expose `name=username`, `autocomplete=username`, `name=password` et `autocomplete=current-password` afin que Safari, Chrome et les gestionnaires de mots de passe puissent proposer l'enregistrement et le remplissage automatique des identifiants.
+Le formulaire de connexion expose `name=username`, `autocomplete=username`, `name=password` et `autocomplete=current-password` afin que 
+Safari, Chrome et les gestionnaires de mots de passe puissent proposer l’enregistrement et le remplissage automatique des identifiants.
 
 
 ## V32 — Déploiement Render
@@ -68,7 +69,7 @@ Après `pip install -r requirements.txt` :
 ## V145b (rebase V144 utilisateur)
 - Multiplications : ajout de 1000 aux choix de tables.
 - Aide doubles 10–100 : décomposition explicite en dizaines et unités (ex. 15+15).
-- Repart strictement de la V144 fournie par l'utilisateur pour éviter les régressions de V145.
+- Repart strictement de la V144 fournie par l’utilisateur pour éviter les régressions de V145.
 
 
 ## V148
@@ -85,7 +86,8 @@ Après `pip install -r requirements.txt` :
 ## V151
 - Défis enfant : les noms scolaires sont remplacés par des médailles numérotées ; toutes les médailles d'une même classe utilisent la même couleur.
 - Administration : couleur configurable indépendamment pour CP, CE1, CE2, CM1 et CM2.
-- Récompenses : un seul toucher sur l'image agrandie dépense automatiquement jusqu'à 10 pièces par case et révèle toutes les cases finançables, sans dépasser les cases restantes. Le reliquat de pièces est conservé.
+- Récompenses : un seul toucher sur l'image agrandie dépense automatiquement jusqu'à 10 pièces par case et révèle toutes les cases finançables, sans dépasser les cases re
+stantes. Le reliquat de pièces est conservé.
 - Si le solde est inférieur à 10 pièces, toucher l'image agrandie ferme immédiatement la vue et revient aux images en cours / révélées.
 
 ## V152
@@ -109,7 +111,7 @@ Après `pip install -r requirements.txt` :
 
 
 ## V156
-- Génération : évite les doublons par type d'opération ; si les possibilités sont épuisées, répartit les doublons avant d'autoriser des triplons, etc.
+- Génération : évite les doublons par type d’opération ; si les possibilités sont épuisées, répartit les doublons avant d’autoriser des triplons, etc.
 - Admin : bouton Supprimer restauré directement dans la liste des niveaux, en plus de la case Actif.
 
 ## V157
@@ -119,7 +121,8 @@ Après `pip install -r requirements.txt` :
 ## V158
 - Compléments de dizaines : cibles 10 à 100 et 1000, deux formulations.
 - Valeur de position : m/c/d/u, probabilité d'absence 0–80 % par pas de 10.
-- Addition à 3 termes, triple, quadruple, tiers et quart.
+- Addition à 3 termes, tripl
+e, quadruple, tiers et quart.
 
 
 ## V159
@@ -137,7 +140,7 @@ Après `pip install -r requirements.txt` :
 
 V161
 - Écran de fin réorganisé en deux colonnes sur écran large : illustration à gauche, jauges de récompense à droite.
-- Les jauges utilisent désormais la largeur disponible au lieu de s'empiler sous l'illustration.
+- Les jauges utilisent désormais la largeur disponible au lieu de s’empiler sous l’illustration.
 - Retour automatique à une colonne sur mobile ; adaptation supplémentaire pour les écrans peu hauts.
 
 
@@ -160,7 +163,8 @@ V161
 
 ## V165
 - Libellés : Compléments, Fractions, Moitiés de dizaines, Additions de dizaines, Multiples.
-- Valeur de position déplacée juste sous Moitiés de dizaines.
+- Valeur de position déplacée juste sous Moitiés de 
+dizaines.
 - Nouvelle catégorie `round_tens_add` : Ajout à dizaine ronde.
 - Premier terme sélectionnable parmi 10,20,...,90 ; second terme configurable par intervalle min/max.
 
@@ -198,7 +202,8 @@ V161
 - Moitiés : plage configurable des valeurs paires hors dizaines rondes, par défaut 2 à 10.
 - Option Dizaines indépendante : ajoute 10,20,...,100 sans être limitée par la plage.
 - Anti-doublons renforcé : catalogue de candidats par catégorie et tirage au niveau d'utilisation minimal.
-- Catalogues exhaustifs pour Moitiés, Doubles, Ajout à dizaine ronde et Compléments ; réserve unique élargie pour les catégories complexes.
+- Catalogues exhaustifs pour Moitiés, Doubles, Ajout à dizaine ronde
+ et Compléments ; réserve unique élargie pour les catégories complexes.
 
 
 ## V172
@@ -237,7 +242,8 @@ V161
 ## V177
 - Correction réelle du bug des dizaines dans Moitiés : le générateur standard utilisait encore en dur 10,20,...,100.
 - Il utilise maintenant exclusivement `tensValues`, donc uniquement les dizaines cochées.
-- Le catalogue anti-doublons utilisait déjà `tensValues`; les deux chemins de génération sont désormais cohérents.
+- Le catalogue anti-doublons utilisait déjà `tensV
+alues`; les deux chemins de génération sont désormais cohérents.
 
 
 ## V178
@@ -281,7 +287,8 @@ V161
 - Addition à 3 termes : ajout du réglage Résultat max.
 - Additions de dizaines : option Avec retenue.
 - Soustractions : option Avec retenue ; décochée = uniquement des soustractions sans emprunt.
-- Soustractions de dizaines : même option et même logique sans emprunt.
+- Soustractions de dizaines : même op
+tion et même logique sans emprunt.
 - Valeur de position : ordre m/c/d/u mélangé aléatoirement à chaque opération.
 - Suppression de « Moitiés de dizaines », désormais couverte par « Moitiés ».
 
@@ -318,7 +325,8 @@ V161
 ## V189
 - Correction du démarrage multiple des séances : un verrou empêche plusieurs créations pendant la requête de démarrage.
 - Le bouton de démarrage est désactivé jusqu'à la réponse du serveur.
-- « Supprimer la séance » est maintenant tout en bas du détail statistique, sous le tableau des calculs.
+- « Supprimer la séance » est maintenant t
+out en bas du détail statistique, sous le tableau des calculs.
 
 ## V190
 - Simplification complète de l'anti-doublon : suppression des catalogues exhaustifs, réserves de candidats et tirages « least used ».
@@ -340,6 +348,7 @@ V161
 - Les paliers sous la classe réelle demandent toujours 1 étoile, 3 étoiles à partir de la classe réelle (inchangé).
 - Fin de la purge des stats à chaque montée de palier : chaque palier conserve désormais ses propres statistiques, comparables entre elles puisque les questions y sont du même niveau de difficulté.
 - Fenêtre glissante : à chaque montée de palier, seuls les 5 derniers paliers visités sont conservés (palier courant inclus). Les séances de défi des paliers plus anciens sont supprimées définitivement.
-- Écran Stats défis : une rangée de pastilles (rond coloré de la classe + numéro du palier) permet de consulter les stats palier par palier. Les pastilles apparaissent de gauche à droite au fil du jeu ; l'onglet par défaut est le palier en cours (le plus récent, à droite). Les graphiques et le tableau des séances se filtrent sur le palier sélectionné.
+- Écran Stats défis : une rangée de pastilles (rond coloré de la classe + numéro du palier) permet de consulter les stats palier par palier. Les pastilles apparaissent de gauche à droite au fil du jeu ; l'onglet par défaut est le palier en cours (le plus récent, à droite). Les graphiques et le tableau des séances se filtrent su
+r le palier sélectionné.
 - Le changement de classe d'un profil côté admin continue de réinitialiser complètement les stats de défi (comportement inchangé).
 - Optimisation : les deux images inline en base64 de la fenêtre de victoire (chien bravo et animaux) sont désormais servies depuis les fichiers statiques existants, visuellement identiques ; index.html passe de 3,5 Mo à 147 Ko.
