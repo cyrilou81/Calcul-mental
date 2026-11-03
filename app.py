@@ -629,8 +629,11 @@ def class_rank(school):
     except ValueError: return 0
 
 def initial_challenge_school(real_school):
-    i=class_rank(real_school)
-    return CLASSES[max(0,i-1)]
+    # V192 : tout le monde démarre au CP, le palier le plus facile. Les paliers
+    # sous la classe réelle ne demandent qu'une étoile (required_stars_for).
+    # Les profils existants ne sont pas migrés : la règle s'applique aux
+    # nouveaux profils et aux changements de classe.
+    return 'CP'
 
 def required_stars_for(challenge_school, real_school):
     # Tout palier inférieur à la classe réelle sert de validation rapide : 1 étoile.
@@ -1163,7 +1166,7 @@ def challenge_status(pid):
         next_row=next_challenge_level(c,row)
         if next_row:
             c.execute('UPDATE profiles SET challenge_level_id=?,challenge_stars=0 WHERE id=?',
-                      (next_row['id'],pid)); c.commit()
+                      (next_row['id'],pid)); prune_challenge_stats(c,pid); c.commit()
             row=next_row; challenge_school=row['school_class']; current=row['position']; level_name=row['name']
             levels=challenge_levels_for(c,challenge_school); max_level=max(1,len(levels))
             cr=c.execute('SELECT color FROM class_settings WHERE school_class=?',(challenge_school,)).fetchone(); class_color=cr['color'] if cr else '#3189dc'
@@ -1187,6 +1190,27 @@ def clear_challenge_stats(c,pid,keep_session_id=None):
     else:
         c.execute("DELETE FROM questions WHERE session_id IN (SELECT id FROM sessions WHERE profile_id=? AND mode='challenge' AND id<>?)",(pid,keep_session_id))
         c.execute("DELETE FROM sessions WHERE profile_id=? AND mode='challenge' AND id<>?",(pid,keep_session_id))
+
+def prune_challenge_stats(c,pid,keep=5):
+    """V192 : fenêtre glissante — on conserve les `keep` derniers paliers de défi
+    visités (palier courant inclus, même sans séance). Les séances des paliers
+    plus anciens sont supprimées définitivement, sans toucher aux Entraînements."""
+    p=c.execute('SELECT challenge_level_id FROM profiles WHERE id=?',(pid,)).fetchone()
+    cur=p['challenge_level_id'] if p else None
+    lv=[dict(x) for x in c.execute(
+        "SELECT DISTINCT cl.id,cl.school_class,cl.position FROM challenge_levels cl "
+        "JOIN sessions s ON s.challenge_level_id=cl.id AND s.mode='challenge' "
+        "WHERE s.profile_id=?",(pid,))]
+    if cur and cur not in {x['id'] for x in lv}:
+        r=c.execute('SELECT id,school_class,position FROM challenge_levels WHERE id=?',(cur,)).fetchone()
+        if r: lv.append(dict(r))
+    if len(lv)<=keep: return
+    lv.sort(key=lambda x:(class_rank(x['school_class']),x['position']))
+    doomed=[x['id'] for x in lv[:-keep]]
+    if not doomed: return
+    marks=','.join('?'*len(doomed))
+    c.execute(f"DELETE FROM questions WHERE session_id IN (SELECT id FROM sessions WHERE profile_id=? AND mode='challenge' AND challenge_level_id IN ({marks}))",(pid,*doomed))
+    c.execute(f"DELETE FROM sessions WHERE profile_id=? AND mode='challenge' AND challenge_level_id IN ({marks})",(pid,*doomed))
 
 
 @app.post('/api/session/start/<int:pid>')
@@ -1406,10 +1430,9 @@ def finish(sid):
                     level_bonus=20
                     c.execute('UPDATE profiles SET coins=coins+20,challenge_level_id=?,challenge_stars=0 WHERE id=?',
                               (next_row['id'],s['profile_id']))
-                    # Nouveau niveau = nouveau référentiel statistique. On efface
-                    # l'historique Défi précédent, sans toucher aux Entraînements.
-                    # La séance courante reste seulement comme marqueur du défi du jour.
-                    clear_challenge_stats(c,s['profile_id'],keep_session_id=sid)
+                    # V192 : chaque palier garde ses stats ; on ne conserve que
+                    # les 5 derniers paliers visités (fenêtre glissante).
+                    prune_challenge_stats(c,s['profile_id'])
                     if current_row and next_row['school_class']!=current_row['school_class']:
                         class_completed=True; completed_class=current_row['school_class']; next_class=next_row['school_class']
                         cc=c.execute('SELECT color FROM class_settings WHERE school_class=?',(completed_class,)).fetchone()
@@ -1495,11 +1518,30 @@ def stats(pid):
     mode=(request.args.get('mode') or 'learning').lower()
     if mode not in ('learning','challenge'): mode='learning'
     c=db()
+    levels_out=[]
     if mode=='challenge':
-        # Les stats Défi décrivent uniquement le niveau actuellement travaillé.
+        # V192 : stats Défi palier par palier. Par défaut le palier courant,
+        # paramétrable via ?level=<id>. La fenêtre glissante garantit au plus
+        # 5 paliers conservés (courant inclus).
         p=c.execute('SELECT challenge_level_id FROM profiles WHERE id=?',(pid,)).fetchone()
         current_level_id=p['challenge_level_id'] if p else None
-        ss=[dict(x) for x in c.execute('SELECT id,started_at,active_ms,mode,rewarded FROM sessions WHERE profile_id=? AND mode=? AND challenge_level_id=? ORDER BY id DESC',(pid,mode,current_level_id))] if current_level_id else []
+        try: level_id=int(request.args.get('level') or 0) or None
+        except (TypeError,ValueError): level_id=None
+        if level_id is None: level_id=current_level_id
+        lv=[dict(x) for x in c.execute(
+            "SELECT DISTINCT cl.id,cl.position,cl.school_class,cl.name,cs.color AS color "
+            "FROM challenge_levels cl JOIN sessions s "
+            "ON s.challenge_level_id=cl.id AND s.mode='challenge' "
+            "LEFT JOIN class_settings cs ON cs.school_class=cl.school_class "
+            "WHERE s.profile_id=?",(pid,))]
+        if current_level_id and current_level_id not in {x['id'] for x in lv}:
+            r=c.execute("SELECT cl.id,cl.position,cl.school_class,cl.name,cs.color AS color "
+                        "FROM challenge_levels cl LEFT JOIN class_settings cs ON cs.school_class=cl.school_class "
+                        "WHERE cl.id=?",(current_level_id,)).fetchone()
+            if r: lv.append(dict(r))
+        lv.sort(key=lambda x:(class_rank(x['school_class']),x['position']))
+        levels_out=[{'id':x['id'],'position':x['position'],'color':x['color'] or '#3189dc','current':x['id']==current_level_id} for x in lv]
+        ss=[dict(x) for x in c.execute('SELECT id,started_at,active_ms,mode,rewarded FROM sessions WHERE profile_id=? AND mode=? AND challenge_level_id=? ORDER BY id DESC',(pid,mode,level_id))] if level_id else []
     else:
         ss=[dict(x) for x in c.execute('SELECT id,started_at,active_ms,mode,rewarded FROM sessions WHERE profile_id=? AND mode=? ORDER BY id DESC',(pid,mode))]
     out=[]
@@ -1512,7 +1554,7 @@ def stats(pid):
             kqs=[q for q in qs if q['kind']==kind]; kc=sum(1 for q in kqs if q['status']=='CORRECT')
             kt=[q['response_ms'] for q in kqs if q['response_ms'] is not None]; cats.append({'kind':kind,'attempted':len(kqs),'correct':kc,'accuracy':round(100*kc/len(kqs),1) if kqs else 0,'medianMs':int(statistics.median(kt)) if kt else None,'helpUsed':sum(1 for q in kqs if q.get('help_used'))})
         out.append({'id':s['id'],'date':s['started_at'],'activeMs':s['active_ms'],'attempted':len(qs),'correct':len(correct),'incorrect':len(qs)-len(correct),'accuracy':round(100*len(correct)/len(qs),1) if qs else 0,'medianMs':int(statistics.median(times)) if times else None,'avgMs':int(sum(times)/len(times)) if times else None,'helpUsed':sum(1 for q in qs if q.get('help_used')),'categories':cats,'inProgress':not bool(s.get('rewarded',0))})
-    c.close(); return {'sessions':out,'mode':mode}
+    c.close(); return {'sessions':out,'mode':mode,'levels':levels_out}
 
 @app.delete('/api/session/<int:sid>/stats')
 def delete_session_stats(sid):
