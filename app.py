@@ -71,6 +71,11 @@ def init_db():
     question_columns={r['name'] for r in c.execute('PRAGMA table_info(questions)')}
     if 'timed_out' not in question_columns:
         c.execute('ALTER TABLE questions ADD COLUMN timed_out INTEGER NOT NULL DEFAULT 0')
+    # v271 : coche « À vérifier » sur les niveaux — simple mémo pour l'admin,
+    # aucun effet sur le jeu ou les joueurs.
+    level_columns={r['name'] for r in c.execute('PRAGMA table_info(challenge_levels)')}
+    if 'to_check' not in level_columns:
+        c.execute('ALTER TABLE challenge_levels ADD COLUMN to_check INTEGER NOT NULL DEFAULT 0')
 
     class_defaults={'CP':'#ef5350','CE1':'#f5b82e','CE2':'#2fbd68','CM1':'#3189dc','CM2':'#8b4de3'}
     for school,color in class_defaults.items():
@@ -919,7 +924,7 @@ def admin_levels_export():
     if (e:=require_admin()): return e
     c=db()
     rows=c.execute(
-        'SELECT school_class,name,position,active,data FROM challenge_levels '
+        'SELECT school_class,name,position,active,to_check,data FROM challenge_levels '
         'ORDER BY CASE school_class WHEN "CP" THEN 1 WHEN "CE1" THEN 2 WHEN "CE2" THEN 3 WHEN "CM1" THEN 4 ELSE 5 END,position'
     ).fetchall()
     colors={r['school_class']:r['color'] for r in c.execute('SELECT school_class,color FROM class_settings')}
@@ -930,7 +935,7 @@ def admin_levels_export():
         'class_colors':colors,
         'levels':[
             {'school_class':r['school_class'],'name':r['name'],'position':r['position'],
-             'active':bool(r['active']),'config':json.loads(r['data'])}
+             'active':bool(r['active']),'to_check':bool(r['to_check']),'config':json.loads(r['data'])}
             for r in rows
         ]
     }
@@ -961,7 +966,7 @@ def admin_levels_import():
             if key in seen_positions: raise ValueError
             seen_positions.add(key)
             cfg=validate_cfg_data(item.get('config') or {})
-            cleaned.append((school,name,position,1 if bool(item.get('active',True)) else 0,json.dumps(cfg)))
+            cleaned.append((school,name,position,1 if bool(item.get('active',True)) else 0,1 if bool(item.get('to_check',False)) else 0,json.dumps(cfg)))
     except (ValueError,TypeError,KeyError):
         return {'error':"Le fichier contient un niveau invalide."},400
 
@@ -978,7 +983,7 @@ def admin_levels_import():
         c.execute('BEGIN')
         c.execute('DELETE FROM challenge_levels')
         for row in cleaned:
-            c.execute('INSERT INTO challenge_levels(school_class,name,position,active,data) VALUES(?,?,?,?,?)',row)
+            c.execute('INSERT INTO challenge_levels(school_class,name,position,active,to_check,data) VALUES(?,?,?,?,?,?)',row)
         for school,color in clean_colors.items():
             c.execute('INSERT INTO class_settings(school_class,color) VALUES(?,?) '
                       'ON CONFLICT(school_class) DO UPDATE SET color=excluded.color',(school,color))
@@ -992,7 +997,7 @@ def admin_levels_import():
 @app.get('/api/admin/levels')
 def admin_levels():
     if (e:=require_admin()): return e
-    c=db(); rows=[dict(r) for r in c.execute('SELECT id,school_class,name,position,active FROM challenge_levels ORDER BY CASE school_class WHEN "CP" THEN 1 WHEN "CE1" THEN 2 WHEN "CE2" THEN 3 WHEN "CM1" THEN 4 ELSE 5 END,position')]; c.close(); return jsonify(rows)
+    c=db(); rows=[dict(r) for r in c.execute('SELECT id,school_class,name,position,active,to_check FROM challenge_levels ORDER BY CASE school_class WHEN "CP" THEN 1 WHEN "CE1" THEN 2 WHEN "CE2" THEN 3 WHEN "CM1" THEN 4 ELSE 5 END,position')]; c.close(); return jsonify(rows)
 @app.get('/api/admin/levels/<int:lid>')
 def admin_level(lid):
     if (e:=require_admin()): return e
@@ -1054,6 +1059,19 @@ def admin_level_active(lid):
     c.execute('UPDATE challenge_levels SET active=? WHERE id=?',(active,lid))
     c.commit(); c.close()
     return {'ok':True,'active':bool(active)}
+
+@app.put('/api/admin/levels/<int:lid>/to_check')
+def admin_level_to_check(lid):
+    if (e:=require_admin()): return e
+    d=request.json or {}
+    to_check=1 if bool(d.get('to_check',True)) else 0
+    c=db()
+    r=c.execute('SELECT id FROM challenge_levels WHERE id=?',(lid,)).fetchone()
+    if not r:
+        c.close(); return {'error':'Niveau introuvable'},404
+    c.execute('UPDATE challenge_levels SET to_check=? WHERE id=?',(to_check,lid))
+    c.commit(); c.close()
+    return {'ok':True,'to_check':bool(to_check)}
 
 @app.post('/api/admin/levels/<int:lid>/move')
 def admin_level_move(lid):
