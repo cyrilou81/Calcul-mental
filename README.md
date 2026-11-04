@@ -1,3 +1,3 @@
-# Calcul mental — v272
+# Calcul mental — v273
 
-- Doubles : cases « intermédiaires en 5 » (15, 25, 35 … jusqu'à 95) cochables dans le choix des valeurs, visibles quand « Dizaines » ou « Les deux » est sélectionné (entraînement + admin des niveaux).
+- Multiplications : ordre des facteurs aléatoire — la table choisie apparaît 50 % à gauche (2 × 9) et 50 % à droite (9 × 2).

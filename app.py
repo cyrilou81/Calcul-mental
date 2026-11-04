@@ -379,7 +379,13 @@ def gen(kind,cfg):
         if not candidates:
             raise ValueError('Aucune multiplication possible avec ces réglages sans retenue.' if not with_carry else 'Choisis au moins une table de multiplication.')
         a,b=random.choice(candidates)
-        return {'a':a,'b':b},f'{a} × {b} = __',a*b
+        # v273 : ordre des facteurs aléatoire (50/50) — la table choisie apparaît
+        # aussi bien à gauche (2 × 9) qu'à droite (9 × 2). Le payload reste
+        # canonique (table en premier) : l'anti-doublon identifie 2 × 9 et
+        # 9 × 2 comme un seul calcul, et l'aide pédagogique (fondée sur les
+        # facteurs triés) est inchangée.
+        x,y=(b,a) if random.random()<0.5 else (a,b)
+        return {'a':a,'b':b},f'{x} × {y} = __',a*b
     if kind=='multiplication_tens':
         tables=[int(x) for x in cfg.get('tables',[]) if int(x) in (10,100,1000,10000)]
         if not tables: raise ValueError('Choisis au moins une multiplication de dizaines.')
