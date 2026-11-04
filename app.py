@@ -744,7 +744,7 @@ def validate_cfg_data(data):
         d['doubleMode']=mode
         d['min']=int(d.get('min',1)); d['max']=int(d.get('max',9))
         if d['min']>d['max']: raise ValueError('La plage des doubles est invalide.')
-        d['tensValues']=[int(x) for x in d.get('tensValues',[10,20,30,40,50,60,70,80,90,100]) if int(x) in (10,20,30,40,50,60,70,80,90,100)]
+        d['tensValues']=[int(x) for x in d.get('tensValues',[10,20,30,40,50,60,70,80,90,100]) if int(x) in (10,15,20,25,30,35,40,45,50,55,60,65,70,75,80,85,90,95,100)]
         if mode in ('non_tens','both') and not any(n%10!=0 for n in range(d['min'],d['max']+1)):
             raise ValueError('Aucune valeur hors dizaine possible dans la plage des doubles.')
         if mode in ('tens','both') and not d['tensValues']:

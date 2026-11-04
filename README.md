@@ -1,3 +1,3 @@
-# Calcul mental — v271
+# Calcul mental — v272
 
-- Coche « À vérifier » à côté des niveaux dans l'admin : simple mémo pour l'admin, aucune incidence sur le jeu ni sur les joueurs (colonne `to_check`, conservée à l'export/import des niveaux).
+- Doubles : cases « intermédiaires en 5 » (15, 25, 35 … jusqu'à 95) cochables dans le choix des valeurs, visibles quand « Dizaines » ou « Les deux » est sélectionné (entraînement + admin des niveaux).
