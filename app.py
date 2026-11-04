@@ -73,9 +73,13 @@ def init_db():
         c.execute('ALTER TABLE questions ADD COLUMN timed_out INTEGER NOT NULL DEFAULT 0')
     # v271 : coche « À vérifier » sur les niveaux — simple mémo pour l'admin,
     # aucun effet sur le jeu ou les joueurs.
-    level_columns={r['name'] for r in c.execute('PRAGMA table_info(challenge_levels)')}
-    if 'to_check' not in level_columns:
-        c.execute('ALTER TABLE challenge_levels ADD COLUMN to_check INTEGER NOT NULL DEFAULT 0')
+    # v275 : jalon « première fois à 10 pièces » — 1 = clignotement en attente,
+    # 2 = déjà vu. Les profils qui ont déjà 10 pièces ou plus au moment de la
+    # migration ne clignoteront jamais (seuls les nouveaux profils sont concernés).
+    profile_columns={r['name'] for r in c.execute('PRAGMA table_info(profiles)')}
+    if 'coin_milestone' not in profile_columns:
+        c.execute('ALTER TABLE profiles ADD COLUMN coin_milestone INTEGER NOT NULL DEFAULT 0')
+        c.execute('UPDATE profiles SET coin_milestone=2 WHERE coins>=10')
 
     class_defaults={'CP':'#ef5350','CE1':'#f5b82e','CE2':'#2fbd68','CM1':'#3189dc','CM2':'#8b4de3'}
     for school,color in class_defaults.items():
@@ -1190,7 +1194,7 @@ def challenge_status(pid):
     if not owns_profile(pid): return {'error':'Profil introuvable'},404
     day=(request.args.get('date') or '')[:10]
     c=db()
-    p=c.execute('SELECT school_class,challenge_level_id,challenge_stars FROM profiles WHERE id=?',(pid,)).fetchone()
+    p=c.execute('SELECT school_class,challenge_level_id,challenge_stars,coin_milestone FROM profiles WHERE id=?',(pid,)).fetchone()
     challenge_school,row,current,level_name=resolve_profile_level(c,p)
     levels=challenge_levels_for(c,challenge_school); max_level=max(1,len(levels))
     cr=c.execute('SELECT color FROM class_settings WHERE school_class=?',(challenge_school,)).fetchone(); class_color=cr['color'] if cr else '#3189dc'
@@ -1204,7 +1208,7 @@ def challenge_status(pid):
             row=next_row; challenge_school=row['school_class']; current=row['position']; level_name=row['name']
             levels=challenge_levels_for(c,challenge_school); max_level=max(1,len(levels))
             cr=c.execute('SELECT color FROM class_settings WHERE school_class=?',(challenge_school,)).fetchone(); class_color=cr['color'] if cr else '#3189dc'
-            p=c.execute('SELECT school_class,challenge_level_id,challenge_stars FROM profiles WHERE id=?',(pid,)).fetchone()
+            p=c.execute('SELECT school_class,challenge_level_id,challenge_stars,coin_milestone FROM profiles WHERE id=?',(pid,)).fetchone()
             needed=required_stars_for(challenge_school,p['school_class'])
     if row and p['challenge_level_id']!=row['id']:
         c.execute('UPDATE profiles SET challenge_level_id=? WHERE id=?',(row['id'],pid)); c.commit()
@@ -1212,7 +1216,15 @@ def challenge_status(pid):
     if re.fullmatch(r'\d{4}-\d{2}-\d{2}',day):
         done_today=bool(c.execute("SELECT 1 FROM sessions WHERE profile_id=? AND mode='challenge' AND rewarded=1 AND challenge_day=? LIMIT 1",(pid,day)).fetchone())
     c.close()
-    return {'schoolClass':challenge_school,'realSchoolClass':p['school_class'],'classColor':class_color,'level':current,'levelName':level_name,'stars':p['challenge_stars'],'requiredStars':needed,'maxLevel':max_level,'threshold':challenge_score_threshold(challenge_school,p['school_class'],p['challenge_stars']),'doneToday':done_today,'levels':[{'id':x['id'],'name':x['name'],'position':x['position']} for x in levels]}
+    return {'schoolClass':challenge_school,'realSchoolClass':p['school_class'],'classColor':class_color,'level':current,'levelName':level_name,'stars':p['challenge_stars'],'requiredStars':needed,'maxLevel':max_level,'threshold':challenge_score_threshold(challenge_school,p['school_class'],p['challenge_stars']),'doneToday':done_today,'coinMilestone':bool(p['coin_milestone']==1),'levels':[{'id':x['id'],'name':x['name'],'position':x['position']} for x in levels]}
+
+@app.post('/api/profile/<int:pid>/milestone-seen')
+def milestone_seen(pid):
+    """v275 : l'enfant a vu l'onglet « Mes récompenses » → arrête le clignotement (définitif)."""
+    if (e:=require_auth()): return e
+    if not owns_profile(pid): return {'error':'Profil introuvable'},404
+    c=db(); c.execute('UPDATE profiles SET coin_milestone=2 WHERE id=? AND coin_milestone=1',(pid,)); c.commit(); c.close()
+    return {'ok':True}
 
 def clear_challenge_stats(c,pid,keep_session_id=None):
     # Lors d'une promotion automatique, on conserve uniquement la séance qui vient
@@ -1255,7 +1267,7 @@ def start(pid):
     if mode not in ('learning','challenge'): mode='learning'
     challenge_class=None; challenge_level=None; challenge_level_id=None; challenge_stars_start=0
     if mode=='challenge':
-        c0=db(); p0=c0.execute('SELECT school_class,challenge_level_id,challenge_stars FROM profiles WHERE id=?',(pid,)).fetchone()
+        c0=db(); p0=c0.execute('SELECT school_class,challenge_level_id,challenge_stars,coin_milestone FROM profiles WHERE id=?',(pid,)).fetchone()
         challenge_class,row,challenge_level,_=resolve_profile_level(c0,p0); challenge_level_id=row['id'] if row else None; challenge_stars_start=int(p0['challenge_stars'] or 0)
         if row:
             c0.execute('UPDATE profiles SET challenge_level_id=? WHERE id=?',(challenge_level_id,pid)); c0.commit()
@@ -1388,6 +1400,7 @@ def finish(sid):
     earned=0
     if not s['rewarded']:
         earned=c.execute("SELECT COUNT(*) n FROM questions WHERE session_id=? AND status='CORRECT'",(sid,)).fetchone()['n']
+        old_coins=c.execute('SELECT coins FROM profiles WHERE id=?',(s['profile_id'],)).fetchone()['coins']
         c.execute('UPDATE profiles SET coins=coins+? WHERE id=?',(earned,s['profile_id']))
         c.execute('UPDATE sessions SET active_ms=?,rewarded=1 WHERE id=?',(ms,sid))
     else:
@@ -1446,7 +1459,7 @@ def finish(sid):
             record_level_color=rc['color'] if rc else '#3189dc'
     if s['mode']=='challenge' and not s['star_awarded']:
         correct=record_score
-        p=c.execute('SELECT school_class,challenge_level_id,challenge_stars FROM profiles WHERE id=?',(s['profile_id'],)).fetchone()
+        p=c.execute('SELECT school_class,challenge_level_id,challenge_stars,coin_milestone FROM profiles WHERE id=?',(s['profile_id'],)).fetchone()
         current_row=c.execute('SELECT id,school_class,name,position,data FROM challenge_levels WHERE id=?',(s['challenge_level_id'],)).fetchone() if s['challenge_level_id'] else None
         same_level=(p['challenge_level_id']==s['challenge_level_id'])
         challenge_school=current_row['school_class'] if current_row else (s['challenge_class'] or p['school_class'])
@@ -1475,6 +1488,14 @@ def finish(sid):
         c.execute('UPDATE sessions SET star_awarded=1 WHERE id=?',(sid,))
     pstate=c.execute('SELECT coins,challenge_level_id,challenge_stars,school_class FROM profiles WHERE id=?',(s['profile_id'],)).fetchone()
     balance=pstate['coins']
+    # v275 : première fois que le solde atteint 10 pièces (prix d'une case de
+    # récompense) → clignotement des boutons Progrès/Récompenses jusqu'à ce que
+    # l'enfant ait vu l'onglet « Mes récompenses ». Une seule fois par profil.
+    coin_milestone=False
+    ms=c.execute('SELECT coin_milestone FROM profiles WHERE id=?',(s['profile_id'],)).fetchone()['coin_milestone']
+    if not s['rewarded'] and old_coins<10 and balance>=10 and ms==0:
+        c.execute('UPDATE profiles SET coin_milestone=1 WHERE id=?',(s['profile_id'],)); ms=1
+    if ms==1: coin_milestone=True
     current_level_row=c.execute('SELECT position FROM challenge_levels WHERE id=?',(pstate['challenge_level_id'],)).fetchone() if pstate['challenge_level_id'] else None
     current_level_position=current_level_row['position'] if current_level_row else 1
     promoted_level_name=None
@@ -1487,7 +1508,7 @@ def finish(sid):
         if nr:
             nrc=c.execute('SELECT color FROM class_settings WHERE school_class=?',(nr['school_class'],)).fetchone()
             promoted_level_color=nrc['color'] if nrc else '#3189dc'
-    c.commit(); c.close(); return {'ok':True,'coinsEarned':earned,'dailyBonus':daily_bonus,'starBonus':star_bonus,'levelBonus':level_bonus,'balance':balance,'starAwarded':star_awarded,'levelUnlocked':bool(promoted_level_name),'unlockedLevelName':promoted_level_name,'unlockedColor':promoted_level_color,'classCompleted':class_completed,'completedClass':completed_class,'nextClass':next_class,'completedColor':completed_color,'nextColor':next_color,'completedColorName':color_name_fr(completed_color) if completed_color else None,'nextColorName':color_name_fr(next_color) if next_color else None,'newRecord':new_record,'recordScore':record_score,'previousRecord':previous_record,'recordLevel':record_level_position,'recordColor':record_level_color,'challenge':{'level':current_level_position,'stars':pstate['challenge_stars']}}
+    c.commit(); c.close(); return {'ok':True,'coinsEarned':earned,'dailyBonus':daily_bonus,'starBonus':star_bonus,'levelBonus':level_bonus,'balance':balance,'coinMilestone':coin_milestone,'starAwarded':star_awarded,'levelUnlocked':bool(promoted_level_name),'unlockedLevelName':promoted_level_name,'unlockedColor':promoted_level_color,'classCompleted':class_completed,'completedClass':completed_class,'nextClass':next_class,'completedColor':completed_color,'nextColor':next_color,'completedColorName':color_name_fr(completed_color) if completed_color else None,'nextColorName':color_name_fr(next_color) if next_color else None,'newRecord':new_record,'recordScore':record_score,'previousRecord':previous_record,'recordLevel':record_level_position,'recordColor':record_level_color,'challenge':{'level':current_level_position,'stars':pstate['challenge_stars']}}
 
 @app.get('/api/rewards/<int:pid>')
 def rewards(pid):
