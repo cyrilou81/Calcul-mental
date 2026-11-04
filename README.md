@@ -1,3 +1,3 @@
-# Calcul mental — v273
+# Calcul mental — v274
 
-- Multiplications : ordre des facteurs aléatoire — la table choisie apparaît 50 % à gauche (2 × 9) et 50 % à droite (9 × 2).
+- Ajout à dizaine ronde : option « Avec retenue » comme les autres opérations — décochée, aucun calcul ne demande de retenue ; cochée, retenue possible ou non (cochée par défaut, configs existantes inchangées).

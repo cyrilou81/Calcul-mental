@@ -99,7 +99,7 @@ DEFAULT={
   'multiple_of':{'enabled':False,'weight':3,'min':1,'max':10,'factors':[3,4]},
   'fraction':{'enabled':False,'weight':3,'min':1,'max':10,'divisors':[3,4],'withCarry':False},
   'tens':{'enabled':True,'weight':3,'startMin':10,'startMax':99,'multiples':[10],'maxResult':100,'withCarry':True},
-  'round_tens_add':{'enabled':False,'weight':3,'aMin':10,'aMax':90,'secondMode':'non_tens','bMin':1,'bMax':9,'bTensValues':[10,20,30,40,50,60,70,80,90,100],'maxResult':100},
+  'round_tens_add':{'enabled':False,'weight':3,'aMin':10,'aMax':90,'secondMode':'non_tens','bMin':1,'bMax':9,'bTensValues':[10,20,30,40,50,60,70,80,90,100],'maxResult':100,'withCarry':True},
   'tens_sub':{'enabled':False,'weight':3,'startMin':20,'startMax':100,'multiples':[10],'nonNegative':True,'withCarry':True},
   'decimal_sub':{'enabled':False,'weight':3,'min':0,'max':20,'decimals':1,'withBorrow':True},
   'decimal_multiplication':{'enabled':False,'weight':3,'multipliers':[10,100,1000],'min':0.1,'max':20,'decimals':1},
@@ -493,8 +493,17 @@ def gen(kind,cfg):
         second=list(dict.fromkeys(second))
         if not second: raise ValueError("Aucun second terme possible avec ces réglages.")
         max_result=int(cfg.get('maxResult',100) or 0)
-        candidates=[(a,b) for a in first for b in second if not max_result or a+b<=max_result]
-        if not candidates: raise ValueError("Aucun ajout à dizaine ronde possible avec ce résultat max.")
+        with_carry=bool(cfg.get('withCarry',True))
+        def no_carry_rta(x,y):
+            while x or y:
+                if (x%10)+(y%10)>=10: return False
+                x//=10; y//=10
+            return True
+        candidates=[(a,b) for a in first for b in second
+                    if (not max_result or a+b<=max_result) and (with_carry or no_carry_rta(a,b))]
+        if not candidates:
+            if not with_carry: raise ValueError("Aucun ajout à dizaine ronde possible sans retenue avec ces réglages.")
+            raise ValueError("Aucun ajout à dizaine ronde possible avec ce résultat max.")
         a,b=random.choice(candidates)
         return {'a':a,'b':b},f'{a} + {b} = __',a+b
     if kind=='tens_sub':
@@ -787,6 +796,7 @@ def validate_cfg_data(data):
         rta['secondMode']=mode
         rta['maxResult']=int(rta.get('maxResult',100) or 0)
         if rta['maxResult'] < 0: raise ValueError('Le résultat max doit être positif.')
+        rta['withCarry']=bool(rta.get('withCarry',True))
         rta['bMin']=int(rta.get('bMin',1)); rta['bMax']=int(rta.get('bMax',9))
         if rta['bMin']>rta['bMax']: raise ValueError('La plage hors dizaine du second terme est invalide.')
         vals=[int(x) for x in rta.get('bTensValues',[10,20,30,40,50,60,70,80,90,100]) if int(x) in (10,20,30,40,50,60,70,80,90,100)]
