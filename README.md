@@ -1,3 +1,3 @@
-# Calcul mental — v275
+# Calcul mental — v276
 
-- Première fois que le solde atteint 10 pièces : le bouton « Mes progrès » de l'accueil puis l'onglet « Mes récompenses » clignotent pour montrer à l'enfant qu'il peut débloquer des récompenses — une seule fois par profil, jusqu'à ce qu'il ait vu l'onglet.
+- Fin de test : une image du dossier test_end_images (24 images) remplace le chien, piochée dans un sac mélangé — chaque image est vue une fois avant qu'une revienne, jamais deux fois la même de suite. Ajouter ou retirer des fichiers dans static/test_end_images suffit, aucun code à changer.

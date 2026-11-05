@@ -1226,6 +1226,16 @@ def milestone_seen(pid):
     c=db(); c.execute('UPDATE profiles SET coin_milestone=2 WHERE id=? AND coin_milestone=1',(pid,)); c.commit(); c.close()
     return {'ok':True}
 
+@app.get('/api/test-end-images')
+def test_end_images():
+    """v276 : images de fin de test, lues dynamiquement dans static/test_end_images —
+    ajouter ou retirer des fichiers suffit, aucun code à changer."""
+    if (e:=require_auth()): return e
+    d=ROOT/'static'/'test_end_images'
+    exts=('.png','.jpg','.jpeg','.gif','.webp')
+    names=sorted(f for f in os.listdir(d) if f.lower().endswith(exts)) if d.is_dir() else []
+    return {'images':['/test_end_images/'+f for f in names]}
+
 def clear_challenge_stats(c,pid,keep_session_id=None):
     # Lors d'une promotion automatique, on conserve uniquement la séance qui vient
     # de se terminer comme marqueur du défi quotidien ; elle appartient à l'ancien
