@@ -951,7 +951,7 @@ let b=$('#dailyChallengeBadge');b.classList.toggle('done',!!challengeState.doneT
 function localDateKey(){let d=new Date(),y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),day=String(d.getDate()).padStart(2,'0');return `${y}-${m}-${day}`}
 async function refreshChallenge(){challengeState=await api('/api/challenge/'+profile.id+'?date='+localDateKey());renderChallenge()}
 function selectMode(mode){currentMode=mode;let ch=mode==='challenge';$('#challengeTab').classList.toggle('active',ch);$('#learningTab').classList.toggle('active',!ch);$('#challengePane').classList.toggle('hidden',!ch);$('#learningPane').classList.toggle('hidden',ch)}
-async function login(p){profile=p;$('#hello').textContent=p.name;$('#coinCount').textContent=p.coins||0;$('#welcomeErr').textContent='';show('home');try{cfg=await api('/api/config/'+p.id);await refreshChallenge();updateSessionSummary();selectMode('challenge');api('/api/test-end-images',{cache:'no-store'}).then(r=>{if(endImages===null)endImages=r.images||[]}).catch(()=>{})}catch(e){profile=null;cfg=null;challengeState=null;$('#welcomeErr').textContent=e.message;show('welcome')}}
+async function login(p){profile=p;$('#hello').textContent=p.name;$('#coinCount').textContent=p.coins||0;$('#welcomeErr').textContent='';show('home');try{cfg=await api('/api/config/'+p.id);await refreshChallenge();updateSessionSummary();selectMode('challenge');api('/api/test-end-images',{cache:'no-store'}).then(r=>{if(endImages===null)endImages=r.images||[]}).catch(()=>{});syncPending()}catch(e){profile=null;cfg=null;challengeState=null;$('#welcomeErr').textContent=e.message;show('welcome')}}
 $('#logout').onclick=()=>{profile=null;show('welcome');loadProfiles()}; document.querySelectorAll('.back').forEach(b=>b.onclick=()=>{if(b.closest('#stats')&&(statsView==='category'||statsView==='session')){renderStats();return}if(b.closest('#stats'))stopStatsLiveRefresh();show('home')});
 const names=ConfigForm.names;
 function configNumber(v){let n=Number(String(v).trim().replace(',','.'));return Number.isFinite(n)?n:0}
@@ -998,7 +998,7 @@ function openHelp(){
     $('#helpOk').textContent='OK, j’ai compris';
     $('#helpOverlay').classList.remove('hidden');
     // La mémorisation statistique ne doit JAMAIS bloquer l'ouverture de l'aide.
-    api('/api/session/'+session.sessionId+'/help',{method:'POST',body:JSON.stringify({questionId:q.id})}).catch(()=>{});
+    api('/api/session/'+session.sessionId+'/help',{method:'POST',body:JSON.stringify({questionId:q.id})}).catch(e=>{if(e instanceof TypeError&&pending){pending.helps.push(q.id);savePending(pending)}});
   }catch(e){
     helpOpen=false; helpOpenedAt=0;
     console.error('Aide pédagogique:',e);
@@ -1020,9 +1020,30 @@ let pendingRecordVictory=null;
 let pendingStarVictory=false;
 function displayQ(){if(index>=session.questions.length||activeMs>=session.duration*1000)return finish();input='';attempts=0;wrongFlash=false;correction=false;questionTimeoutBusy=false;$('#feedback').textContent='';$('#progress').textContent=`Question ${index+1} / ${session.questions.length}`;qStart=performance.now();renderInput()}
 function flashWrong(remaining){wrongFlash=true;renderInput();let el=$('#question');el.classList.remove('shake');void el.offsetWidth;el.classList.add('shake');$('#feedback').textContent=remaining>0?`Essaie encore · ${remaining} essai${remaining>1?'s':''}`:'';setTimeout(()=>{wrongFlash=false;input='';renderInput();},520)}
-async function submit(){let q=session.questions[index],ms=Math.round(performance.now()-qStart);correction=true;let r=await api('/api/session/'+session.sessionId+'/answer',{method:'POST',body:JSON.stringify({questionId:q.id,answer:Number(input),responseMs:ms})});attempts=r.attempts;if(r.correct){soundSuccess();correction=false;index++;displayQ();return}soundFail();if(attempts<2){correction=false;flashWrong(1);return}q.expected=r.expected;wrongFlash=true;renderInput();$('#feedback').textContent='';openCorrection(q)}
-async function expireQuestion(){if(!session||questionTimeoutBusy||correction||helpOpen)return;questionTimeoutBusy=true;correction=true;let q=session.questions[index],ms=60000;try{let r=await api('/api/session/'+session.sessionId+'/timeout',{method:'POST',body:JSON.stringify({questionId:q.id,responseMs:ms,activeMs:Math.round(activeMs)})});q.expected=r.expected;wrongFlash=true;renderInput();$('#feedback').textContent='Temps dépassé';openCorrection(q)}catch(e){correction=false;questionTimeoutBusy=false}}
-async function abortOverlongTest(){if(!session)return;helpOpen=false;helpOpenedAt=0;$('#helpOverlay').classList.add('hidden');correction=false;ticking=false;if(timerHandle)cancelAnimationFrame(timerHandle);let sid=session.sessionId;session=null;try{await api('/api/session/'+sid,{method:'DELETE'})}catch(e){}alert('Le test a dépassé 15 minutes et a été arrêté. Il ne sera pas compté dans les statistiques.');show('home')}
+// v277 : mode offline — la séance en cours et ses réponses sont conservées
+// localement ; si le réseau lâche, le test continue et les résultats partent
+// tout seuls au retour de la connexion.
+let pending=null;
+function loadPending(){try{return JSON.parse(localStorage.getItem('pendingSync')||'null')}catch(e){return null}}
+function savePending(p){try{if(p)localStorage.setItem('pendingSync',JSON.stringify(p));else localStorage.removeItem('pendingSync')}catch(e){}}
+function decExp(q){if(q._dec===undefined){let s=(session&&session.expSalt)||'',bin=null;try{bin=atob(q.exp||'')}catch(e){}let out='';if(bin)for(let i=0;i<bin.length;i++)out+=String.fromCharCode(bin.charCodeAt(i)^(s.charCodeAt(i%s.length)||0));q._dec=parseFloat(out)}return q._dec}
+function applyJudge(q,r){q._err=q._err||!r.correct;if(r.correct)q._status=q._err?'INCORRECT':'CORRECT';else if(r.attempts>=2)q._status='INCORRECT'}
+function localAnswer(q,given,ms){q._att=(q._att||0)+1;const exp=decExp(q);const ok=Math.abs(given-exp)<1e-9;const r={correct:ok,expected:exp,attempts:q._att,remaining:Math.max(0,2-q._att)};applyJudge(q,r);return r}
+async function submit(){let q=session.questions[index],ms=Math.round(performance.now()-qStart);correction=true;let payload={questionId:q.id,answer:Number(input),responseMs:ms};let r;
+try{r=await api('/api/session/'+session.sessionId+'/answer',{method:'POST',body:JSON.stringify(payload)});q._att=r.attempts;applyJudge(q,r)}
+catch(e){
+ if(!(e instanceof TypeError))throw e;
+ r=localAnswer(q,payload.answer,ms);if(pending){pending.answers.push(payload);savePending(pending)}
+}
+attempts=r.attempts;if(r.correct){soundSuccess();correction=false;index++;displayQ();return}soundFail();if(attempts<2){correction=false;flashWrong(1);return}q.expected=r.expected;wrongFlash=true;renderInput();$('#feedback').textContent='';openCorrection(q)}
+async function expireQuestion(){if(!session||questionTimeoutBusy||correction||helpOpen)return;questionTimeoutBusy=true;correction=true;let q=session.questions[index],ms=60000;
+try{let r=await api('/api/session/'+session.sessionId+'/timeout',{method:'POST',body:JSON.stringify({questionId:q.id,responseMs:ms,activeMs:Math.round(activeMs)})});q.expected=r.expected;q._status='INCORRECT'}
+catch(e){
+ if(!(e instanceof TypeError)){correction=false;questionTimeoutBusy=false;return}
+ q.expected=decExp(q);q._status='INCORRECT';if(pending){pending.timeouts.push({questionId:q.id,responseMs:ms,activeMs:Math.round(activeMs)});savePending(pending)}
+}
+wrongFlash=true;renderInput();$('#feedback').textContent='Temps dépassé';openCorrection(q)}
+async function abortOverlongTest(){if(!session)return;helpOpen=false;helpOpenedAt=0;$('#helpOverlay').classList.add('hidden');correction=false;ticking=false;if(timerHandle)cancelAnimationFrame(timerHandle);let sid=session.sessionId;session=null;savePending(null);try{await api('/api/session/'+sid,{method:'DELETE'})}catch(e){}alert('Le test a dépassé 15 minutes et a été arrêté. Il ne sera pas compté dans les statistiques.');show('home')}
 function tick(t){if(!ticking)return;if(sessionWallStartedAt&&Date.now()-sessionWallStartedAt>=15*60*1000){abortOverlongTest();return}if(!correction&&!helpOpen){if(lastTick)activeMs+=t-lastTick}lastTick=t;let left=Math.max(0,session.duration*1000-activeMs),sec=Math.ceil(left/1000);$('#timer').textContent=String(Math.floor(sec/60)).padStart(2,'0')+':'+String(sec%60).padStart(2,'0');if(session&&Date.now()-lastHeartbeatAt>=2000){lastHeartbeatAt=Date.now();api('/api/session/'+session.sessionId+'/heartbeat',{method:'POST',body:JSON.stringify({activeMs:Math.round(activeMs)})}).catch(()=>{})}if(!correction&&!helpOpen&&!questionTimeoutBusy&&performance.now()-qStart>=60000){expireQuestion();timerHandle=requestAnimationFrame(tick);return}if(left<=0&&!correction){finish();return}timerHandle=requestAnimationFrame(tick)}
 let endImages=null,endImageBag=[];
 async function nextEndImage(){
@@ -1034,8 +1055,52 @@ async function nextEndImage(){
  return u
 }
 async function setEndImage(){let u=await nextEndImage();if(!u)return;let img=document.querySelector('#celebration .bravo-dog');if(img){img.src=u;img.alt='Surprise de fin de test !'}}
-async function finish(){if(!session)return;if(helpOpen)closeHelp();ticking=false;if(timerHandle)cancelAnimationFrame(timerHandle);let sid=session.sessionId,finishedMode=session.mode;session=null;let r=await api('/api/session/'+sid+'/finish',{method:'POST',body:JSON.stringify({activeMs:Math.round(activeMs),localDate:localDateKey()})});if(challengeState)challengeState.coinMilestone=!!r.coinMilestone;if(r.challenge){challengeState={...challengeState,...r.challenge};if(finishedMode==='challenge')challengeState.doneToday=true;if(finishedMode==='challenge'){try{await refreshChallenge()}catch(e){renderChallenge()}}else renderChallenge()}pendingRecordVictory=null;pendingStarVictory=false;pendingLevelVictory=null;pendingClassVictory=null;if(finishedMode==='challenge'){if(r.classCompleted){pendingClassVictory={completedColor:r.completedColor,nextColor:r.nextColor,completedColorName:r.completedColorName,nextColorName:r.nextColorName}}else if(r.levelUnlocked){pendingLevelVictory={name:r.unlockedLevelName||'',color:r.unlockedColor||(r.challenge&&r.challenge.classColor)||(challengeState&&challengeState.classColor)||''}}else if(r.starAwarded){pendingStarVictory=true}else if(r.newRecord){pendingRecordVictory={level:r.recordLevel||1,score:r.recordScore||0,color:r.recordColor||'#3189dc'}}}let celebrationText=document.querySelector('#celebration .celebration-visual p');if(celebrationText)celebrationText.textContent='Tu as fait de super efforts !';await setEndImage();show('celebration');applause();animateCoins(r.coinsEarned||0,r.balance||0,r.dailyBonus||0,r.starBonus||0,r.levelBonus||0)}
-async function stopCurrentTest(){if(!session)return;if(helpOpen)closeHelp();ticking=false;if(timerHandle)cancelAnimationFrame(timerHandle);let sid=session.sessionId;session=null;await api('/api/session/'+sid,{method:'DELETE'});show('home')}
+async function finish(){if(!session)return;if(helpOpen)closeHelp();ticking=false;if(timerHandle)cancelAnimationFrame(timerHandle);let sid=session.sessionId,finishedMode=session.mode,lastQuestions=session.questions||[];session=null;let r;
+try{await syncPending();r=await api('/api/session/'+sid+'/finish',{method:'POST',body:JSON.stringify({activeMs:Math.round(activeMs),localDate:localDateKey()})});savePending(null)}
+catch(e){
+ if(!(e instanceof TypeError))throw e;
+ r=localFinish(finishedMode,lastQuestions);if(pending){pending.finish={activeMs:Math.round(activeMs),localDate:localDateKey(),mode:finishedMode};savePending(pending)}
+}
+if(challengeState&&!r.offline)challengeState.coinMilestone=!!r.coinMilestone;if(r.challenge){challengeState={...challengeState,...r.challenge};if(finishedMode==='challenge')challengeState.doneToday=true;if(finishedMode==='challenge'){try{await refreshChallenge()}catch(e){renderChallenge()}}else renderChallenge()}pendingRecordVictory=null;pendingStarVictory=false;pendingLevelVictory=null;pendingClassVictory=null;if(finishedMode==='challenge'){if(r.classCompleted){pendingClassVictory={completedColor:r.completedColor,nextColor:r.nextColor,completedColorName:r.completedColorName,nextColorName:r.nextColorName}}else if(r.levelUnlocked){pendingLevelVictory={name:r.unlockedLevelName||'',color:r.unlockedColor||(r.challenge&&r.challenge.classColor)||(challengeState&&challengeState.classColor)||''}}else if(r.starAwarded){pendingStarVictory=true}else if(r.newRecord){pendingRecordVictory={level:r.recordLevel||1,score:r.recordScore||0,color:r.recordColor||'#3189dc'}}}let celebrationText=document.querySelector('#celebration .celebration-visual p');if(celebrationText)celebrationText.textContent='Tu as fait de super efforts !';await setEndImage();show('celebration');applause();animateCoins(r.coinsEarned||0,r.balance||0,r.dailyBonus||0,r.starBonus||0,r.levelBonus||0)}
+// Estimation locale des récompenses (affichée en cas de coupure ; le serveur
+// recalcule tout à la synchronisation).
+function localFinish(mode,qs){
+ let earned=0;for(let q of (qs||[]))if(q._status==='CORRECT')earned++;
+ let dailyBonus=(mode==='challenge'&&challengeState&&!challengeState.doneToday)?10:0;
+ let starBonus=0,levelBonus=0,starAwarded=false,levelUnlocked=false,unlockedLevelName=null;
+ if(mode==='challenge'&&challengeState){
+  let needed=Math.max(1,challengeState.requiredStars||4),stars=Math.max(0,challengeState.stars||0),threshold=challengeState.threshold||45;
+  if(earned>=threshold&&stars<needed){starBonus=10;starAwarded=true;if(stars+1>=needed){levelBonus=20;levelUnlocked=true;let nl=(challengeState.levels||[]).find(l=>l.position===((challengeState.level||1)+1));unlockedLevelName=nl?nl.name:null}}
+ }
+ let balance=(profile?profile.coins||0:0)+earned+dailyBonus+starBonus+levelBonus;
+ let estStars=(challengeState&&challengeState.stars)||0;
+ if(mode==='challenge'&&challengeState&&starAwarded)estStars=Math.min(Math.max(1,challengeState.requiredStars||4),estStars+1);
+ return {ok:true,offline:true,coinsEarned:earned,dailyBonus:dailyBonus,starBonus:starBonus,levelBonus:levelBonus,balance:balance,starAwarded:starAwarded,levelUnlocked:levelUnlocked,unlockedLevelName:unlockedLevelName,unlockedColor:(challengeState&&challengeState.classColor)||'#3189dc',classCompleted:false,completedClass:null,nextClass:null,completedColor:null,nextColor:null,completedColorName:null,nextColorName:null,newRecord:false,recordScore:earned,previousRecord:0,recordLevel:(challengeState&&challengeState.level)||1,recordColor:(challengeState&&challengeState.classColor)||'#3189dc',challenge:{level:(challengeState&&challengeState.level)||1,stars:estStars},coinMilestone:false}}
+// Rejoue tout ce qui s'est passé hors ligne, puis envoie le résultat final.
+let syncingPending=false;
+async function syncPending(){
+ if(syncingPending)return;
+ let p=loadPending();
+ if(!p||!p.sessionId)return;
+ if(navigator.onLine===false)return;
+ syncingPending=true;
+ try{
+  while(p.answers.length){await api('/api/session/'+p.sessionId+'/answer',{method:'POST',body:JSON.stringify(p.answers[0])});p.answers.shift();savePending(p)}
+  while(p.helps.length){await api('/api/session/'+p.sessionId+'/help',{method:'POST',body:JSON.stringify({questionId:p.helps[0]})});p.helps.shift();savePending(p)}
+  while(p.timeouts.length){await api('/api/session/'+p.sessionId+'/timeout',{method:'POST',body:JSON.stringify(p.timeouts[0])});p.timeouts.shift();savePending(p)}
+  if(p.finish){let r=await api('/api/session/'+p.sessionId+'/finish',{method:'POST',body:JSON.stringify({activeMs:p.finish.activeMs,localDate:p.finish.localDate})});
+   if(profile&&profile.id===p.profileId){profile.coins=(r.balance!==undefined)?r.balance:profile.coins;let c=$('#coinCount');if(c)c.textContent=profile.coins||0;
+    if(challengeState){if(r.challenge)challengeState={...challengeState,...r.challenge};if(r.coinMilestone)challengeState.coinMilestone=true;renderChallenge()}
+   }}
+  savePending(null)
+ }catch(e){
+  if(e instanceof TypeError){savePending(p)}
+  else if(/inconnue|inconnu|Profil/i.test(e.message||'')){savePending(null)}
+  else{savePending(p)}
+ }finally{syncingPending=false}
+}
+window.addEventListener('online',()=>syncPending());
+async function stopCurrentTest(){if(!session)return;if(helpOpen)closeHelp();ticking=false;if(timerHandle)cancelAnimationFrame(timerHandle);let sid=session.sessionId;session=null;savePending(null);try{await api('/api/session/'+sid,{method:'DELETE'})}catch(e){}show('home')}
 bindReliableTap($('#stop'),stopCurrentTest);
 let startingTest=false;
 async function startTest(mode){
@@ -1045,7 +1110,11 @@ async function startTest(mode){
   if(startBtn)startBtn.disabled=true;
   helpOpen=false;helpOpenedAt=0;$('#helpOverlay').classList.add('hidden');
   try{
+    await syncPending();
+    let p=loadPending();
+    if(p&&p.finish){throw new Error("Les résultats du test précédent n'ont pas pu être envoyés. Réessaie dans un instant.")}
     session=await api('/api/session/start/'+profile.id+'?mode='+mode,{method:'POST'});
+    pending={profileId:profile.id,sessionId:session.sessionId,answers:[],helps:[],timeouts:[],finish:null};savePending(pending);
     session.mode=mode;index=0;activeMs=0;lastTick=0;ticking=true;sessionWallStartedAt=Date.now();lastHeartbeatAt=0;questionTimeoutBusy=false;
     show('exercise');makeKeypad();displayQ();timerHandle=requestAnimationFrame(tick)
   }catch(e){

@@ -1,6 +1,6 @@
 from __future__ import annotations
 import json
-import random, sqlite3, statistics, time, copy, os, re
+import random, sqlite3, statistics, time, copy, os, re, base64
 from pathlib import Path
 from datetime import timedelta
 from flask import Flask, request, jsonify, send_from_directory, session, redirect, Response
@@ -1335,13 +1335,19 @@ def start(pid):
     cur=c.execute('INSERT INTO sessions(profile_id,mode,challenge_class,challenge_level_id,challenge_stars_start,duration_seconds) VALUES(?,?,?,?,?,?)',(pid,mode,challenge_class,challenge_level_id,challenge_stars_start,duration_seconds)); sid=cur.lastrowid
     for i,q in enumerate(qs): c.execute('INSERT INTO questions(session_id,position,kind,payload,display,expected,status,source,retry_from) VALUES(?,?,?,?,?,?,\'UNANSWERED\',?,?)',(sid,i,q['kind'],json.dumps(q['payload']),q['display'],q['expected'],q['source'],q['retry_from']))
     c.commit()
+    # v277 : la réponse attendue part chez le client encodée (XOR avec un sel
+    # propre à la séance) pour que le test puisse être jugé hors ligne, sans
+    # l'afficher en clair dans les devtools.
+    exp_salt=''.join(random.choices('ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789',k=12))
     rows=[]
-    for x in c.execute('SELECT id,position,kind,payload,display,source FROM questions WHERE session_id=? ORDER BY position',(sid,)):
+    for x in c.execute('SELECT id,position,kind,payload,display,source,expected FROM questions WHERE session_id=? ORDER BY position',(sid,)):
         row=dict(x)
+        expected=row.pop('expected')
+        row['exp']=base64.b64encode(bytes(ord(ch)^ord(exp_salt[i%len(exp_salt)]) for i,ch in enumerate(str(expected)))).decode('ascii')
         try: row['payload']=json.loads(row.get('payload') or '{}')
         except (TypeError,ValueError): row['payload']={}
         rows.append(row)
-    c.close(); return {'sessionId':sid,'duration':duration_seconds,'questions':rows}
+    c.close(); return {'sessionId':sid,'duration':duration_seconds,'expSalt':exp_salt,'questions':rows}
 @app.post('/api/session/<int:sid>/answer')
 def answer(sid):
     if (e:=require_auth()): return e
