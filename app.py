@@ -1636,10 +1636,13 @@ def star_advice(pid):
     if len(last)<3: c.close(); return {'show':False}
     scores=[c.execute("SELECT COUNT(*) n FROM questions WHERE session_id=? AND status='CORRECT'",(sid,)).fetchone()['n'] for sid in last]
     if sum(1 for s in scores if s>=30)<3: c.close(); return {'show':False}
-    # L'opération à travailler : celle avec le plus de questions ratées
-    # sur ces mêmes 5 défis (ratée au 1er essai, même réussie ensuite).
-    marks=c.execute("SELECT kind,COUNT(*) n FROM questions WHERE session_id IN (%s) AND (had_error=1 OR timed_out=1) GROUP BY kind ORDER BY n DESC LIMIT 1"%(','.join('?'*len(last))),tuple(last)).fetchall()
-    kind=marks[0]['kind'] if marks else None
+    # v288 : l'opération à travailler est celle où l'enfant met le plus de
+    # temps sur ces mêmes 5 défis. Médiane (pas moyenne) : une distraction
+    # isolée ne doit pas fausser la catégorie choisie.
+    rows=c.execute("SELECT kind,response_ms FROM questions WHERE session_id IN (%s) AND status!='UNANSWERED' AND response_ms IS NOT NULL"%(','.join('?'*len(last))),tuple(last)).fetchall()
+    times={}
+    for r in rows: times.setdefault(r['kind'],[]).append(r['response_ms'])
+    kind=max(times,key=lambda k:statistics.median(times[k])) if times else None
     c.close()
     return {'show':True,'kind':kind}
 
