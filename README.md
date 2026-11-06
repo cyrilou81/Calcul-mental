@@ -1,3 +1,3 @@
-# Calcul mental — v285
+# Calcul mental — v286
 
-- Carte conseil étoile : le bouton « S'entraîner » est maintenant centré sous le texte de la carte, au lieu d'être collé à droite.
+- Stats quasi instantanées : au clic sur Stats, le serveur ne calcule que la période affichée (5 ou 10 derniers tests) ; l'historique complet est calculé en tâche de fond, pour que « Tous » s'affiche immédiatement. L'export CSV garde l'historique complet.
