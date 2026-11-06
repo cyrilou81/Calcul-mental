@@ -551,6 +551,21 @@ def previous_errors(pid, mode='learning'):
     if not s: c.close(); return []
     rows=c.execute("SELECT id,kind,payload,display,expected FROM questions WHERE session_id=? AND status='INCORRECT' ORDER BY position",(s['id'],)).fetchall(); c.close(); return [dict(x) for x in rows]
 
+def challenge_focus_errors(pid,level_id,kind,count=5):
+    # v287 : erreurs de la catégorie dans les 5 derniers défis terminés du
+    # palier (même fenêtre que la carte conseil étoile). L'entraînement ciblé
+    # retravaille ce qui a raté dans ces défis, pas la dernière séance.
+    c=db(); ids=[r['id'] for r in c.execute("SELECT id FROM sessions WHERE profile_id=? AND mode='challenge' AND rewarded=1 AND challenge_level_id=? ORDER BY id DESC LIMIT 5",(pid,level_id)).fetchall()]
+    rows=c.execute("SELECT id,kind,payload,display,expected FROM questions WHERE session_id IN (%s) AND kind=? AND (had_error=1 OR timed_out=1) ORDER BY session_id,position"%','.join('?'*len(ids)),(*ids,kind)).fetchall() if ids else []
+    c.close()
+    out=[]; seen=set()
+    for r in rows:
+        k=operation_key(r['kind'],json.loads(r['payload']))
+        if k in seen: continue
+        seen.add(k); out.append(dict(r))
+        if len(out)>=count: break
+    return out
+
 def authenticated(): return isinstance(session.get('account_id'), int)
 def current_account_id(): return session.get('account_id')
 def require_auth():
@@ -1315,7 +1330,13 @@ def start(pid):
     count=cfg.get('count',50)
     active_kinds={k for k,v in cfg['categories'].items() if v.get('enabled') and int(v.get('weight',0) or 0)>0}
     # Un Défi doit rester standardisé : aucune reprise d'erreur d'une séance précédente.
-    retries=[] if mode=='challenge' else [r for r in previous_errors(pid,'learning') if r['kind'] in active_kinds][:count]
+    if mode=='learning' and focus:
+        # v287 : l'entraînement ciblé rejoue les erreurs de la catégorie dans
+        # les 5 derniers défis du palier (fenêtre de la carte conseil), pas
+        # celles de la dernière séance d'entraînement.
+        retries=challenge_focus_errors(pid,challenge_level_id,focus,count)
+    else:
+        retries=[] if mode=='challenge' else [r for r in previous_errors(pid,'learning') if r['kind'] in active_kinds][:count]
     remaining=count-len(retries); alloc=allocate(remaining,cfg['categories']) if remaining else {}
     qs=[]
     for r in retries:

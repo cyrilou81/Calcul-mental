@@ -1,3 +1,3 @@
-# Calcul mental — v286
+# Calcul mental — v287
 
-- Stats quasi instantanées : au clic sur Stats, le serveur ne calcule que la période affichée (5 ou 10 derniers tests) ; l'historique complet est calculé en tâche de fond, pour que « Tous » s'affiche immédiatement. L'export CSV garde l'historique complet.
+- Entraînement ciblé « S'entraîner » : les erreurs rejouées viennent maintenant des 5 derniers défis terminés du palier (uniquement dans la catégorie du conseil), au lieu de la dernière séance d'entraînement. Le reste de la séance complète avec des questions nouvelles de la catégorie.
