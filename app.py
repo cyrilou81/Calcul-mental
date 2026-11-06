@@ -1665,21 +1665,16 @@ def star_advice(pid):
         p=c.execute('SELECT challenge_level_id FROM profiles WHERE id=?',(pid,)).fetchone()
         level_id=p['challenge_level_id'] if p else None
     if not level_id: c.close(); return {'show':False}
-    # Déclencheur (défis du niveau uniquement, terminés) : à partir du 5e défi,
-    # quand les 3 derniers sont tous à 30 bonnes réponses ou plus. Collant :
-    # une fois enclenché, le conseil reste même si les scores retombent ensuite.
-    # v280 : une seule requête agrégée. Les COUNT unitaires par défi obligeaient
-    # SQLite à relire toute la table des questions pour chaque défi du palier
-    # (des millions de lignes lues sur un historique conséquent) et figeaient
-    # le site le temps du calcul. L'index ix_questions_session fait le reste.
-    rows=c.execute("SELECT s.id sid,COUNT(q.id) n FROM sessions s LEFT JOIN questions q ON q.session_id=s.id AND q.status='CORRECT' WHERE s.profile_id=? AND s.mode='challenge' AND s.challenge_level_id=? AND s.rewarded=1 GROUP BY s.id ORDER BY s.id",(pid,level_id)).fetchall()
-    sids=[r['sid'] for r in rows]; scores=[r['n'] for r in rows]
-    triggered=any(i>=4 and scores[i-2]>=30 and scores[i-1]>=30 and scores[i]>=30 for i in range(len(scores)))
-    if not triggered: c.close(); return {'show':False}
-    # Analyse des erreurs sur les 5 derniers défis du niveau. Une question
+    # v281 : volontairement simple — uniquement les 5 derniers défis terminés
+    # du palier de l'enfant (~250 questions lues), rien de plus. La carte
+    # s'affiche si au moins 3 de ces 5 défis sont à 30 bonnes réponses ou plus.
+    last=[r['id'] for r in c.execute("SELECT id FROM sessions WHERE profile_id=? AND mode='challenge' AND challenge_level_id=? AND rewarded=1 ORDER BY id DESC LIMIT 5",(pid,level_id))]
+    if len(last)<3: c.close(); return {'show':False}
+    scores=[c.execute("SELECT COUNT(*) n FROM questions WHERE session_id=? AND status='CORRECT'",(sid,)).fetchone()['n'] for sid in last]
+    if sum(1 for s in scores if s>=30)<3: c.close(); return {'show':False}
+    # Analyse des erreurs sur ces mêmes 5 derniers défis. Une question
     # compte dès qu'une tentative a été ratée, même réussie ensuite au 2e essai.
-    last=sids[-5:]
-    marks=c.execute("SELECT kind,expected,first_wrong_answer,last_answer,timed_out,payload FROM questions WHERE session_id IN (%s) AND (had_error=1 OR timed_out=1) ORDER BY id ASC"%(','.join('?'*len(last))),tuple(last)).fetchall() if last else []
+    marks=c.execute("SELECT kind,expected,first_wrong_answer,last_answer,timed_out,payload FROM questions WHERE session_id IN (%s) AND (had_error=1 OR timed_out=1) ORDER BY id ASC"%(','.join('?'*len(last))),tuple(last)).fetchall()
     per_kind={}
     for m in marks:
         given=m['first_wrong_answer'] if m['first_wrong_answer'] is not None else m['last_answer']

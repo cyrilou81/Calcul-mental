@@ -1,3 +1,3 @@
-# Calcul mental — v280
+# Calcul mental — v281
 
-- Correctif performance : stats et conseil étoile relisaient toute la table des questions à chaque séance (aucun index en base) — « Mes progrès » gelait et tout le site ralentissait dès que l'historique grandissait. Index SQLite ix_questions_session(session_id,status) et ix_sessions_level(profile_id,mode,challenge_level_id), requête agrégée unique pour les scores du conseil, et affichage de « Mes progrès » qui n'attend plus la carte conseil (elle apparaît en tâche de fond). Mesuré : star-advice 829 ms → 5 ms sur une base de 126 000 questions.
+- Conseil étoile simplifié : le déclencheur ne lit que les 5 derniers défis terminés du palier de l'enfant (~250 questions), et la carte s'affiche si au moins 3 de ces 5 défis sont à 30 bonnes réponses ou plus. Fin du balayage de tout l'historique et du comportement « collant » ; les erreurs analysées sont celles de ces mêmes 5 défis.
