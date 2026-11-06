@@ -1290,12 +1290,28 @@ def start(pid):
         c0.close()
     else:
         cfg=get_cfg(pid)
+        focus=(request.args.get('focus') or '').strip()
+        if focus:
+            # v284 : entraînement ciblé du conseil étoile — 5 questions d'une
+            # seule opération, aux réglages du palier courant (V192), pour
+            # travailler ce qui bloque la prochaine étoile.
+            c0=db(); p0=c0.execute('SELECT school_class,challenge_level_id FROM profiles WHERE id=?',(pid,)).fetchone()
+            cc,row,_,_=resolve_profile_level(c0,p0); c0.close()
+            if not row: return {'error':'Catégorie introuvable'},400
+            cfg=merged_cfg(json.loads(row['data']))
+            if focus not in cfg['categories']: return {'error':'Catégorie introuvable'},400
+            challenge_class=cc; challenge_level_id=row['id']
+            cfg['count']=5
+            cfg['categories'][focus]['enabled']=True; cfg['categories'][focus]['weight']=1
     # Valide et normalise la configuration au démarrage.
     # Les poids de fréquence ne doivent jamais bloquer silencieusement une séance.
     try:
         cfg=validate_cfg_data(cfg)
     except (ValueError,TypeError,KeyError) as ex:
         return {'error':str(ex)},400
+    if mode=='learning' and focus:
+        # v284 : entraînement ciblé — une seule catégorie, celle du conseil.
+        cfg['categories']={focus:cfg['categories'][focus]}
     count=cfg.get('count',50)
     active_kinds={k for k,v in cfg['categories'].items() if v.get('enabled') and int(v.get('weight',0) or 0)>0}
     # Un Défi doit rester standardisé : aucune reprise d'erreur d'une séance précédente.
@@ -1584,6 +1600,27 @@ def reveal_reward(pid):
     else: c.execute('UPDATE reward_progress SET revealed=? WHERE profile_id=?',(json.dumps(revealed),pid))
     balance=p['coins']-cost; c.commit(); c.close()
     return {'ok':True,'pieces':pieces,'piece':pieces[0] if pieces else None,'revealedCount':count,'spent':cost,'done':done,'coins':balance,'revealed':([] if done else revealed),'completed':completed}
+
+@app.get('/api/star-advice/<int:pid>')
+def star_advice(pid):
+    if (e:=require_auth()): return e
+    if not owns_profile(pid): return {'error':'Profil introuvable'},404
+    c=db()
+    p=c.execute('SELECT challenge_level_id FROM profiles WHERE id=?',(pid,)).fetchone()
+    level_id=p['challenge_level_id'] if p else None
+    if not level_id: c.close(); return {'show':False}
+    # v284 : volontairement simple — les 5 derniers défis terminés du palier.
+    # La carte s'affiche si au moins 3 de ces défis sont à 30 bonnes réponses.
+    last=[r['id'] for r in c.execute("SELECT id FROM sessions WHERE profile_id=? AND mode='challenge' AND challenge_level_id=? AND rewarded=1 ORDER BY id DESC LIMIT 5",(pid,level_id))]
+    if len(last)<3: c.close(); return {'show':False}
+    scores=[c.execute("SELECT COUNT(*) n FROM questions WHERE session_id=? AND status='CORRECT'",(sid,)).fetchone()['n'] for sid in last]
+    if sum(1 for s in scores if s>=30)<3: c.close(); return {'show':False}
+    # L'opération à travailler : celle avec le plus de questions ratées
+    # sur ces mêmes 5 défis (ratée au 1er essai, même réussie ensuite).
+    marks=c.execute("SELECT kind,COUNT(*) n FROM questions WHERE session_id IN (%s) AND (had_error=1 OR timed_out=1) GROUP BY kind ORDER BY n DESC LIMIT 1"%(','.join('?'*len(last))),tuple(last)).fetchall()
+    kind=marks[0]['kind'] if marks else None
+    c.close()
+    return {'show':True,'kind':kind}
 
 @app.get('/api/stats/<int:pid>')
 def stats(pid):

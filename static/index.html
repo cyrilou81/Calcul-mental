@@ -1103,7 +1103,7 @@ window.addEventListener('online',()=>syncPending());
 async function stopCurrentTest(){if(!session)return;if(helpOpen)closeHelp();ticking=false;if(timerHandle)cancelAnimationFrame(timerHandle);let sid=session.sessionId;session=null;savePending(null);try{await api('/api/session/'+sid,{method:'DELETE'})}catch(e){}show('home')}
 bindReliableTap($('#stop'),stopCurrentTest);
 let startingTest=false;
-async function startTest(mode){
+async function startTest(mode,focus){
   if(startingTest||session)return;
   startingTest=true;
   const startBtn=mode==='challenge'?$('#challengeStart'):$('#start');
@@ -1113,7 +1113,7 @@ async function startTest(mode){
     await syncPending();
     let p=loadPending();
     if(p&&p.finish){throw new Error("Les résultats du test précédent n'ont pas pu être envoyés. Réessaie dans un instant.")}
-    session=await api('/api/session/start/'+profile.id+'?mode='+mode,{method:'POST'});
+    session=await api('/api/session/start/'+profile.id+'?mode='+mode+(mode==='learning'&&focus?'&focus='+encodeURIComponent(focus):''),{method:'POST'});
     pending={profileId:profile.id,sessionId:session.sessionId,answers:[],helps:[],timeouts:[],finish:null};savePending(pending);
     session.mode=mode;index=0;activeMs=0;lastTick=0;ticking=true;sessionWallStartedAt=Date.now();lastHeartbeatAt=0;questionTimeoutBusy=false;
     show('exercise');makeKeypad();displayQ();timerHandle=requestAnimationFrame(tick)
@@ -1170,12 +1170,18 @@ function challengeProgressHtml(ch){
  let needed=Math.max(1,ch?.requiredStars||4),stars=Math.max(0,ch?.stars||0),symbols='⭐'.repeat(stars)+'☆'.repeat(Math.max(0,needed-stars));
  return `<div class="progress-challenge-card"><div class="challenge-medal" style="--medal:${escapeHtml(ch?.classColor||'#3189dc')}" aria-label="Niveau ${ch?.level||1}">${ch?.level||1}</div><div class="progress-challenge-copy"><div class="progress-kicker">Défi en cours</div><div class="progress-level">Niveau ${ch?.level||1}</div><div class="progress-stars">${symbols}</div></div></div>`;
 }
+function starAdviceHtml(advice){
+ if(!advice||!advice.show)return '';
+ if(!advice.kind)return '<div class="star-advice"><div class="star-advice-text">⭐ <strong>Tu es tout près de ton étoile !</strong> Continue comme ça.</div></div>';
+ return `<div class="star-advice"><div class="star-advice-text">⭐ <strong>Pour gagner ta prochaine étoile</strong>, il te manque surtout : <strong>${names[advice.kind]||advice.kind}</strong></div><button class="primary star-advice-btn" data-focus="${advice.kind}">S'entraîner</button></div>`;
+}
 async function openRewards(initialView='progress'){
  let [r,st]=await Promise.all([api('/api/rewards/'+profile.id,{cache:'no-store'}),api('/api/stats/'+profile.id+'?mode=challenge&_='+Date.now(),{cache:'no-store'})]);
  r.cards.forEach(c=>rewardCardMap[c.id]=c);rewardState=r;profile.coins=r.coins;$('#coinCount').textContent=r.coins;$('#rewardCoinCount').textContent=r.coins;
  let giftsInitially=initialView==='gifts';
- let root=$('#rewardContent');root.innerHTML=`<div class="progress-tabs" role="tablist" aria-label="Progrès et récompenses"><button class="progress-tab ${giftsInitially?'':'active'}" data-progress-view="progress" role="tab" aria-selected="${giftsInitially?'false':'true'}">📈 Mes progrès</button><button class="progress-tab ${giftsInitially?'active':''}" data-progress-view="gifts" role="tab" aria-selected="${giftsInitially?'true':'false'}">🎁 Mes récompenses</button></div><div id="progressPanel" class="progress-panel ${giftsInitially?'hidden':''}">${challengeProgressHtml(challengeState)}${progressChartHtml(st.sessions,(challengeState&&challengeState.threshold)||45)}</div><div id="giftsPanel" class="progress-panel ${giftsInitially?'':'hidden'}"><div id="rewardInner"></div></div>`;
+ let root=$('#rewardContent');root.innerHTML=`<div class="progress-tabs" role="tablist" aria-label="Progrès et récompenses"><button class="progress-tab ${giftsInitially?'':'active'}" data-progress-view="progress" role="tab" aria-selected="${giftsInitially?'false':'true'}">📈 Mes progrès</button><button class="progress-tab ${giftsInitially?'active':''}" data-progress-view="gifts" role="tab" aria-selected="${giftsInitially?'true':'false'}">🎁 Mes récompenses</button></div><div id="progressPanel" class="progress-panel ${giftsInitially?'hidden':''}">${challengeProgressHtml(challengeState)}${progressChartHtml(st.sessions,(challengeState&&challengeState.threshold)||45)}<div id="starAdviceSlot"></div></div><div id="giftsPanel" class="progress-panel ${giftsInitially?'':'hidden'}"><div id="rewardInner"></div></div>`;
  renderRewards(r,$('#rewardInner'));
+ api('/api/star-advice/'+profile.id,{cache:'no-store'}).then(advice=>{let slot=root.querySelector('#starAdviceSlot');if(!slot)return;slot.innerHTML=starAdviceHtml(advice);slot.querySelectorAll('.star-advice-btn').forEach(b=>b.onclick=()=>startTest('learning',b.dataset.focus))}).catch(e=>console.warn('conseil étoile indisponible',e));
  let giftsTab=root.querySelector('.progress-tab[data-progress-view="gifts"]'),milestonePending=!!(challengeState&&challengeState.coinMilestone);
  if(milestonePending)giftsTab.classList.add('blink-attention');
  let clearMilestone=()=>{if(!milestonePending)return;milestonePending=false;giftsTab.classList.remove('blink-attention');if(challengeState)challengeState.coinMilestone=false;updateCoinBlink();api('/api/profile/'+profile.id+'/milestone-seen',{method:'POST'}).catch(()=>{})};
@@ -1580,4 +1586,9 @@ document.addEventListener('touchend',e=>{
 .blink-attention{animation:v275Blink 1.05s ease-in-out infinite}
 @keyframes v275Blink{0%,100%{background:#269ee8;color:#fff;box-shadow:0 0 0 0 rgba(255,217,61,0)}50%{background:#ffb51b;color:#17384d;box-shadow:0 0 0 7px rgba(255,217,61,.45)}}
 .progress-tab.blink-attention{animation:v275Blink 1.05s ease-in-out infinite}
+</style>
+<style id="v284-star-advice">/* v284 — carte conseil pour gagner la prochaine étoile, dans « Mes progrès », sous le graphe */
+.star-advice{display:flex;flex-wrap:wrap;gap:14px;align-items:center;justify-content:space-between;margin:0 auto 24px;max-width:980px;padding:16px 18px;border:2px solid #ffd93d;border-radius:18px;background:#fff9e8;box-shadow:0 6px 16px rgba(255,199,44,.15)}
+.star-advice-text{font-size:17px;font-weight:650;color:#6b4d00;flex:1;min-width:230px}
+.star-advice-btn{min-width:190px}
 </style>
