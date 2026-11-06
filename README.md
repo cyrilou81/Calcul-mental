@@ -1,3 +1,3 @@
-# Calcul mental — v289
+# Calcul mental — v290
 
-- Entraînement ciblé « S'entraîner » : les questions rejouées sont désormais les plus lentes de la catégorie (temps de réponse le plus élevé) dans les 5 derniers défis du palier, au lieu des questions ratées. Une question lente mais réussie peut donc être retravaillée.
+- Détail d'une séance dans les stats : les calculs effectués peuvent maintenant être triés par temps (du plus lent au plus rapide) en plus de l'ordre d'arrivée, grâce à un petit sélecteur au-dessus du tableau. Le n° de ligne garde le numéro d'arrivée d'origine.
