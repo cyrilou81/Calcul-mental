@@ -1,3 +1,3 @@
-# Calcul mental — v290
+# Calcul mental — v291
 
-- Détail d'une séance dans les stats : les calculs effectués peuvent maintenant être triés par temps (du plus lent au plus rapide) en plus de l'ordre d'arrivée, grâce à un petit sélecteur au-dessus du tableau. Le n° de ligne garde le numéro d'arrivée d'origine.
+- Carte conseil étoile : le choix de la catégorie tient maintenant compte du nombre de questions. Chaque question vaut son temps moins la médiane de toutes les questions des 5 derniers défis (positif ou négatif), on additionne par catégorie : la catégorie conseillée est celle dont l'impact total sur le temps est le plus élevé.

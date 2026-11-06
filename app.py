@@ -1636,13 +1636,16 @@ def star_advice(pid):
     if len(last)<3: c.close(); return {'show':False}
     scores=[c.execute("SELECT COUNT(*) n FROM questions WHERE session_id=? AND status='CORRECT'",(sid,)).fetchone()['n'] for sid in last]
     if sum(1 for s in scores if s>=30)<3: c.close(); return {'show':False}
-    # v288 : l'opération à travailler est celle où l'enfant met le plus de
-    # temps sur ces mêmes 5 défis. Médiane (pas moyenne) : une distraction
-    # isolée ne doit pas fausser la catégorie choisie.
+    # v291 : score d'impact de chaque catégorie sur ces mêmes 5 défis.
+    # Référence = la médiane du temps de TOUTES les questions ; chaque
+    # question vaut (son temps − cette médiane), positif ou négatif, et on
+    # additionne par catégorie. Une catégorie lente mais rare ne pèse ainsi
+    # pas plus lourd qu'une catégorie un peu moins lente mais fréquente.
     rows=c.execute("SELECT kind,response_ms FROM questions WHERE session_id IN (%s) AND status!='UNANSWERED' AND response_ms IS NOT NULL"%(','.join('?'*len(last))),tuple(last)).fetchall()
-    times={}
-    for r in rows: times.setdefault(r['kind'],[]).append(r['response_ms'])
-    kind=max(times,key=lambda k:statistics.median(times[k])) if times else None
+    med=statistics.median([r['response_ms'] for r in rows]) if rows else None
+    scores={}
+    for r in rows: scores[r['kind']]=scores.get(r['kind'],0)+r['response_ms']-med
+    kind=max(scores,key=lambda k:scores[k]) if scores else None
     c.close()
     return {'show':True,'kind':kind}
 
