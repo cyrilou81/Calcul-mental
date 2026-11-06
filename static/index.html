@@ -1157,7 +1157,7 @@ let levelTabs=statsMode==='challenge'?`<div class="slevel-tabs">${(s.levels||[])
 if(advice&&advice.show){
  if(advice.kind){
   let hint=(advice.errorType&&STAR_ADVICE_HINTS[advice.errorType])?`<span class="star-advice-hint">${STAR_ADVICE_HINTS[advice.errorType]}</span>`:'';
-  adviceHtml=`<div class="star-advice"><div class="star-advice-text">⭐ <strong>Pour gagner ta prochaine étoile</strong>, il te manque surtout : <strong>${names[advice.kind]||advice.kind}</strong>${hint}</div><button class="primary star-advice-btn" data-focus="${advice.kind}">S'entraîner (10 questions)</button></div>`;
+  adviceHtml=`<div class="star-advice"><div class="star-advice-text">⭐ <strong>Pour gagner ta prochaine étoile</strong>, il te manque surtout : <strong>${names[advice.kind]||advice.kind}</strong>${hint}</div><button class="primary star-advice-btn" data-focus="${advice.kind}">S'entraîner (5 questions)</button></div>`;
  }else{
   adviceHtml=`<div class="star-advice"><div class="star-advice-text">⭐ <strong>Tu es tout près de ton étoile !</strong> Continue comme ça.</div></div>`;
  }

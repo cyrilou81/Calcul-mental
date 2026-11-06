@@ -1304,15 +1304,15 @@ def start(pid):
         cfg=validate_cfg_data(cfg)
     except (ValueError,TypeError,KeyError) as ex:
         return {'error':str(ex)},400
-    # v278 : séance ciblée — 10 questions d'une seule catégorie du palier.
+    # v278 : séance ciblée — 5 questions d'une seule catégorie du palier.
     if focus:
         if focus not in cfg['categories']: return {'error':'Catégorie introuvable'},400
-        count=10
+        count=5
     else:
         count=cfg.get('count',50)
     active_kinds={k for k,v in cfg['categories'].items() if v.get('enabled') and int(v.get('weight',0) or 0)>0}
     # Un Défi doit rester standardisé : aucune reprise d'erreur d'une séance précédente.
-    # v278 : entraînement ciblé — les 10 dernières erreurs de la catégorie dans
+    # v278 : entraînement ciblé — les 5 dernières erreurs de la catégorie dans
     # le palier courant (défis et entraînements ciblés précédents, y compris
     # les questions ratées au 1er essai puis réussies au 2e), sans doublon de
     # calcul, les plus anciennes d'abord ; le reste est généré aléatoirement.
