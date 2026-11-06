@@ -551,12 +551,12 @@ def previous_errors(pid, mode='learning'):
     if not s: c.close(); return []
     rows=c.execute("SELECT id,kind,payload,display,expected FROM questions WHERE session_id=? AND status='INCORRECT' ORDER BY position",(s['id'],)).fetchall(); c.close(); return [dict(x) for x in rows]
 
-def challenge_focus_errors(pid,level_id,kind,count=5):
-    # v287 : erreurs de la catégorie dans les 5 derniers défis terminés du
-    # palier (même fenêtre que la carte conseil étoile). L'entraînement ciblé
-    # retravaille ce qui a raté dans ces défis, pas la dernière séance.
+def challenge_focus_slowest(pid,level_id,kind,count=5):
+    # v289 : questions les plus lentes de la catégorie dans les 5 derniers
+    # défis terminés du palier (même fenêtre que la carte conseil étoile).
+    # L'entraînement ciblé retravaille d'abord ce qui freine l'enfant.
     c=db(); ids=[r['id'] for r in c.execute("SELECT id FROM sessions WHERE profile_id=? AND mode='challenge' AND rewarded=1 AND challenge_level_id=? ORDER BY id DESC LIMIT 5",(pid,level_id)).fetchall()]
-    rows=c.execute("SELECT id,kind,payload,display,expected FROM questions WHERE session_id IN (%s) AND kind=? AND (had_error=1 OR timed_out=1) ORDER BY session_id,position"%','.join('?'*len(ids)),(*ids,kind)).fetchall() if ids else []
+    rows=c.execute("SELECT id,kind,payload,display,expected FROM questions WHERE session_id IN (%s) AND kind=? AND status!='UNANSWERED' AND response_ms IS NOT NULL ORDER BY response_ms DESC"%','.join('?'*len(ids)),(*ids,kind)).fetchall() if ids else []
     c.close()
     out=[]; seen=set()
     for r in rows:
@@ -1331,10 +1331,10 @@ def start(pid):
     active_kinds={k for k,v in cfg['categories'].items() if v.get('enabled') and int(v.get('weight',0) or 0)>0}
     # Un Défi doit rester standardisé : aucune reprise d'erreur d'une séance précédente.
     if mode=='learning' and focus:
-        # v287 : l'entraînement ciblé rejoue les erreurs de la catégorie dans
-        # les 5 derniers défis du palier (fenêtre de la carte conseil), pas
-        # celles de la dernière séance d'entraînement.
-        retries=challenge_focus_errors(pid,challenge_level_id,focus,count)
+        # v289 : l'entraînement ciblé rejoue les questions les plus lentes de
+        # la catégorie dans les 5 derniers défis du palier (fenêtre de la
+        # carte conseil), pas la dernière séance d'entraînement.
+        retries=challenge_focus_slowest(pid,challenge_level_id,focus,count)
     else:
         retries=[] if mode=='challenge' else [r for r in previous_errors(pid,'learning') if r['kind'] in active_kinds][:count]
     remaining=count-len(retries); alloc=allocate(remaining,cfg['categories']) if remaining else {}
