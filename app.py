@@ -1727,6 +1727,12 @@ def stats(pid):
         ss=[dict(x) for x in c.execute('SELECT id,started_at,active_ms,mode,rewarded FROM sessions WHERE profile_id=? AND mode=? AND challenge_level_id=? ORDER BY id DESC',(pid,mode,level_id))] if level_id else []
     else:
         ss=[dict(x) for x in c.execute('SELECT id,started_at,active_ms,mode,rewarded FROM sessions WHERE profile_id=? AND mode=? ORDER BY id DESC',(pid,mode))]
+    # v282 : requêtes bornées — le front précise combien de séances il affiche
+    # (limit absent ou 0 => tout l'historique, pour l'export CSV notamment).
+    # On ne recalcule plus des milliers de séances à chaque clic.
+    try: limit=max(0,int(request.args.get('limit') or 0))
+    except (TypeError,ValueError): limit=0
+    if limit: ss=ss[:limit]
     out=[]
     for s in ss:
         qs=[dict(x) for x in c.execute("SELECT * FROM questions WHERE session_id=? AND status!='UNANSWERED'",(s['id'],))]

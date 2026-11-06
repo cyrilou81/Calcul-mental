@@ -1,3 +1,3 @@
-# Calcul mental — v281
+# Calcul mental — v282
 
-- Conseil étoile simplifié : le déclencheur ne lit que les 5 derniers défis terminés du palier de l'enfant (~250 questions), et la carte s'affiche si au moins 3 de ces 5 défis sont à 30 bonnes réponses ou plus. Fin du balayage de tout l'historique et du comportement « collant » ; les erreurs analysées sont celles de ces mêmes 5 défis.
+- Stats bornées : /api/stats accepte ?limit=N — le front envoie la période affichée (5 ou 10 derniers tests, « Tous » reste complet) et « Mes progrès » ne charge que les 8 dernières séances pour son graphe. Le bouton Stats ouvre l'écran immédiatement avec un « Chargement… » au lieu d'attendre le serveur. L'export CSV garde l'historique complet. Fini le recalcul de tout l'historique d'entraînements à chaque clic et à chaque rafraîchissement automatique.
