@@ -60,6 +60,11 @@ def init_db():
         data TEXT NOT NULL, active INTEGER NOT NULL DEFAULT 1, UNIQUE(school_class, position)
     );
     CREATE TABLE IF NOT EXISTS class_settings(school_class TEXT PRIMARY KEY, color TEXT NOT NULL);
+    -- v280 : sans ces index, chaque requête par séance relisait TOUTE la table
+    -- des questions (stats et conseil étoile) — le site gelait dès que
+    -- l'historique devenait conséquent.
+    CREATE INDEX IF NOT EXISTS ix_questions_session ON questions(session_id,status);
+    CREATE INDEX IF NOT EXISTS ix_sessions_level ON sessions(profile_id,mode,challenge_level_id);
     """)
     # Migration v268 : mémorise le nombre d'étoiles au début de chaque Défi.
     # Cela permet d'avoir un record indépendant pour chaque étape d'étoile.
@@ -1663,8 +1668,12 @@ def star_advice(pid):
     # Déclencheur (défis du niveau uniquement, terminés) : à partir du 5e défi,
     # quand les 3 derniers sont tous à 30 bonnes réponses ou plus. Collant :
     # une fois enclenché, le conseil reste même si les scores retombent ensuite.
-    sids=[r['id'] for r in c.execute("SELECT id FROM sessions WHERE profile_id=? AND mode='challenge' AND challenge_level_id=? AND rewarded=1 ORDER BY id ASC",(pid,level_id))]
-    scores=[c.execute("SELECT COUNT(*) n FROM questions WHERE session_id=? AND status='CORRECT'",(sid,)).fetchone()['n'] for sid in sids]
+    # v280 : une seule requête agrégée. Les COUNT unitaires par défi obligeaient
+    # SQLite à relire toute la table des questions pour chaque défi du palier
+    # (des millions de lignes lues sur un historique conséquent) et figeaient
+    # le site le temps du calcul. L'index ix_questions_session fait le reste.
+    rows=c.execute("SELECT s.id sid,COUNT(q.id) n FROM sessions s LEFT JOIN questions q ON q.session_id=s.id AND q.status='CORRECT' WHERE s.profile_id=? AND s.mode='challenge' AND s.challenge_level_id=? AND s.rewarded=1 GROUP BY s.id ORDER BY s.id",(pid,level_id)).fetchall()
+    sids=[r['sid'] for r in rows]; scores=[r['n'] for r in rows]
     triggered=any(i>=4 and scores[i-2]>=30 and scores[i-1]>=30 and scores[i]>=30 for i in range(len(scores)))
     if not triggered: c.close(); return {'show':False}
     # Analyse des erreurs sur les 5 derniers défis du niveau. Une question
