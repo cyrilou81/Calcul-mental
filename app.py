@@ -1275,6 +1275,9 @@ def start(pid):
     if not owns_profile(pid): return {'error':'Profil introuvable'},404
     mode=(request.args.get('mode') or 'learning').lower()
     if mode not in ('learning','challenge'): mode='learning'
+    # v278 : entraînement ciblé — une seule catégorie du palier de défi courant.
+    focus=(request.args.get('focus') or '').strip() or None
+    if mode!='learning': focus=None
     challenge_class=None; challenge_level=None; challenge_level_id=None; challenge_stars_start=0
     if mode=='challenge':
         c0=db(); p0=c0.execute('SELECT school_class,challenge_level_id,challenge_stars,coin_milestone FROM profiles WHERE id=?',(pid,)).fetchone()
@@ -1285,6 +1288,14 @@ def start(pid):
         else:
             cfg=copy.deepcopy(DEFAULT)
         c0.close()
+    elif focus:
+        # v278 : l'entraînement ciblé s'appuie sur les réglages du palier de
+        # défi courant (mêmes plages de nombres que l'étoile visée).
+        c0=db(); p0=c0.execute('SELECT school_class,challenge_level_id FROM profiles WHERE id=?',(pid,)).fetchone()
+        challenge_class,row,challenge_level,_=resolve_profile_level(c0,p0); challenge_level_id=row['id'] if row else None
+        c0.close()
+        if not row or not challenge_level_id: return {'error':'Niveau de défi introuvable'},404
+        cfg=merged_cfg(json.loads(row['data']))
     else:
         cfg=get_cfg(pid)
     # Valide et normalise la configuration au démarrage.
@@ -1293,11 +1304,36 @@ def start(pid):
         cfg=validate_cfg_data(cfg)
     except (ValueError,TypeError,KeyError) as ex:
         return {'error':str(ex)},400
-    count=cfg.get('count',50)
+    # v278 : séance ciblée — 10 questions d'une seule catégorie du palier.
+    if focus:
+        if focus not in cfg['categories']: return {'error':'Catégorie introuvable'},400
+        count=10
+    else:
+        count=cfg.get('count',50)
     active_kinds={k for k,v in cfg['categories'].items() if v.get('enabled') and int(v.get('weight',0) or 0)>0}
     # Un Défi doit rester standardisé : aucune reprise d'erreur d'une séance précédente.
-    retries=[] if mode=='challenge' else [r for r in previous_errors(pid,'learning') if r['kind'] in active_kinds][:count]
-    remaining=count-len(retries); alloc=allocate(remaining,cfg['categories']) if remaining else {}
+    # v278 : entraînement ciblé — les 10 dernières erreurs de la catégorie dans
+    # le palier courant (défis et entraînements ciblés précédents, y compris
+    # les questions ratées au 1er essai puis réussies au 2e), sans doublon de
+    # calcul, les plus anciennes d'abord ; le reste est généré aléatoirement.
+    if mode=='challenge':
+        retries=[]
+    elif focus:
+        c0=db()
+        rows=c0.execute("SELECT q.id,q.kind,q.payload,q.display,q.expected FROM questions q JOIN sessions s ON s.id=q.session_id WHERE s.profile_id=? AND s.challenge_level_id=? AND q.kind=? AND (q.had_error=1 OR q.timed_out=1) ORDER BY q.id DESC LIMIT ?",(pid,challenge_level_id,focus,count*3)).fetchall()
+        c0.close()
+        retries=[]; seen=set()
+        for r in rows:
+            if len(retries)>=count: break
+            payload=json.loads(r['payload'])
+            key=operation_key(focus,payload)
+            if key in seen: continue
+            seen.add(key)
+            retries.append({'id':r['id'],'kind':focus,'payload':r['payload'],'display':r['display'],'expected':r['expected'],'source':'RETRY','retry_from':r['id']})
+        retries.reverse()
+    else:
+        retries=[r for r in previous_errors(pid,'learning') if r['kind'] in active_kinds][:count]
+    remaining=count-len(retries); alloc={focus:remaining} if focus else (allocate(remaining,cfg['categories']) if remaining else {})
     qs=[]
     for r in retries:
         payload=json.loads(r['payload'])
@@ -1318,12 +1354,14 @@ def start(pid):
 
     # Garde-fou : complète toujours le quota avec exactement la même règle simple.
     if len(qs) < count:
-        enabled=[k for k,v in cfg['categories'].items() if v.get('enabled') and int(v.get('weight',0) or 0)>0]
+        enabled=[focus] if focus else [k for k,v in cfg['categories'].items() if v.get('enabled') and int(v.get('weight',0) or 0)>0]
         while len(qs) < count:
             kind=random.choice(enabled)
             payload,display,expected=generate_with_duplicate_retry(kind,cfg['categories'][kind],seen_by_kind)
             qs.append({'kind':kind,'payload':payload,'display':display,'expected':expected,'source':'GENERATED','retry_from':None})
-    qs=balanced_question_order(qs)
+    # v278 : pas de rééquilibrage sur une séance ciblée — les erreurs reprises
+    # restent en tête, suivies des questions générées.
+    qs=balanced_question_order(qs) if not focus else qs
     c=db()
     # Une séance interrompue (fermeture/navigation sans STOP) ne doit jamais devenir une statistique.
     # STOP la supprime déjà immédiatement côté API ; ici on nettoie aussi les éventuels abandons orphelins.
@@ -1581,6 +1619,76 @@ def reveal_reward(pid):
     else: c.execute('UPDATE reward_progress SET revealed=? WHERE profile_id=?',(json.dumps(revealed),pid))
     balance=p['coins']-cost; c.commit(); c.close()
     return {'ok':True,'pieces':pieces,'piece':pieces[0] if pieces else None,'revealedCount':count,'spent':cost,'done':done,'coins':balance,'revealed':([] if done else revealed),'completed':completed}
+
+# v278 : classement arithmétique d'une erreur d'enfant, du plus spécifique au
+# plus générique. Sert au conseil étoile des stats Défi : on compare la réponse
+# fautive à la bonne réponse et aux nombres de l'énoncé (payload).
+def classify_error(kind,expected,given,payload):
+    if given is None: return 'timeout'
+    try: given=float(given); expected=float(expected)
+    except (TypeError,ValueError): return 'other'
+    if abs(given-expected)<1e-9: return 'other'
+    a=payload.get('a'); b=payload.get('b')
+    # Confusion d'opération : la réponse correspond à une autre opération
+    # appliquée aux mêmes nombres (ex. il additionne au lieu de soustraire).
+    if kind in ('addition','subtraction','multiplication','multiplication_tens') and isinstance(a,(int,float)) and isinstance(b,(int,float)):
+        other=(a+b) if kind!='addition' else (a-b)
+        if abs(given-other)<1e-9: return 'operation_confusion'
+    # Confusion de table voisine : 7×8 répondu comme 6×8, 7×7 ou 7×9.
+    if kind=='multiplication' and isinstance(a,(int,float)) and isinstance(b,(int,float)):
+        for cand in ((a-1)*b,(a+1)*b,a*(b-1),a*(b+1)):
+            if abs(given-cand)<1e-9: return 'table_confusion'
+    # Chiffres inversés : 24 répondu 42.
+    if given.is_integer() and expected.is_integer():
+        ge,ee=int(given),int(expected)
+        if abs(ge)>=10 and abs(ee)>=10 and ge%10!=0 and ee%10!=0 and str(abs(ge))==str(abs(ee))[::-1]: return 'inverted'
+    # Une dizaine ou centaine d'écart : retenue oubliée ou en trop.
+    diff=abs(given-expected)
+    if any(abs(diff-d)<1e-9 for d in (10,100,1000)): return 'off_by_ten'
+    # Réponse à 1 près.
+    if abs(diff-1)<1e-9: return 'off_by_one'
+    return 'other'
+
+@app.get('/api/star-advice/<int:pid>')
+def star_advice(pid):
+    if (e:=require_auth()): return e
+    if not owns_profile(pid): return {'error':'Profil introuvable'},404
+    try: level_id=int(request.args.get('level') or 0) or None
+    except (TypeError,ValueError): level_id=None
+    c=db()
+    if level_id is None:
+        p=c.execute('SELECT challenge_level_id FROM profiles WHERE id=?',(pid,)).fetchone()
+        level_id=p['challenge_level_id'] if p else None
+    if not level_id: c.close(); return {'show':False}
+    # Déclencheur (défis du niveau uniquement, terminés) : à partir du 5e défi,
+    # quand les 3 derniers sont tous à 30 bonnes réponses ou plus. Collant :
+    # une fois enclenché, le conseil reste même si les scores retombent ensuite.
+    sids=[r['id'] for r in c.execute("SELECT id FROM sessions WHERE profile_id=? AND mode='challenge' AND challenge_level_id=? AND rewarded=1 ORDER BY id ASC",(pid,level_id))]
+    scores=[c.execute("SELECT COUNT(*) n FROM questions WHERE session_id=? AND status='CORRECT'",(sid,)).fetchone()['n'] for sid in sids]
+    triggered=any(i>=4 and scores[i-2]>=30 and scores[i-1]>=30 and scores[i]>=30 for i in range(len(scores)))
+    if not triggered: c.close(); return {'show':False}
+    # Analyse des erreurs sur les 5 derniers défis du niveau. Une question
+    # compte dès qu'une tentative a été ratée, même réussie ensuite au 2e essai.
+    last=sids[-5:]
+    marks=c.execute("SELECT kind,expected,first_wrong_answer,last_answer,timed_out,payload FROM questions WHERE session_id IN (%s) AND (had_error=1 OR timed_out=1) ORDER BY id ASC"%(','.join('?'*len(last))),tuple(last)).fetchall() if last else []
+    per_kind={}
+    for m in marks:
+        given=m['first_wrong_answer'] if m['first_wrong_answer'] is not None else m['last_answer']
+        if given is None and not m['timed_out']: continue
+        per_kind.setdefault(m['kind'],[]).append((m,given))
+    if not per_kind: c.close(); return {'show':True,'kind':None,'errorType':None}
+    kind=max(per_kind,key=lambda k:len(per_kind[k]))
+    types={}
+    for m,given in per_kind[kind]:
+        try: payload=json.loads(m['payload'] or '{}')
+        except (TypeError,ValueError): payload={}
+        typ=classify_error(kind,m['expected'],given,payload)
+        types[typ]=types.get(typ,0)+1
+    best=None; best_n=0
+    for typ in ('operation_confusion','table_confusion','inverted','off_by_ten','off_by_one','timeout','other'):
+        if types.get(typ,0)>best_n: best=typ; best_n=types.get(typ,0)
+    c.close()
+    return {'show':True,'kind':kind,'errorType':None if best=='other' else best}
 
 @app.get('/api/stats/<int:pid>')
 def stats(pid):
