@@ -1,3 +1,3 @@
-# Calcul mental — v299
+# Calcul mental — v300
 
-- « Mes progrès » : la carte mini-défi (conseil + bouton « S'entraîner ») s'affiche désormais au-dessus du graphique de progression, au lieu d'en dessous.
+- Détail d'une séance : tri des calculs au clic sur l'en-tête de colonne « Temps » (▾ du plus lent au plus rapide, ▴ du plus rapide au plus lent, ⇅ retour à l'ordre d'arrivée) ; remplace les 2 boutons de tri v290 ; le n° # garde le n° d'arrivée d'origine.
