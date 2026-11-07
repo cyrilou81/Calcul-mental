@@ -68,6 +68,10 @@ function contextualHelp(q){
   if(k==='fraction'){
     let divisor=Number(p.divisor)||(/Quart/i.test(q.display)?4:3), qn=n/divisor, word=divisor===3?'tiers':'quart';return helpBox(`<div class="help-step">${n} ÷ ${divisor} <span class="help-arrow">→</span> ${qn}</div>`,`Le ${word} d’un nombre, c’est le partager en ${divisor} parts égales.`)
   }
+  if(k==='decimal_complement'){
+    let a=Number(p.a), t=Number(p.target), r=Math.round((t-a)*10)/10;
+    return helpBox(`<div class="help-step">${hfmt(a)} + ? = ${hfmt(t)}</div><div class="help-step">${hfmt(t)} − ${hfmt(a)} = ?</div><div class="help-step">${hfmt(t)} − ${hfmt(a)} <span class="help-arrow">→</span> ${hfmt(r)}</div>`,`Pour trouver le nombre manquant, compte ce qui manque pour aller de ${hfmt(a)} à ${hfmt(t)} : ${hfmt(t)} − ${hfmt(a)}.`)
+  }
   if(k==='multiplication_gap'){
     return helpBox(`<div class="help-step">${hfmt(a)} × ? = ${hfmt(a*b)}</div><div class="help-step">${hfmt(a*b)} : ${hfmt(a)} = ?</div><div class="help-step">${hfmt(a*b)} : ${hfmt(a)} <span class="help-arrow">→</span> ${hfmt(b)}</div>`,`Cherche dans la table de ${hfmt(a)} le nombre qui donne ${hfmt(a*b)}.`)
   }
@@ -158,6 +162,7 @@ const EXAMPLE_POOLS={
   'multiplication:default':[Q('multiplication',{a:7,b:6},'7 × 6 = __'),Q('multiplication',{a:8,b:7},'8 × 7 = __'),Q('multiplication',{a:6,b:6},'6 × 6 = __')],
   'division:default':[Q('division',{dividend:42,divisor:6},'42 : 6 = __'),Q('division',{dividend:56,divisor:7},'56 : 7 = __'),Q('division',{dividend:72,divisor:8},'72 : 8 = __')],
   'division_tens:default':[Q('division_tens',{dividend:80,divisor:10},'80 : 10 = __'),Q('division_tens',{dividend:600,divisor:100},'600 : 100 = __'),Q('division_tens',{dividend:7000,divisor:1000},'7000 : 1000 = __')],
+  'decimal_complement:default':[Q('decimal_complement',{a:0.6,target:1},'0,6 + __ = 1'),Q('decimal_complement',{a:4.8,target:10},'4,8 + __ = 10'),Q('decimal_complement',{a:2.5,target:10},'2,5 + __ = 10')],
   'tens:default':[Q('tens',{a:34,b:20},'34 + 20 = __'),Q('tens',{a:52,b:30},'52 + 30 = __'),Q('tens',{a:26,b:40},'26 + 40 = __')],
   'tens_sub:default':[Q('tens_sub',{a:54,b:20},'54 − 20 = __'),Q('tens_sub',{a:87,b:30},'87 − 30 = __'),Q('tens_sub',{a:69,b:40},'69 − 40 = __')],
   'round_tens_add:default':[Q('round_tens_add',{a:40,b:7},'40 + 7 = __'),Q('round_tens_add',{a:60,b:8},'60 + 8 = __'),Q('round_tens_add',{a:30,b:6},'30 + 6 = __')],
@@ -190,6 +195,7 @@ const catalog=[
  {id:'double',name:'Doubles',cases:[['Petit nombre','double:simple'],['Nombre à 2 chiffres','double:two_digits'],['Dizaine ronde','double:round_ten']]},
  {id:'half',name:'Moitiés',cases:[['Partage simple','half:simple'],['Dizaine impaire : 30 / 50 / 70 / 90','half:odd_ten'],['Dizaine paire : 20 / 40 / 60 / 80','half:even_ten'],['Décomposition paire','half:even_decomposition']]},
  {id:'complement_tens',name:'Compléments',cases:[['Écart ≤ 10','complement_tens:gap_le_10'],['Écart > 10','complement_tens:gap_gt_10']]},
+ {id:'decimal_complement',name:'Complément de décimaux',cases:[['Complément à 1 / 10','decimal_complement:default']]},
  {id:'multiplication',name:'Multiplications',cases:[['× 4','multiplication:x4'],['× 5','multiplication:x5'],['× 6, 7, 8','multiplication:default'],['× 9','multiplication:x9']]},
  {id:'multiplication_tens',name:'Multiplication de dizaines',cases:[['× 10 / 100 / 1000','multiplication_tens:power10']]},
  {id:'multiplication_gap',name:'Multiplication à trous',cases:[['Table inverse','multiplication_gap:default']]},

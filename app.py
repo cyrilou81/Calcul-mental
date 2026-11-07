@@ -112,7 +112,8 @@ DEFAULT={
   'tens_sub':{'enabled':False,'weight':3,'startMin':20,'startMax':100,'multiples':[10],'nonNegative':True,'withCarry':True},
   'decimal_sub':{'enabled':False,'weight':3,'min':0,'max':20,'decimals':1,'withBorrow':True},
   'decimal_multiplication':{'enabled':False,'weight':3,'multipliers':[10,100,1000],'min':0.1,'max':20,'decimals':1},
-  'decimal_division':{'enabled':False,'weight':3,'divisors':[10,100,1000],'min':1,'max':1000,'decimals':1}
+  'decimal_division':{'enabled':False,'weight':3,'divisors':[10,100,1000],'min':1,'max':1000,'decimals':1},
+  'decimal_complement':{'enabled':False,'weight':3,'targets':[1,10]}
  }}
 
 # Défis centralisés : 5 paliers par classe.
@@ -573,6 +574,15 @@ def gen(kind,cfg):
         x,y=random.choice(candidates); xv=x/scale; yv=y/scale
         fmt=lambda v: (f'{v:.{decimals}f}'.rstrip('0').rstrip('.')).replace('.',',')
         return {'a':xv,'b':yv,'op':'subtraction','decimals':decimals},f'{fmt(xv)} − {fmt(yv)} = __',(x-y)/scale
+    if kind=='decimal_complement':
+        # v298 : complément de décimaux — « 0,6 + __ = 1 » ou « 4,8 + __ = 10 ».
+        # Toujours une décimale ; l'enfant saisit le complément (pas la cible).
+        targets=[int(x) for x in cfg.get('targets',[1,10]) if int(x) in (1,10)]
+        if not targets: raise ValueError('Choisis au moins un complément (1 ou 10).')
+        t=random.choice(targets)
+        # Dixièmes de 0,1 à cible−0,1 : jamais 0 (tout le complément) ni la cible (rien à ajouter).
+        n=random.randint(1,t*10-1)
+        return {'a':n/10,'target':t},f'{n/10:.1f}'.replace('.',',')+f' + __ = {t}',(t*10-n)/10
 
 def previous_errors(pid, mode='learning'):
     c=db(); s=c.execute('SELECT id FROM sessions WHERE profile_id=? AND mode=? ORDER BY id DESC LIMIT 1',(pid,mode)).fetchone()
@@ -804,6 +814,11 @@ def validate_cfg_data(data):
         g['bFactors']=[int(x) for x in g.get('bFactors',[]) if 1<=int(x)<=11]
         if not g['aFactors'] or not g['bFactors']:
             raise ValueError('Choisis au moins un 1er et un 2e terme pour les multiplications à trous.')
+    if cats.get('decimal_complement',{}).get('enabled'):
+        dc=cats['decimal_complement']
+        dc['targets']=[int(x) for x in dc.get('targets',[]) if int(x) in (1,10)]
+        if not dc['targets']:
+            raise ValueError('Choisis au moins un complément (1 ou 10).')
     if cats.get('division_tens',{}).get('enabled'):
         dt=cats['division_tens']
         dt['divisors']=[int(x) for x in dt.get('divisors',[]) if int(x) in (10,100,1000,10000)]
@@ -940,6 +955,7 @@ def operation_key(kind, payload):
         return (kind, payload.get('a'), payload.get('b'))
     if kind in ('decimal','decimal_sub'):
         return (kind, payload.get('a'), payload.get('b'), payload.get('op'))
+    if kind == 'decimal_complement': return (kind, payload.get('a'), payload.get('target'))
     if kind in ('division','decimal_division','division_tens'):
         return (kind, payload.get('dividend'), payload.get('divisor'))
     if kind == 'round_tens_add': return (kind,payload.get('a'),payload.get('b'))
