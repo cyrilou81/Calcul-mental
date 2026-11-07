@@ -1,3 +1,3 @@
-# Calcul mental — v296
+# Calcul mental — v297
 
-- Multiplications : nouvelle option « Résultat max » — le produit ne dépasse jamais la valeur choisie (0 = illimité). Défaut : 100 (non contraignant pour les tables 1 à 9).
+- « Valeur de position » : nouveau terme « d.m. » (dizaines de milliers) à cocher — affiché « dm » dans les calculs (ex. « 3dm 5c = 30500 »), 1dm = 10 000. Aide pédagogique mise à jour.

@@ -451,12 +451,12 @@ def gen(kind,cfg):
         display=f'{a} + __ = {target}'
         return {'a':a,'target':target},display,gap
     if kind=='place_value':
-        places=[p for p in cfg.get('places',['u']) if p in ('m','c','d','u')]
-        if not places: raise ValueError("Choisis au moins un terme parmi m, c, d et u.")
+        places=[p for p in cfg.get('places',['u']) if p in ('dm','m','c','d','u')]
+        if not places: raise ValueError("Choisis au moins un terme parmi dm, m, c, d et u.")
         # v292 : toujours 2 termes tirés parmi ceux cochés (le seul si un seul
         # est coché). L'ancienne « probabilité qu'un terme soit absent » disparaît.
         present=places if len(places)==1 else random.sample(places,2)
-        mult={'m':1000,'c':100,'d':10,'u':1}
+        mult={'dm':10000,'m':1000,'c':100,'d':10,'u':1}
         factors={p:random.randint(1,9) for p in present}
         # Option « 2 chiffres » : le terme le plus bas des choisis a une chance
         # sur deux de recevoir un nombre à deux chiffres (ex. 3c 24d).
@@ -875,8 +875,8 @@ def validate_cfg_data(data):
     if cats.get('complement_tens',{}).get('enabled') and not cats['complement_tens'].get('targets'):
         raise ValueError('Choisis au moins une dizaine cible pour les compléments.')
     if cats.get('place_value',{}).get('enabled'):
-        pv=cats['place_value']; places=[p for p in pv.get('places',[]) if p in ('m','c','d','u')]
-        if not places: raise ValueError('Choisis au moins un terme parmi m, c, d et u.')
+        pv=cats['place_value']; places=[p for p in pv.get('places',[]) if p in ('dm','m','c','d','u')]
+        if not places: raise ValueError('Choisis au moins un terme parmi dm, m, c, d et u.')
         # v292 : l'option « 2 chiffres » remplace l'ancienne probabilité d'absence.
         # Les configs déjà en BDD gardent leurs termes, l'option est décochée.
         pv['places']=places; pv['twoDigits']=bool(pv.get('twoDigits',False)); pv.pop('absenceProbability',None)
