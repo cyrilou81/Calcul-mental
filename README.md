@@ -1,3 +1,3 @@
-# Calcul mental — v295
+# Calcul mental — v296
 
-- Nouvelle catégorie « Multiplication à trous » : affichée du type « 4 × __ = 32 », l'enfant saisit le 2e terme manquant. Réglages : 1er terme à cocher (1 à 11) et 2e terme à cocher (1 à 11). Aide pédagogique dédiée (recherche dans la table du 1er terme).
+- Multiplications : nouvelle option « Résultat max » — le produit ne dépasse jamais la valeur choisie (0 = illimité). Défaut : 100 (non contraignant pour les tables 1 à 9).

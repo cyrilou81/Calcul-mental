@@ -97,7 +97,7 @@ DEFAULT={
   'addition':{'enabled':True,'weight':4,'aMin':1,'aMax':10,'bMin':1,'bMax':10,'maxResult':100,'withCarry':True},
   'subtraction':{'enabled':True,'weight':3,'aMin':1,'aMax':10,'bMin':1,'bMax':10,'nonNegative':True,'withCarry':True},
   'decimal':{'enabled':False,'weight':3,'min':0,'max':20,'decimals':1,'withCarry':True},
-  'multiplication':{'enabled':True,'weight':3,'tables':[2,3],'factorMin':1,'factorMax':9,'withCarry':False},
+  'multiplication':{'enabled':True,'weight':3,'tables':[2,3],'factorMin':1,'factorMax':9,'maxResult':100,'withCarry':False},
   'multiplication_tens':{'enabled':False,'weight':3,'tables':[10],'factorMin':1,'factorMax':99},
   'multiplication_gap':{'enabled':False,'weight':3,'aFactors':[2,3,4,5],'bFactors':[2,3,4,5]},
   'division_tens':{'enabled':False,'weight':3,'divisors':[10],'dividendMin':10,'dividendMax':1000,'resultMin':1,'resultMax':100},
@@ -381,12 +381,13 @@ def gen(kind,cfg):
             return all(a*int(d) < 10 for d in digits[1:])
         lo=int(cfg.get('factorMin',1)); hi=int(cfg.get('factorMax',9))
         if lo>hi: lo,hi=hi,lo
+        max_result=int(cfg.get('maxResult') or 0)
         for a in cfg.get('tables',[]):
             a=int(a)
             for b in range(lo,hi+1):
-                if with_carry or multiplication_without_carry(a,b): candidates.append((a,b))
+                if (not max_result or a*b<=max_result) and (with_carry or multiplication_without_carry(a,b)): candidates.append((a,b))
         if not candidates:
-            raise ValueError('Aucune multiplication possible avec ces réglages sans retenue.' if not with_carry else 'Choisis au moins une table de multiplication.')
+            raise ValueError('Aucune multiplication possible avec ces réglages sans retenue.' if not with_carry else ('Aucune multiplication possible avec ce résultat max.' if max_result else 'Choisis au moins une table de multiplication.'))
         a,b=random.choice(candidates)
         # v273 : ordre des facteurs aléatoire (50/50) — la table choisie apparaît
         # aussi bien à gauche (2 × 9) qu'à droite (9 × 2). Le payload reste
@@ -781,12 +782,14 @@ def validate_cfg_data(data):
             raise ValueError('Choisis au moins une table de multiplication.')
         m['factorMin']=int(m.get('factorMin',1)); m['factorMax']=int(m.get('factorMax',9))
         if m['factorMin']>m['factorMax']: raise ValueError('La plage du 2e facteur des tables 1 à 9 est invalide.')
-        m['withCarry']=bool(m.get('withCarry',False))
+        m['maxResult']=max(0,int(m.get('maxResult',0))); m['withCarry']=bool(m.get('withCarry',False))
+        if m['maxResult'] and not any(a*b<=m['maxResult'] for a in m['tables'] for b in range(m['factorMin'],m['factorMax']+1)):
+            raise ValueError('Aucune multiplication possible avec ce résultat max.')
         if not m['withCarry']:
             def multiplication_without_carry(a,b):
                 digits=str(abs(int(b)))
                 return all(a*int(d) < 10 for d in digits[1:])
-            if not any(multiplication_without_carry(a,b) for a in m['tables'] for b in range(m['factorMin'],m['factorMax']+1)):
+            if not any(multiplication_without_carry(a,b) and (not m['maxResult'] or a*b<=m['maxResult']) for a in m['tables'] for b in range(m['factorMin'],m['factorMax']+1)):
                 raise ValueError('Aucune multiplication possible avec ces réglages sans retenue.')
     if cats.get('multiplication_tens',{}).get('enabled'):
         m=cats['multiplication_tens']
