@@ -1,3 +1,3 @@
-# Calcul mental — v294
+# Calcul mental — v295
 
-- Multiplication de dizaines : l’ordre des facteurs est maintenant aléatoire, comme pour les multiplications classiques. La dizaine (10, 100, 1000, 10000) apparaît 50% du temps à gauche (10 × 7) et 50% à droite (7 × 10).
+- Nouvelle catégorie « Multiplication à trous » : affichée du type « 4 × __ = 32 », l'enfant saisit le 2e terme manquant. Réglages : 1er terme à cocher (1 à 11) et 2e terme à cocher (1 à 11). Aide pédagogique dédiée (recherche dans la table du 1er terme).

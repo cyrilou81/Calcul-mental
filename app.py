@@ -99,6 +99,7 @@ DEFAULT={
   'decimal':{'enabled':False,'weight':3,'min':0,'max':20,'decimals':1,'withCarry':True},
   'multiplication':{'enabled':True,'weight':3,'tables':[2,3],'factorMin':1,'factorMax':9,'withCarry':False},
   'multiplication_tens':{'enabled':False,'weight':3,'tables':[10],'factorMin':1,'factorMax':99},
+  'multiplication_gap':{'enabled':False,'weight':3,'aFactors':[2,3,4,5],'bFactors':[2,3,4,5]},
   'division_tens':{'enabled':False,'weight':3,'divisors':[10],'dividendMin':10,'dividendMax':1000,'resultMin':1,'resultMax':100},
   'division':{'enabled':True,'weight':2,'tables':[2,3,4],'quotientMin':1,'quotientMax':10},
   'complement_tens':{'enabled':False,'weight':3,'targets':[10,20,30,40,50,60,70,80,90,100,1000],'gapMin':5,'gapMax':20},
@@ -406,6 +407,14 @@ def gen(kind,cfg):
         # 10 × 7 et 7 × 10 comme un seul calcul, l'aide pédagogique est inchangée.
         x,y=(b,a) if random.random()<0.5 else (a,b)
         return {'a':a,'b':b},f'{x} × {y} = __',a*b
+    if kind=='multiplication_gap':
+        # v295 : multiplication à trous — l'enfant saisit le 2e terme
+        # manquant : « 4 × __ = 32 », la réponse attendue est 8 (et non 32).
+        afs=[int(x) for x in cfg.get('aFactors',[2,3,4,5]) if 1<=int(x)<=11]
+        bfs=[int(x) for x in cfg.get('bFactors',[2,3,4,5]) if 1<=int(x)<=11]
+        if not afs or not bfs: raise ValueError('Choisis au moins un 1er et un 2e terme pour les multiplications à trous.')
+        a=random.choice(afs); b=random.choice(bfs)
+        return {'a':a,'b':b},f'{a} × __ = {a*b}',b
     if kind=='division_tens':
         divisors=[int(x) for x in cfg.get('divisors',[10]) if int(x) in (10,100,1000,10000)]
         if not divisors: raise ValueError('Choisis au moins un diviseur de dizaines.')
@@ -786,6 +795,12 @@ def validate_cfg_data(data):
             raise ValueError('Choisis au moins une multiplication de dizaines.')
         m['factorMin']=int(m.get('factorMin',1)); m['factorMax']=int(m.get('factorMax',99))
         if m['factorMin']>m['factorMax']: raise ValueError('La plage du 2e facteur des multiplications de dizaines est invalide.')
+    if cats.get('multiplication_gap',{}).get('enabled'):
+        g=cats['multiplication_gap']
+        g['aFactors']=[int(x) for x in g.get('aFactors',[]) if 1<=int(x)<=11]
+        g['bFactors']=[int(x) for x in g.get('bFactors',[]) if 1<=int(x)<=11]
+        if not g['aFactors'] or not g['bFactors']:
+            raise ValueError('Choisis au moins un 1er et un 2e terme pour les multiplications à trous.')
     if cats.get('division_tens',{}).get('enabled'):
         dt=cats['division_tens']
         dt['divisors']=[int(x) for x in dt.get('divisors',[]) if int(x) in (10,100,1000,10000)]
@@ -918,7 +933,7 @@ def balanced_question_order(items):
 def operation_key(kind, payload):
     """Identifie une opération uniquement à l'intérieur de sa catégorie."""
     if kind in ('double','half'): return (kind, payload.get('n'))
-    if kind in ('addition','subtraction','multiplication','multiplication_tens','decimal_multiplication','tens','tens_sub'):
+    if kind in ('addition','subtraction','multiplication','multiplication_tens','multiplication_gap','decimal_multiplication','tens','tens_sub'):
         return (kind, payload.get('a'), payload.get('b'))
     if kind in ('decimal','decimal_sub'):
         return (kind, payload.get('a'), payload.get('b'), payload.get('op'))
