@@ -1,3 +1,3 @@
-# Calcul mental — v301
+# Calcul mental — v302
 
-- Division de décimaux : nouveau champ « Chiffres après la virgule dans le résultat » (0 à 3) dans le configurateur ; le résultat a désormais exactement ce nombre de décimales, le dividende s'en déduit automatiquement (ex. avec 1 : « 245 : 10 = 24,5 », avec 2 : « 24,5 : 10 = 2,45 ») ; l'ancien champ « Décimales » du dividende est retiré ; la plage « Nombre de » s'applique toujours au dividende affiché.
+- Carte mini-défi (« Mes progrès ») : le bouton affiche « S'entraîner (5 questions) » au lieu de « S'entraîner » ; le fond du bloc passe en vert clair (fond #eaf8ee, bordure verte #8fd9a8, texte vert foncé) au lieu du jaune/orange qui ressemblait à un avertissement.

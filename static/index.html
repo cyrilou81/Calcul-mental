@@ -1175,7 +1175,7 @@ function challengeProgressHtml(ch){
 function starAdviceHtml(advice){
  if(!advice||!advice.show)return '';
  if(!advice.kind)return '<div class="star-advice"><div class="star-advice-text">⭐ <strong>Tu es tout près de ton étoile !</strong> Continue comme ça.</div></div>';
- return `<div class="star-advice"><div class="star-advice-text">⭐ <strong>Pour gagner ta prochaine étoile</strong>, il te manque surtout : <strong>${names[advice.kind]||advice.kind}</strong></div><button class="primary star-advice-btn" data-focus="${advice.kind}">S'entraîner</button></div>`;
+ return `<div class="star-advice"><div class="star-advice-text">⭐ <strong>Pour gagner ta prochaine étoile</strong>, il te manque surtout : <strong>${names[advice.kind]||advice.kind}</strong></div><button class="primary star-advice-btn" data-focus="${advice.kind}">S'entraîner (5 questions)</button></div>`;
 }
 async function openRewards(initialView='progress'){
  let [r,st]=await Promise.all([api('/api/rewards/'+profile.id,{cache:'no-store'}),api('/api/stats/'+profile.id+'?mode=challenge&_='+Date.now(),{cache:'no-store'})]);
@@ -1590,7 +1590,7 @@ document.addEventListener('touchend',e=>{
 .progress-tab.blink-attention{animation:v275Blink 1.05s ease-in-out infinite}
 </style>
 <style id="v284-star-advice">/* v284 — carte conseil pour gagner la prochaine étoile, dans « Mes progrès », sous le graphe */
-.star-advice{display:flex;flex-direction:column;gap:14px;align-items:center;margin:0 auto 24px;max-width:980px;padding:16px 18px;border:2px solid #ffd93d;border-radius:18px;background:#fff9e8;box-shadow:0 6px 16px rgba(255,199,44,.15)}
-.star-advice-text{font-size:17px;font-weight:650;color:#6b4d00;width:100%;min-width:230px}
+.star-advice{display:flex;flex-direction:column;gap:14px;align-items:center;margin:0 auto 24px;max-width:980px;padding:16px 18px;border:2px solid #8fd9a8;border-radius:18px;background:#eaf8ee;box-shadow:0 6px 16px rgba(53,155,104,.12)}
+.star-advice-text{font-size:17px;font-weight:650;color:#1f6640;width:100%;min-width:230px}
 .star-advice-btn{min-width:190px}
 </style>
