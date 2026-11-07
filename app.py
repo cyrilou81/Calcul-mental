@@ -101,7 +101,7 @@ DEFAULT={
   'multiplication_tens':{'enabled':False,'weight':3,'tables':[10],'factorMin':1,'factorMax':99},
   'division':{'enabled':True,'weight':2,'tables':[2,3,4],'quotientMin':1,'quotientMax':10},
   'complement_tens':{'enabled':False,'weight':3,'targets':[10,20,30,40,50,60,70,80,90,100,1000],'gapMin':5,'gapMax':20},
-  'place_value':{'enabled':False,'weight':3,'places':['u'],'absenceProbability':50},
+  'place_value':{'enabled':False,'weight':3,'places':['u'],'twoDigits':False},
   'addition3':{'enabled':False,'weight':3,'maxResult':27},
   'multiple_of':{'enabled':False,'weight':3,'min':1,'max':10,'factors':[3,4]},
   'fraction':{'enabled':False,'weight':3,'min':1,'max':10,'divisors':[3,4],'withCarry':False},
@@ -427,13 +427,15 @@ def gen(kind,cfg):
     if kind=='place_value':
         places=[p for p in cfg.get('places',['u']) if p in ('m','c','d','u')]
         if not places: raise ValueError("Choisis au moins un terme parmi m, c, d et u.")
-        absent=max(0,min(80,int(cfg.get('absenceProbability',50))))/100
-        present=[]
-        for _ in range(20):
-            present=[p for p in places if random.random()>=absent]
-            if present: break
-        if not present: present=[random.choice(places)]
-        factors={p:random.randint(1,9) for p in present}; mult={'m':1000,'c':100,'d':10,'u':1}
+        # v292 : toujours 2 termes tirés parmi ceux cochés (le seul si un seul
+        # est coché). L'ancienne « probabilité qu'un terme soit absent » disparaît.
+        present=places if len(places)==1 else random.sample(places,2)
+        mult={'m':1000,'c':100,'d':10,'u':1}
+        factors={p:random.randint(1,9) for p in present}
+        # Option « 2 chiffres » : le terme le plus bas des choisis a une chance
+        # sur deux de recevoir un nombre à deux chiffres (ex. 3c 24d).
+        if cfg.get('twoDigits') and random.random()<0.5:
+            factors[min(present,key=lambda p:mult[p])]=random.randint(10,99)
         expected=sum(factors[p]*mult[p] for p in present)
         display_order=list(factors.keys()); random.shuffle(display_order)
         display=' '.join(f'{factors[p]}{p}' for p in display_order)+' = __'
@@ -832,7 +834,9 @@ def validate_cfg_data(data):
     if cats.get('place_value',{}).get('enabled'):
         pv=cats['place_value']; places=[p for p in pv.get('places',[]) if p in ('m','c','d','u')]
         if not places: raise ValueError('Choisis au moins un terme parmi m, c, d et u.')
-        pv['places']=places; pv['absenceProbability']=max(0,min(80,(int(pv.get('absenceProbability',50))//10)*10))
+        # v292 : l'option « 2 chiffres » remplace l'ancienne probabilité d'absence.
+        # Les configs déjà en BDD gardent leurs termes, l'option est décochée.
+        pv['places']=places; pv['twoDigits']=bool(pv.get('twoDigits',False)); pv.pop('absenceProbability',None)
     if cats.get('multiple_of',{}).get('enabled'):
         factors=[int(x) for x in cats['multiple_of'].get('factors',[]) if int(x) in (3,4)]
         if not factors: raise ValueError('Choisis au moins Triple ou Quadruple.')

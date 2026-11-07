@@ -1,3 +1,3 @@
-# Calcul mental — v291
+# Calcul mental — v292
 
-- Carte conseil étoile : le choix de la catégorie tient maintenant compte du nombre de questions. Chaque question vaut son temps moins la médiane de toutes les questions des 5 derniers défis (positif ou négatif), on additionne par catégorie : la catégorie conseillée est celle dont l'impact total sur le temps est le plus élevé.
+- Valeur de position : chaque question tire désormais 2 termes parmi ceux cochés (1 si un seul est coché), la « probabilité qu’un terme soit absent » disparaît. Nouvelle option « 2 chiffres » : le terme le plus bas des choisis a une chance sur deux de recevoir un nombre à deux chiffres (ex. 3c 24d). Les réglages déjà enregistrés gardent leurs termes, l’option est décochée.
