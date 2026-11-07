@@ -1,3 +1,3 @@
-# Calcul mental — v293
+# Calcul mental — v294
 
-- Nouvelle catégorie « Division de dizaines » : un nombre rond (ex. 800) divisé par 10, 100, 1000 ou 10000. Réglages : plage du nombre à diviser, cases à cocher « Diviser par » et plage du résultat. Le dividende est toujours un multiple du diviseur, le résultat est donc toujours un entier. Aide pédagogique dédiée (« enlever un zéro à droite »).
+- Multiplication de dizaines : l’ordre des facteurs est maintenant aléatoire, comme pour les multiplications classiques. La dizaine (10, 100, 1000, 10000) apparaît 50% du temps à gauche (10 × 7) et 50% à droite (7 × 10).

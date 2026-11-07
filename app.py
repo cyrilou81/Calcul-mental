@@ -400,7 +400,12 @@ def gen(kind,cfg):
         lo=int(cfg.get('factorMin',1)); hi=int(cfg.get('factorMax',99))
         if lo>hi: lo,hi=hi,lo
         a=random.choice(tables); b=random.randint(lo,hi)
-        return {'a':a,'b':b},f'{a} × {b} = __',a*b
+        # v294 : ordre des facteurs aléatoire (50/50), comme les multiplications
+        # depuis v273 — la dizaine apparaît aussi bien à gauche (10 × 7) qu'à
+        # droite (7 × 10). Le payload reste canonique : l'anti-doublon identifie
+        # 10 × 7 et 7 × 10 comme un seul calcul, l'aide pédagogique est inchangée.
+        x,y=(b,a) if random.random()<0.5 else (a,b)
+        return {'a':a,'b':b},f'{x} × {y} = __',a*b
     if kind=='division_tens':
         divisors=[int(x) for x in cfg.get('divisors',[10]) if int(x) in (10,100,1000,10000)]
         if not divisors: raise ValueError('Choisis au moins un diviseur de dizaines.')
