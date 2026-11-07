@@ -1,3 +1,3 @@
-# Calcul mental — v300
+# Calcul mental — v301
 
-- Détail d'une séance : tri des calculs au clic sur l'en-tête de colonne « Temps » (▾ du plus lent au plus rapide, ▴ du plus rapide au plus lent, ⇅ retour à l'ordre d'arrivée) ; remplace les 2 boutons de tri v290 ; le n° # garde le n° d'arrivée d'origine.
+- Division de décimaux : nouveau champ « Chiffres après la virgule dans le résultat » (0 à 3) dans le configurateur ; le résultat a désormais exactement ce nombre de décimales, le dividende s'en déduit automatiquement (ex. avec 1 : « 245 : 10 = 24,5 », avec 2 : « 24,5 : 10 = 2,45 ») ; l'ancien champ « Décimales » du dividende est retiré ; la plage « Nombre de » s'applique toujours au dividende affiché.

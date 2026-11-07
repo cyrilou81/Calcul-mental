@@ -112,7 +112,7 @@ DEFAULT={
   'tens_sub':{'enabled':False,'weight':3,'startMin':20,'startMax':100,'multiples':[10],'nonNegative':True,'withCarry':True},
   'decimal_sub':{'enabled':False,'weight':3,'min':0,'max':20,'decimals':1,'withBorrow':True},
   'decimal_multiplication':{'enabled':False,'weight':3,'multipliers':[10,100,1000],'min':0.1,'max':20,'decimals':1},
-  'decimal_division':{'enabled':False,'weight':3,'divisors':[10,100,1000],'min':1,'max':1000,'decimals':1},
+  'decimal_division':{'enabled':False,'weight':3,'divisors':[10,100,1000],'min':1,'max':1000,'resultDecimals':1},
   'decimal_complement':{'enabled':False,'weight':3,'targets':[1,10]}
  }}
 
@@ -207,7 +207,7 @@ def seed_challenge_cfg(school_class, level):
         on('decimal',15,min=0,max=100,decimals=1 if level<4 else 2,withCarry=True)
         on('decimal_sub',10,min=0,max=100,decimals=1 if level<4 else 2,withBorrow=True)
         on('decimal_multiplication',5,multipliers=[10,100,1000],min=0.1,max=50,decimals=1)
-        on('decimal_division',5,divisors=[10,100,1000],min=1,max=1000,decimals=1)
+        on('decimal_division',5,divisors=[10,100,1000],min=1,max=1000,resultDecimals=1)
     return cfg
 
 def merged_cfg(saved):
@@ -436,11 +436,18 @@ def gen(kind,cfg):
         fmt=lambda v: (f'{v:.{dec}f}'.rstrip('0').rstrip('.')).replace('.',',')
         return {'a':x,'b':m},f'{fmt(x)} × {m} = __',expected
     if kind=='decimal_division':
-        d=random.choice(cfg.get('divisors',[10,100,1000])); dec=max(0,min(2,int(cfg.get('decimals',1))))
-        scale=10**dec; lo=max(1,int(round(float(cfg.get('min',1))*scale))); hi=max(lo,int(round(float(cfg.get('max',1000))*scale)))
-        ai=random.randint(lo,hi); x=ai/scale; expected=x/d
-        fmt=lambda v: (f'{v:.{dec}f}'.rstrip('0').rstrip('.')).replace('.',',')
-        return {'dividend':x,'divisor':d},f'{fmt(x)} : {d} = __',expected
+        # v301 : on tire d'abord le RÉSULTAT avec exactement resultDecimals
+        # chiffres après la virgule (n non multiple de 10), le dividende en
+        # découle (n*d/10^rd), et min/max s'appliquent au dividende affiché.
+        d=random.choice(cfg.get('divisors',[10,100,1000])); rd=max(0,min(3,int(cfg.get('resultDecimals',1))))
+        scale=10**rd
+        lo=max(1,-(-int(round(float(cfg.get('min',1))*scale))//d)); hi=int(round(float(cfg.get('max',1000))*scale))//d
+        cands=[n for n in range(lo,hi+1) if n%10] if rd>0 else list(range(lo,hi+1))
+        if not cands: raise ValueError('Aucune division décimale possible avec ces réglages.')
+        n=random.choice(cands); r=n/scale; num=n*d
+        x=num//scale if num%scale==0 else num/scale
+        fmt=lambda v: str(int(v)) if v==int(v) else (f'{v:.6f}'.rstrip('0').rstrip('.')).replace('.',',')
+        return {'dividend':x,'divisor':d},f'{fmt(x)} : {d} = __',r
     if kind=='complement_tens':
         targets=[int(x) for x in cfg.get('targets',[10,20,30,40,50,60,70,80,90,100,1000])]
         if not targets: raise ValueError("Choisis au moins une dizaine cible.")
@@ -832,8 +839,23 @@ def validate_cfg_data(data):
         raise ValueError('Choisis au moins une table de division.')
     if cats.get('decimal_multiplication',{}).get('enabled') and not cats['decimal_multiplication'].get('multipliers'):
         raise ValueError('Choisis au moins un multiplicateur décimal.')
-    if cats.get('decimal_division',{}).get('enabled') and not cats['decimal_division'].get('divisors'):
-        raise ValueError('Choisis au moins un diviseur décimal.')
+    if cats.get('decimal_division',{}).get('enabled'):
+        dd=cats['decimal_division']
+        dd['divisors']=[int(x) for x in dd.get('divisors',[]) if int(x) in (10,100,1000)]
+        if not dd['divisors']:
+            raise ValueError('Choisis au moins un diviseur décimal.')
+        # v301 : l'ancienne clé « decimals » (décimales du dividende) est
+        # remplacée par « resultDecimals » (décimales du résultat).
+        dd['resultDecimals']=max(0,min(3,int(dd.get('resultDecimals',1))))
+        dd.pop('decimals',None)
+        scale=10**dd['resultDecimals']
+        ok=False
+        for dv in dd['divisors']:
+            lo=max(1,-(-int(round(float(dd.get('min',1))*scale))//dv)); hi=int(round(float(dd.get('max',1000))*scale))//dv
+            if hi<lo: continue
+            if dd['resultDecimals']==0 or any(n%10 for n in range(lo,hi+1)): ok=True; break
+        if not ok:
+            raise ValueError('Aucune division décimale possible avec ces réglages.')
     if cats.get('double',{}).get('enabled'):
         d=cats['double']
         mode=d.get('doubleMode','non_tens')
