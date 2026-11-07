@@ -80,6 +80,10 @@ function contextualHelp(q){
   if(k==='division'){
     let qn=dividend/d;return helpBox(`<div class="help-step">${hfmt(dividend)} ÷ ${hfmt(d)} = ?</div><div class="help-step">${hfmt(d)} × ? = ${hfmt(dividend)}</div><div class="help-step">${hfmt(d)} × ${hfmt(qn)} = ${hfmt(dividend)}</div>`,`Retourne la division : cherche dans la table de ${hfmt(d)} le nombre qui donne ${hfmt(dividend)}.`)
   }
+  if(k==='division_tens'){
+    let qn=dividend/d, steps=Math.round(Math.log10(d));
+    return helpBox(`<div class="help-step">${hfmt(dividend)} : ${hfmt(d)} = ?</div><div class="help-step">${hfmt(dividend)} = ${hfmt(qn)} × ${hfmt(d)}</div><div class="decimal-track">${hfmt(dividend)} <span class="help-arrow">→</span> ${hfmt(qn)}</div>`,`Diviser par ${hfmt(d)}, c’est enlever ${steps} zéro${steps>1?'s':''} à droite.`)
+  }
   if(k==='decimal_multiplication'){
     let m=b,steps=Math.round(Math.log10(m)); if([10,100,1000].includes(m)){
       if(Number.isInteger(a)){
@@ -149,6 +153,7 @@ const EXAMPLE_POOLS={
   'multiplication_tens:power10':[Q('multiplication_tens',{a:10,b:7},'10 × 7 = __'),Q('multiplication_tens',{a:100,b:6},'100 × 6 = __'),Q('multiplication_tens',{a:1000,b:4},'1000 × 4 = __')],
   'multiplication:default':[Q('multiplication',{a:7,b:6},'7 × 6 = __'),Q('multiplication',{a:8,b:7},'8 × 7 = __'),Q('multiplication',{a:6,b:6},'6 × 6 = __')],
   'division:default':[Q('division',{dividend:42,divisor:6},'42 : 6 = __'),Q('division',{dividend:56,divisor:7},'56 : 7 = __'),Q('division',{dividend:72,divisor:8},'72 : 8 = __')],
+  'division_tens:default':[Q('division_tens',{dividend:80,divisor:10},'80 : 10 = __'),Q('division_tens',{dividend:600,divisor:100},'600 : 100 = __'),Q('division_tens',{dividend:7000,divisor:1000},'7000 : 1000 = __')],
   'tens:default':[Q('tens',{a:34,b:20},'34 + 20 = __'),Q('tens',{a:52,b:30},'52 + 30 = __'),Q('tens',{a:26,b:40},'26 + 40 = __')],
   'tens_sub:default':[Q('tens_sub',{a:54,b:20},'54 − 20 = __'),Q('tens_sub',{a:87,b:30},'87 − 30 = __'),Q('tens_sub',{a:69,b:40},'69 − 40 = __')],
   'round_tens_add:default':[Q('round_tens_add',{a:40,b:7},'40 + 7 = __'),Q('round_tens_add',{a:60,b:8},'60 + 8 = __'),Q('round_tens_add',{a:30,b:6},'30 + 6 = __')],
@@ -184,6 +189,7 @@ const catalog=[
  {id:'multiplication',name:'Multiplications',cases:[['× 4','multiplication:x4'],['× 5','multiplication:x5'],['× 6, 7, 8','multiplication:default'],['× 9','multiplication:x9']]},
  {id:'multiplication_tens',name:'Multiplication de dizaines',cases:[['× 10 / 100 / 1000','multiplication_tens:power10']]},
  {id:'division',name:'Divisions',cases:[['Multiplication inverse','division:default']]},
+ {id:'division_tens',name:'Division de dizaines',cases:[['÷ 10 / 100 / 1000 / 10000','division_tens:default']]},
  {id:'tens',name:'Additions de dizaines',cases:[['Dizaines / unités','tens:default']]},
  {id:'tens_sub',name:'Soustractions de dizaines',cases:[['Dizaines / unités','tens_sub:default']]},
  {id:'decimal_multiplication',name:'Multiplications décimales',cases:[['× 10','decimal_multiplication:x10'],['× 100','decimal_multiplication:x100'],['× 1000','decimal_multiplication:x1000']]},

@@ -99,6 +99,7 @@ DEFAULT={
   'decimal':{'enabled':False,'weight':3,'min':0,'max':20,'decimals':1,'withCarry':True},
   'multiplication':{'enabled':True,'weight':3,'tables':[2,3],'factorMin':1,'factorMax':9,'withCarry':False},
   'multiplication_tens':{'enabled':False,'weight':3,'tables':[10],'factorMin':1,'factorMax':99},
+  'division_tens':{'enabled':False,'weight':3,'divisors':[10],'dividendMin':10,'dividendMax':1000,'resultMin':1,'resultMax':100},
   'division':{'enabled':True,'weight':2,'tables':[2,3,4],'quotientMin':1,'quotientMax':10},
   'complement_tens':{'enabled':False,'weight':3,'targets':[10,20,30,40,50,60,70,80,90,100,1000],'gapMin':5,'gapMax':20},
   'place_value':{'enabled':False,'weight':3,'places':['u'],'twoDigits':False},
@@ -400,6 +401,16 @@ def gen(kind,cfg):
         if lo>hi: lo,hi=hi,lo
         a=random.choice(tables); b=random.randint(lo,hi)
         return {'a':a,'b':b},f'{a} × {b} = __',a*b
+    if kind=='division_tens':
+        divisors=[int(x) for x in cfg.get('divisors',[10]) if int(x) in (10,100,1000,10000)]
+        if not divisors: raise ValueError('Choisis au moins un diviseur de dizaines.')
+        lo=max(1,int(cfg.get('dividendMin',10))); hi=max(lo,int(cfg.get('dividendMax',1000)))
+        qlo=max(1,int(cfg.get('resultMin',1))); qhi=max(qlo,int(cfg.get('resultMax',100)))
+        # Le dividende est toujours un multiple du diviseur : le résultat est un entier.
+        possible=[(d,q) for d in divisors for q in range(max(qlo,-(-lo//d)),min(qhi,hi//d)+1)]
+        if not possible: raise ValueError('Aucune division de dizaines possible avec ces réglages.')
+        d,q=random.choice(possible)
+        return {'dividend':d*q,'divisor':d},f'{d*q} : {d} = __',q
     if kind=='division':
         d=random.choice(cfg['tables']); q=random.randint(cfg['quotientMin'],cfg['quotientMax']); return {'dividend':d*q,'divisor':d},f'{d*q} : {d} = __',q
     if kind=='decimal_multiplication':
@@ -770,6 +781,15 @@ def validate_cfg_data(data):
             raise ValueError('Choisis au moins une multiplication de dizaines.')
         m['factorMin']=int(m.get('factorMin',1)); m['factorMax']=int(m.get('factorMax',99))
         if m['factorMin']>m['factorMax']: raise ValueError('La plage du 2e facteur des multiplications de dizaines est invalide.')
+    if cats.get('division_tens',{}).get('enabled'):
+        dt=cats['division_tens']
+        dt['divisors']=[int(x) for x in dt.get('divisors',[]) if int(x) in (10,100,1000,10000)]
+        if not dt['divisors']:
+            raise ValueError('Choisis au moins un diviseur de dizaines.')
+        dt['dividendMin']=max(1,int(dt.get('dividendMin',10))); dt['dividendMax']=max(dt['dividendMin'],int(dt.get('dividendMax',1000)))
+        dt['resultMin']=max(1,int(dt.get('resultMin',1))); dt['resultMax']=max(dt['resultMin'],int(dt.get('resultMax',100)))
+        if not any(dt['dividendMin']<=d*q<=dt['dividendMax'] for d in dt['divisors'] for q in range(max(dt['resultMin'],-(-dt['dividendMin']//d)),min(dt['resultMax'],dt['dividendMax']//d)+1)):
+            raise ValueError('Aucune division de dizaines possible avec ces plages.')
     if cats.get('division',{}).get('enabled') and not cats['division'].get('tables'):
         raise ValueError('Choisis au moins une table de division.')
     if cats.get('decimal_multiplication',{}).get('enabled') and not cats['decimal_multiplication'].get('multipliers'):
@@ -897,7 +917,7 @@ def operation_key(kind, payload):
         return (kind, payload.get('a'), payload.get('b'))
     if kind in ('decimal','decimal_sub'):
         return (kind, payload.get('a'), payload.get('b'), payload.get('op'))
-    if kind in ('division','decimal_division'):
+    if kind in ('division','decimal_division','division_tens'):
         return (kind, payload.get('dividend'), payload.get('divisor'))
     if kind == 'round_tens_add': return (kind,payload.get('a'),payload.get('b'))
     if kind == 'complement_tens': return (kind,payload.get('a'),payload.get('target'))

@@ -1,3 +1,3 @@
-# Calcul mental — v292
+# Calcul mental — v293
 
-- Valeur de position : chaque question tire désormais 2 termes parmi ceux cochés (1 si un seul est coché), la « probabilité qu’un terme soit absent » disparaît. Nouvelle option « 2 chiffres » : le terme le plus bas des choisis a une chance sur deux de recevoir un nombre à deux chiffres (ex. 3c 24d). Les réglages déjà enregistrés gardent leurs termes, l’option est décochée.
+- Nouvelle catégorie « Division de dizaines » : un nombre rond (ex. 800) divisé par 10, 100, 1000 ou 10000. Réglages : plage du nombre à diviser, cases à cocher « Diviser par » et plage du résultat. Le dividende est toujours un multiple du diviseur, le résultat est donc toujours un entier. Aide pédagogique dédiée (« enlever un zéro à droite »).
