@@ -1,3 +1,3 @@
-# Calcul mental — v304
+# Calcul mental — v305
 
-- Carte mini-défi (« Mes progrès ») : le texte « Pour gagner ta prochaine étoile... » est désormais centré dans le bloc, comme le bouton en dessous.
+- Page de choix du profil : suppression du badge cerveau 🧠 et du titre « Calcul mental » ; la page commence directement par « Choisis ton profil : » (les règles CSS devenues inutiles sont retirées ; le titre de l'onglet du navigateur est conservé).
