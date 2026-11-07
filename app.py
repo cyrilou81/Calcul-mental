@@ -84,6 +84,15 @@ def init_db():
         c.execute('ALTER TABLE profiles ADD COLUMN coin_milestone INTEGER NOT NULL DEFAULT 0')
         c.execute('UPDATE profiles SET coin_milestone=2 WHERE coins>=10')
 
+    # v303 : purge des données orphelines — séances/questions/configs/
+    # récompenses rattachées à un profil qui n'existe plus. La suppression
+    # d'un profil efface déjà tout (delete_profile), ce balayage ne sert
+    # qu'à nettoyer les restes d'éventuelles anciennes versions.
+    c.execute('DELETE FROM questions WHERE session_id IN (SELECT id FROM sessions WHERE profile_id NOT IN (SELECT id FROM profiles))')
+    c.execute('DELETE FROM sessions WHERE profile_id NOT IN (SELECT id FROM profiles)')
+    c.execute('DELETE FROM configs WHERE profile_id NOT IN (SELECT id FROM profiles)')
+    c.execute('DELETE FROM reward_progress WHERE profile_id NOT IN (SELECT id FROM profiles)')
+
     class_defaults={'CP':'#ef5350','CE1':'#f5b82e','CE2':'#2fbd68','CM1':'#3189dc','CM2':'#8b4de3'}
     for school,color in class_defaults.items():
         c.execute('INSERT OR IGNORE INTO class_settings(school_class,color) VALUES(?,?)',(school,color))

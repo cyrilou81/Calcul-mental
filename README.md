@@ -1,3 +1,3 @@
-# Calcul mental — v302
+# Calcul mental — v303
 
-- Carte mini-défi (« Mes progrès ») : le bouton affiche « S'entraîner (5 questions) » au lieu de « S'entraîner » ; le fond du bloc passe en vert clair (fond #eaf8ee, bordure verte #8fd9a8, texte vert foncé) au lieu du jaune/orange qui ressemblait à un avertissement.
+- Suppression de profil : le bouton « Supprimer » du gestionnaire de profils effaçait déjà toutes les données du profil (séances, questions/résultats, configuration, récompenses) ; ajout d'un balayage au démarrage qui purge les éventuelles données orphelines laissées par d'anciennes versions (séances, questions, configs, récompenses rattachées à un profil disparu).
