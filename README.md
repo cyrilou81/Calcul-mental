@@ -1,3 +1,3 @@
-# Calcul mental — v316
+# Calcul mental — v317
 
-- Images converties en webp par Cyril : rebranchement de toutes les références — les 100 cartes récompenses (robots, fées, dragons, pirates, monstres, dinosaures, animaux, constructions, princesses) et les 7 images de l'interface (accueil de connexion, chien bravo, victoires étoile/record/niveau, fonds de progression) pointent désormais vers les fichiers .webp.
+- Stats « Calculs effectués » : cliquer sur « Temps » alterne désormais décroissant/croissant à chaque clic, et la colonne « # » porte une flèche (↺) pour revenir à l'ordre des réponses.
