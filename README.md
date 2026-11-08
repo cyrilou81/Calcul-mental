@@ -1,3 +1,3 @@
-# Calcul mental — v309
+# Calcul mental — v310
 
-- Écran de test : quand la réponse ne tient plus sur la ligne du calcul, elle passe entièrement sur la ligne en dessous et tout l'écran se décale vers le bas ; une réponse trop longue même pour une ligne entière reste bloquée au bord de l'écran (coupée avec « … »). Auparavant la ligne ne cassait jamais et débordait de l'écran.
+- « Addition à 3 termes » : suppression de la limite des termes à un chiffre — chaque terme peut monter jusqu'à (résultat max − 2), seule la somme reste bornée par le résultat max ; avec un résultat max ≤ 11, les termes restent à un chiffre comme avant ; les réglages enregistrés ne changent pas.

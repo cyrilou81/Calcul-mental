@@ -489,10 +489,16 @@ def gen(kind,cfg):
         display=' '.join(f'{factors[p]}{lbl.get(p,p)}' for p in display_order)+' = __'
         return {'factors':factors,'order':display_order},display,expected
     if kind=='addition3':
+        # v310 : plus de limite à un chiffre — chaque terme peut monter jusqu'à
+        # (résultat max − 2), seule la somme reste bornée par le résultat max.
+        # Résultat max ≤ 11 => termes 1..9 comme avant.
         max_result=max(3,int(cfg.get('maxResult',27)))
-        candidates=[(a,b,c) for a in range(1,10) for b in range(1,10) for c in range(1,10) if a+b+c<=max_result]
-        if not candidates: raise ValueError("Aucune addition à 3 termes possible avec ce résultat max.")
-        nums=list(random.choice(candidates))
+        hi=max_result-2
+        nums=[1,1,1]
+        for _ in range(200):
+            a=random.randint(1,hi); b=random.randint(1,hi)
+            if a+b<max_result:
+                nums=[a,b,random.randint(1,min(hi,max_result-a-b))]; break
         return {'numbers':nums},f'{nums[0]} + {nums[1]} + {nums[2]} = __',sum(nums)
     if kind=='multiple_of':
         factors=[int(x) for x in cfg.get('factors',[3,4]) if int(x) in (3,4)]
