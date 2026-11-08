@@ -673,6 +673,63 @@ def challenge_focus_slowest(pid,level_id,kind,count=5):
         if len(out)>=count: break
     return out
 
+def facilitator_disabled_kinds(pid,level_id,active_kinds):
+    # v328 facilitateur : si l'enfant décroche sur son étoile, le prochain
+    # défi met de côté ses types d'opérations les plus lents pour qu'il aille
+    # vite sur ce qu'il maîtrise. Fenêtre = les 5 derniers défis terminés de
+    # l'étoile ; on écarte les plus lents pour en garder 3 et juger sa
+    # vitesse de fond. Moins de 3 défis sur l'étoile : rien.
+    active_kinds=set(active_kinds or [])
+    info={'tests':0,'avg':None}
+    if len(active_kinds)<5: return [],info  # plancher : 4 types minimum au défi
+    c=db()
+    rows=c.execute("SELECT s.id sid,q.kind kind,q.status status,q.response_ms ms FROM sessions s JOIN questions q ON q.session_id=s.id WHERE s.profile_id=? AND s.mode='challenge' AND s.challenge_level_id=? AND s.rewarded=1 ORDER BY s.id DESC",(pid,level_id)).fetchall()
+    c.close()
+    if not rows: return [],info
+    by_sess={}
+    for r in rows: by_sess.setdefault(r['sid'],[]).append(r)
+    recent=list(by_sess)[:5]
+    info['tests']=len(recent)
+    if len(recent)<3: return [],info
+    # Mémoire de l'étoile : médiane par type sur TOUS les défis de l'étoile.
+    # Les types mis de côté gardent ainsi leurs temps quand la fenêtre récente
+    # ne les contient plus. Reset automatique au changement d'étoile puisqu'on
+    # ne lit que les défis du palier courant.
+    star={}
+    for r in rows:
+        if r['status']!='UNANSWERED' and r['ms'] is not None: star.setdefault(r['kind'],[]).append(r['ms'])
+    scored=[]
+    for sid in recent:
+        sess=by_sess[sid]
+        xs=[r['ms'] for r in sess if r['status']!='UNANSWERED' and r['ms'] is not None]
+        scored.append({'median':statistics.median(xs) if xs else None,'correct':sum(1 for r in sess if r['status']=='CORRECT'),'rows':sess})
+    # On garde les 3 défis les plus rapides (médiane la plus basse).
+    scored.sort(key=lambda s:(s['median'] is None,s['median'] or 0))
+    kept=scored[:3]
+    # Garde-fou : 2 des 3 gardés au-dessus de 40 bonnes réponses = un seul
+    # test raté n'active pas le facilitateur.
+    if sum(1 for s in kept if s['correct']>40)>=2: return [],info
+    avg=sum(s['correct'] for s in kept)/3.0
+    info['avg']=round(avg,1)
+    if avg>=40: return [],info
+    remove=1 if avg>=30 else (2 if avg>=20 else 3)
+    if len(recent)<5: remove=min(remove,1)  # fenêtre courte : prudence
+    remove=min(remove,len(active_kinds)-4)  # toujours au moins 4 types au défi
+    if remove<=0: return [],info
+    # Classement des types activés, du plus lent au plus rapide : médiane sur
+    # les 3 gardés si le type y est, sinon mémoire de l'étoile.
+    med_recent={}
+    for s in kept:
+        for r in s['rows']:
+            if r['status']!='UNANSWERED' and r['ms'] is not None and r['kind'] in active_kinds: med_recent.setdefault(r['kind'],[]).append(r['ms'])
+    ranked=[]
+    for k in active_kinds:
+        xs=med_recent.get(k) or star.get(k)
+        if xs: ranked.append((statistics.median(xs),k))
+    ranked.sort(reverse=True)
+    disabled=[k for _,k in ranked[:remove]]
+    return disabled,info
+
 def authenticated(): return isinstance(session.get('account_id'), int)
 def current_account_id(): return session.get('account_id')
 def require_auth():
@@ -1478,6 +1535,14 @@ def start(pid):
     if mode=='learning' and focus:
         # v284 : entraînement ciblé — une seule catégorie, celle du conseil.
         cfg['categories']={focus:cfg['categories'][focus]}
+    facilitator_disabled=[]
+    if mode=='challenge' and challenge_level_id:
+        # v328 facilitateur : si l'enfant décroche sur son étoile (moins de
+        # 40 bonnes réponses en moyenne sur ses 3 défis les plus rapides), le
+        # prochain défi met de côté ses types les plus lents. Toujours au
+        # moins 4 types, et jamais en entraînement libre.
+        facilitator_disabled,_=facilitator_disabled_kinds(pid,challenge_level_id,{k for k,v in cfg['categories'].items() if v.get('enabled') and int(v.get('weight',0) or 0)>0})
+        for k in facilitator_disabled: cfg['categories'].pop(k,None)
     count=cfg.get('count',50)
     active_kinds={k for k,v in cfg['categories'].items() if v.get('enabled') and int(v.get('weight',0) or 0)>0}
     # Un Défi doit rester standardisé : aucune reprise d'erreur d'une séance précédente.
@@ -1804,6 +1869,25 @@ def star_advice(pid):
     kind=max(scores,key=lambda k:scores[k]) if scores else None
     c.close()
     return {'show':True,'kind':kind}
+
+@app.get('/api/facilitator/<int:pid>')
+def facilitator(pid):
+    # v328 : types d'opérations actuellement mis de côté par le facilitateur
+    # sur l'étoile courante (affichés en gris dans le détail de séance).
+    if (e:=require_auth()): return e
+    if not owns_profile(pid): return {'error':'Profil introuvable'},404
+    c=db(); p=c.execute('SELECT challenge_level_id FROM profiles WHERE id=?',(pid,)).fetchone()
+    level_id=p['challenge_level_id'] if p else None
+    kinds=[]
+    if level_id:
+        lv=c.execute('SELECT data FROM challenge_levels WHERE id=? AND active=1',(level_id,)).fetchone()
+        if lv:
+            cfg=merged_cfg(json.loads(lv['data']))
+            kinds=[k for k,v in cfg['categories'].items() if v.get('enabled') and int(v.get('weight',0) or 0)>0]
+    c.close()
+    if not level_id or not kinds: return {'disabled':[],'tests':0,'avg':None}
+    disabled,info=facilitator_disabled_kinds(pid,level_id,set(kinds))
+    return {'disabled':disabled,'tests':info['tests'],'avg':info['avg']}
 
 @app.get('/api/stats/<int:pid>')
 def stats(pid):
