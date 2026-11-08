@@ -956,7 +956,6 @@ function selectMode(mode){currentMode=mode;let ch=mode==='challenge';$('#challen
 async function login(p){profile=p;$('#hello').textContent=p.name;$('#coinCount').textContent=p.coins||0;$('#welcomeErr').textContent='';show('home');try{cfg=await api('/api/config/'+p.id);await refreshChallenge();updateSessionSummary();selectMode('challenge');api('/api/test-end-images',{cache:'no-store'}).then(r=>{if(endImages===null)endImages=r.images||[]}).catch(()=>{});syncPending()}catch(e){profile=null;cfg=null;challengeState=null;$('#welcomeErr').textContent=e.message;show('welcome')}}
 $('#logout').onclick=()=>{profile=null;show('welcome');loadProfiles()}; document.querySelectorAll('.back').forEach(b=>b.onclick=()=>{if(b.closest('#stats')&&(statsView==='category'||statsView==='session')){renderStats();return}if(b.closest('#stats'))stopStatsLiveRefresh();show('home')});
 const names=ConfigForm.names;
-function configNumber(v){let n=Number(String(v).trim().replace(',','.'));return Number.isFinite(n)?n:0}
 function renderConfig(){$('#durationMinutes').value=Math.max(1,Math.round((cfg.duration||300)/60));$('#questionCount').value=cfg.count||50;ConfigForm.render($('#configRows'),cfg)}
 $('#challengeTab').onclick=()=>selectMode('challenge');
 $('#learningTab').onclick=()=>selectMode('learning');

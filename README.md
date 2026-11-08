@@ -1,3 +1,3 @@
-# Calcul mental — v325
+# Calcul mental — v326
 
-- Fix : les 7 images d'interface (accueil, chien bravo, victoires, progression) pointaient vers des .png supprimés lors de la conversion webp, rebranchées vers les .webp.
+- Nettoyage : suppression de 5 images inutilisées (login-landscape-clean, progress-cliff, progress-mountain-scene, progress-reference, star-victory-v268) et de la fonction JS morte configNumber.
