@@ -1,3 +1,3 @@
-# Calcul mental — v324
+# Calcul mental — v325
 
-- Récompenses : dragons — Braise et Griotte interverties.
+- Fix : les 7 images d'interface (accueil, chien bravo, victoires, progression) pointaient vers des .png supprimés lors de la conversion webp, rebranchées vers les .webp.
