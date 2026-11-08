@@ -1,3 +1,3 @@
-# Calcul mental — v322
+# Calcul mental — v323
 
-- Récompenses : prénoms réajustés — Vulcain/Prunelle (dragons), Trésor/Mousaïe échangés et Perle devient Sablon (pirates), Étoile/Maréa et Violette/Sélène échangées (fées).
+- Récompenses : fées — Feuille et Rosélia interverties.
