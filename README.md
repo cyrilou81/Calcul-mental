@@ -1,3 +1,3 @@
-# Calcul mental — v313
+# Calcul mental — v314
 
-- Décimales : « Décimales » (et « Chiffres après la virgule » des divisions) est un MAX — le nombre réel de décimales est tiré au hasard entre 1 et ce max, il y a toujours au moins une décimale. Additions, soustractions et multiplications de décimaux (max étendu à 3) + résultat des divisions de décimaux (0 = entier, inchangé).
+- « Explications aux parents » : le bouton passe de l'écran des profils à l'écran de connexion (avant le login), et l'encart décrit les 2 parties de l'application (Défi, Entraînement) et la section statistiques.
