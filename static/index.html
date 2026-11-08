@@ -284,8 +284,9 @@ input,select{background:#fffdf7;border:2px solid #9bd8f5;}
   #home .home-secondary{margin-top:5px}
 }
 
-/* Profils : ici, oui, on autorise le défilement si la liste devient longue. */
-#profiles{max-height:100dvh;overflow-y:auto;overscroll-behavior-y:contain}
+/* Profils : la section défile verticalement, plus de barre en bas de la liste. */
+#welcome{overflow-y:auto;overflow-x:hidden;justify-content:safe center;overscroll-behavior:contain}
+#profiles{max-height:none;overflow:visible}
 
 
 .stats-mode-tabs{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:4px 0 18px}

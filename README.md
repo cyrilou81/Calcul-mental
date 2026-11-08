@@ -1,3 +1,3 @@
-# Calcul mental — v317
+# Calcul mental — v318
 
-- Stats « Calculs effectués » : cliquer sur « Temps » alterne désormais décroissant/croissant à chaque clic, et la colonne « # » porte une flèche (↺) pour revenir à l'ordre des réponses.
+- Choix du profil : plus de barre de défilement en bas de la liste ; on descend simplement dans la page pour atteindre les profils suivants.
