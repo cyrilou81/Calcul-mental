@@ -1,3 +1,3 @@
-# Calcul mental — v323
+# Calcul mental — v324
 
-- Récompenses : fées — Feuille et Rosélia interverties.
+- Récompenses : dragons — Braise et Griotte interverties.
