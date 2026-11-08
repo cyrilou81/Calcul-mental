@@ -277,6 +277,20 @@ def allocate(n,cats):
     for i in range(n-used): vals[i%len(vals)][1]+=1
     return {k:b for k,b,_ in vals}
 
+def count_with_decimals(lo,hi):
+    # v313 : nombre d'entiers de [lo,hi] dont le dernier chiffre est non nul
+    # (donc capables de porter de vraies décimales une fois divisés par 10^d).
+    if hi<lo: return 0
+    return (hi-lo+1)-(hi//10-(lo-1)//10)
+
+def draw_with_decimals(lo,hi):
+    # v313 : tirage uniforme d'un entier de [lo,hi] à dernier chiffre non nul.
+    # Parmi deux entiers consécutifs au moins un n'est pas multiple de 10,
+    # la boucle est donc toujours courte.
+    while True:
+        n=random.randint(lo,hi)
+        if n%10: return n
+
 def gen(kind,cfg):
     if kind=='double':
         value_mode=cfg.get('doubleMode','non_tens')
@@ -360,22 +374,28 @@ def gen(kind,cfg):
     if kind=='decimal':
         # Addition de décimaux uniquement. Sans retenue, chaque colonne de chiffres
         # (partie décimale et partie entière) doit rester strictement inférieure à 10.
-        decimals=max(1,min(2,int(cfg.get('decimals',1)))); scale=10**decimals
-        lo=int(round(float(cfg.get('min',0))*scale)); hi=int(round(float(cfg.get('max',20))*scale))
-        if hi<lo: lo,hi=hi,lo
+        # v313 : « Décimales » est un MAX — le nombre de décimales est tiré au
+        # hasard entre 1 et ce max, chaque terme garde au moins une décimale.
         def no_carry_scaled(x,y):
             while x or y:
                 if (x % 10) + (y % 10) >= 10: return False
                 x//=10; y//=10
             return True
-        candidates=[]
-        # Random sampling avoids building an enormous Cartesian product for wide ranges.
-        for _ in range(1200):
-            x=random.randint(lo,hi); y=random.randint(lo,hi)
-            if cfg.get('withCarry',True) or no_carry_scaled(x,y):
-                candidates.append((x,y))
-                if len(candidates)>=80: break
+        dmax=max(1,min(2,int(cfg.get('decimals',1))))
+        candidates=[]; decimals=1
+        for d in random.sample(range(1,dmax+1),dmax):
+            scale=10**d
+            lo=int(round(float(cfg.get('min',0))*scale)); hi=int(round(float(cfg.get('max',20))*scale))
+            if hi<lo: lo,hi=hi,lo
+            # Random sampling avoids building an enormous Cartesian product for wide ranges.
+            for _ in range(1200):
+                x=random.randint(lo,hi); y=random.randint(lo,hi)
+                if x%10 and y%10 and (cfg.get('withCarry',True) or no_carry_scaled(x,y)):
+                    candidates.append((x,y))
+                    if len(candidates)>=80: break
+            if candidates: decimals=d; break
         if not candidates: raise ValueError("Aucune addition de décimaux possible avec ces réglages sans retenue")
+        scale=10**decimals
         a,b=random.choice(candidates)
         av=a/scale; bv=b/scale; expected=(a+b)/scale
         fmt=lambda x: (f'{x:.{decimals}f}'.rstrip('0').rstrip('.')).replace('.',',')
@@ -439,21 +459,35 @@ def gen(kind,cfg):
     if kind=='division':
         d=random.choice(cfg['tables']); q=random.randint(cfg['quotientMin'],cfg['quotientMax']); return {'dividend':d*q,'divisor':d},f'{d*q} : {d} = __',q
     if kind=='decimal_multiplication':
-        m=random.choice(cfg.get('multipliers',[10,100,1000])); dec=max(1,min(2,int(cfg.get('decimals',1))))
-        scale=10**dec; lo=max(1,int(round(float(cfg.get('min',0.1))*scale))); hi=max(lo,int(round(float(cfg.get('max',20))*scale)))
-        ai=random.randint(lo,hi); x=ai/scale; expected=x*m
+        # v313 : « Décimales » est un MAX — le nombre de décimales du nombre
+        # est tiré au hasard entre 1 et ce max, il y a toujours au moins une
+        # décimale (dernier chiffre non nul).
+        m=random.choice(cfg.get('multipliers',[10,100,1000])); dmax=max(1,min(3,int(cfg.get('decimals',1))))
+        pool=[]
+        for dec in range(1,dmax+1):
+            scale=10**dec; lo=max(1,int(round(float(cfg.get('min',0.1))*scale))); hi=max(lo,int(round(float(cfg.get('max',20))*scale)))
+            if count_with_decimals(lo,hi): pool.append((dec,lo,hi))
+        if not pool: raise ValueError('Aucune multiplication décimale possible avec ces réglages.')
+        dec,lo,hi=random.choice(pool); scale=10**dec; ai=draw_with_decimals(lo,hi)
+        x=ai/scale; expected=x*m
         fmt=lambda v: (f'{v:.{dec}f}'.rstrip('0').rstrip('.')).replace('.',',')
         return {'a':x,'b':m},f'{fmt(x)} × {m} = __',expected
     if kind=='decimal_division':
-        # v301 : on tire d'abord le RÉSULTAT avec exactement resultDecimals
-        # chiffres après la virgule (n non multiple de 10), le dividende en
-        # découle (n*d/10^rd), et min/max s'appliquent au dividende affiché.
-        d=random.choice(cfg.get('divisors',[10,100,1000])); rd=max(0,min(3,int(cfg.get('resultDecimals',1))))
-        scale=10**rd
-        lo=max(1,-(-int(round(float(cfg.get('min',1))*scale))//d)); hi=int(round(float(cfg.get('max',1000))*scale))//d
-        cands=[n for n in range(lo,hi+1) if n%10] if rd>0 else list(range(lo,hi+1))
-        if not cands: raise ValueError('Aucune division décimale possible avec ces réglages.')
-        n=random.choice(cands); r=n/scale; num=n*d
+        # v301 : on tire d'abord le RÉSULTAT, le dividende en découle
+        # (n*d/10^rd), et min/max s'appliquent au dividende affiché.
+        # v313 : « Chiffres après la virgule » est un MAX — le nombre de
+        # décimales du résultat est tiré entre 1 et ce max (0 = entier).
+        d=random.choice(cfg.get('divisors',[10,100,1000])); rmax=max(0,min(3,int(cfg.get('resultDecimals',1))))
+        pool=[]
+        for rd in ([0] if rmax==0 else range(1,rmax+1)):
+            scale=10**rd
+            lo=max(1,-(-int(round(float(cfg.get('min',1))*scale))//d)); hi=int(round(float(cfg.get('max',1000))*scale))//d
+            if hi<lo: continue
+            if rd==0 or count_with_decimals(lo,hi): pool.append((rd,lo,hi))
+        if not pool: raise ValueError('Aucune division décimale possible avec ces réglages.')
+        rd,lo,hi=random.choice(pool); scale=10**rd
+        n=draw_with_decimals(lo,hi) if rd>0 else random.randint(lo,hi)
+        r=n/scale; num=n*d
         x=num//scale if num%scale==0 else num/scale
         fmt=lambda v: str(int(v)) if v==int(v) else (f'{v:.6f}'.rstrip('0').rstrip('.')).replace('.',',')
         return {'dividend':x,'divisor':d},f'{fmt(x)} : {d} = __',r
@@ -583,21 +617,27 @@ def gen(kind,cfg):
         x,y=random.choice(candidates)
         return {'a':x,'b':y},f'{x} − {y} = __',x-y
     if kind=='decimal_sub':
-        decimals=max(1,min(2,int(cfg.get('decimals',1)))); scale=10**decimals
-        lo=int(round(float(cfg.get('min',0))*scale)); hi=int(round(float(cfg.get('max',20))*scale))
-        if hi<lo: lo,hi=hi,lo
+        # v313 : « Décimales » est un MAX — le nombre de décimales est tiré au
+        # hasard entre 1 et ce max, chaque terme garde au moins une décimale.
         def no_borrow_scaled(x,y):
             while x or y:
                 if (x % 10) < (y % 10): return False
                 x//=10; y//=10
             return True
-        candidates=[]
-        for _ in range(1600):
-            x=random.randint(lo,hi); y=random.randint(lo,x)
-            if cfg.get('withBorrow',True) or no_borrow_scaled(x,y):
-                candidates.append((x,y))
-                if len(candidates)>=80: break
+        dmax=max(1,min(2,int(cfg.get('decimals',1))))
+        candidates=[]; decimals=1
+        for d in random.sample(range(1,dmax+1),dmax):
+            scale=10**d
+            lo=int(round(float(cfg.get('min',0))*scale)); hi=int(round(float(cfg.get('max',20))*scale))
+            if hi<lo: lo,hi=hi,lo
+            for _ in range(1600):
+                x=random.randint(lo,hi); y=random.randint(lo,x)
+                if x%10 and y%10 and (cfg.get('withBorrow',True) or no_borrow_scaled(x,y)):
+                    candidates.append((x,y))
+                    if len(candidates)>=80: break
+            if candidates: decimals=d; break
         if not candidates: raise ValueError("Aucune soustraction de décimaux possible avec ces réglages")
+        scale=10**decimals
         x,y=random.choice(candidates); xv=x/scale; yv=y/scale
         fmt=lambda v: (f'{v:.{decimals}f}'.rstrip('0').rstrip('.')).replace('.',',')
         return {'a':xv,'b':yv,'op':'subtraction','decimals':decimals},f'{fmt(xv)} − {fmt(yv)} = __',(x-y)/scale
@@ -868,12 +908,16 @@ def validate_cfg_data(data):
         # remplacée par « resultDecimals » (décimales du résultat).
         dd['resultDecimals']=max(0,min(3,int(dd.get('resultDecimals',1))))
         dd.pop('decimals',None)
-        scale=10**dd['resultDecimals']
+        # v313 : « Chiffres après la virgule » = MAX — il suffit qu'un seul
+        # nombre de décimales entre 1 et ce max soit possible (0 = entier).
         ok=False
-        for dv in dd['divisors']:
-            lo=max(1,-(-int(round(float(dd.get('min',1))*scale))//dv)); hi=int(round(float(dd.get('max',1000))*scale))//dv
-            if hi<lo: continue
-            if dd['resultDecimals']==0 or any(n%10 for n in range(lo,hi+1)): ok=True; break
+        for rd in ([0] if dd['resultDecimals']==0 else range(1,dd['resultDecimals']+1)):
+            scale=10**rd
+            for dv in dd['divisors']:
+                lo=max(1,-(-int(round(float(dd.get('min',1))*scale))//dv)); hi=int(round(float(dd.get('max',1000))*scale))//dv
+                if hi<lo: continue
+                if rd==0 or count_with_decimals(lo,hi): ok=True; break
+            if ok: break
         if not ok:
             raise ValueError('Aucune division décimale possible avec ces réglages.')
     if cats.get('double',{}).get('enabled'):
