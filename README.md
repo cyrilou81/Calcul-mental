@@ -1,3 +1,3 @@
-# Calcul mental — v326
+# Calcul mental — v327
 
-- Nettoyage : suppression de 5 images inutilisées (login-landscape-clean, progress-cliff, progress-mountain-scene, progress-reference, star-victory-v268) et de la fonction JS morte configNumber.
+- Récompenses : images non débloquées protégées — appui long, clic droit et glisser désactivés sur la carte en cours et les cartes en silhouette (les cartes déjà révélées restent inchangées).

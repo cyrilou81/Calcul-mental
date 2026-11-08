@@ -1192,7 +1192,7 @@ async function openRewards(initialView='progress'){
  root.querySelectorAll('.progress-tab').forEach(btn=>btn.onclick=()=>{let gifts=btn.dataset.progressView==='gifts';if(gifts)clearMilestone();root.querySelector('#progressPanel').classList.toggle('hidden',gifts);root.querySelector('#giftsPanel').classList.toggle('hidden',!gifts);root.querySelectorAll('.progress-tab').forEach(b=>{let active=b===btn;b.classList.toggle('active',active);b.setAttribute('aria-selected',active?'true':'false')})});
  show('rewards')
 }
-function puzzleHtml(c,revealed,extra=''){let rev=new Set(revealed||[]);return `<div class="puzzle-card ${extra}"><img src="${c.image}" alt="Carte en cours"><div class="puzzle-grid">${Array.from({length:20},(_,i)=>`<div class="puzzle-piece ${rev.has(i)?'revealed':''}" data-piece="${i}"></div>`).join('')}</div></div>`}
+function puzzleHtml(c,revealed,extra=''){let rev=new Set(revealed||[]);return `<div class="puzzle-card ${extra}"><img src="${c.image}" alt="Carte en cours" class="no-steal"><div class="puzzle-grid">${Array.from({length:20},(_,i)=>`<div class="puzzle-piece ${rev.has(i)?'revealed':''}" data-piece="${i}"></div>`).join('')}</div></div>`}
 function bindCompletedCards(root){root.querySelectorAll('.collection-grid .reward-card').forEach(el=>el.onclick=()=>openRewardViewer(el.dataset.card,false))}
 let rewardCategory=null;
 function renderRewards(r,root=$('#rewardContent')){rewardState=r;let completed=r.completed||[];if(!r.currentCard){
@@ -1208,7 +1208,7 @@ function openRewardViewer(cardId,isCurrent){
  let revealed=isCurrent?(rewardState?.revealed||[]):Array.from({length:20},(_,i)=>i);
  let canSpend=isCurrent&&(rewardState?.coins||0)>=10;
  let hint=isCurrent?(canSpend?`Touche l’image : jusqu’à ${Math.min(20-revealed.length,Math.floor((rewardState?.coins||0)/10))} case(s) vont tomber`:'Touche l’image pour revenir'):'Touche à côté pour fermer';
- ov.innerHTML=`<div class="reward-viewer-card ${canSpend?'viewer-can-reveal':'viewer-no-coins'}"><div class="reward-viewer-hint">${hint}</div><img src="${c.image}" alt="${c.label}"><div class="puzzle-grid">${Array.from({length:20},(_,i)=>`<div class="puzzle-piece ${revealed.includes(i)?'revealed':''}" data-piece="${i}"></div>`).join('')}</div><div class="reward-viewer-name">${c.label}</div></div>`;
+ ov.innerHTML=`<div class="reward-viewer-card ${canSpend?'viewer-can-reveal':'viewer-no-coins'}"><div class="reward-viewer-hint">${hint}</div><img src="${c.image}" alt="${c.label}"${isCurrent?' class="no-steal"':''}><div class="puzzle-grid">${Array.from({length:20},(_,i)=>`<div class="puzzle-piece ${revealed.includes(i)?'revealed':''}" data-piece="${i}"></div>`).join('')}</div><div class="reward-viewer-name">${c.label}</div></div>`;
  document.body.appendChild(ov);
  ov.onclick=e=>{if(e.target===ov)ov.remove()};
  if(isCurrent){
@@ -1603,4 +1603,8 @@ document.addEventListener('touchend',e=>{
 #parentsBtn:hover{background:#e4f4ff}
 .parents-title{font-size:26px;margin:0 0 16px;color:#174a6b}
 .parents-speech p{font-size:18px;line-height:1.55;color:#315b73;margin:0 0 14px}
+</style>
+<style id="v327-no-steal">
+/* v327 — images non débloquées : appui long / clic droit / glisser désactivés (carte en cours + silhouettes) */
+.no-steal,.reward-card.locked img,.reward-card.silhouette img{pointer-events:none;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;-webkit-user-drag:none}
 </style>
