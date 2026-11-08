@@ -1,3 +1,3 @@
-# Calcul mental — v310
+# Calcul mental — v311
 
-- « Addition à 3 termes » : suppression de la limite des termes à un chiffre — chaque terme peut monter jusqu'à (résultat max − 2), seule la somme reste bornée par le résultat max ; avec un résultat max ≤ 11, les termes restent à un chiffre comme avant ; les réglages enregistrés ne changent pas.
+- Récompenses : les Dragons pointent vers les nouvelles images dragon_pose_01..10.png ; nouvelles catégories Pirates (10 cartes, images pirates_01..10.png) et Monstres rigolos (20 cartes, images gentil_monstre_01..20.png) au choix de thème ; le débloquage ne change pas : une carte à la fois, 20 cases de 10 pièces.
