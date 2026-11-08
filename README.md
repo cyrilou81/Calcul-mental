@@ -1,4 +1,3 @@
-# Calcul mental — v306
+# Calcul mental — v307
 
-- Récompenses, catégorie Fées : les 10 cartes pointent désormais vers les nouvelles images fee_01.png à fee_10.png, plus adaptées à de jeunes enfants que les anciennes fairy-1.jpg à fairy-10.jpg (qui restent dans le dossier mais ne sont plus utilisées) ; identifiants et prénoms inchangés, la progression des enfants est conservée.
-- Nouvelle catégorie de récompenses Dragons : 10 cartes dragon_01.png à dragon_10.png ajoutées au choix de thème.
+- « Valeur de position » : nouveaux termes « dixiè » (dixièmes, dx) et « centiè » (centièmes, cx) ; le résultat se saisit avec la virgule (ex. 3u 5dx = 3,5) ; calcul en centièmes entiers pour des résultats exacts ; l'aide pédagogique explique 1dx = 0,1 et 1cx = 0,01 ; les configs existantes ne changent pas (dx et cx décochés par défaut).
