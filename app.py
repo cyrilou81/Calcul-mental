@@ -713,6 +713,10 @@ def facilitator_disabled_kinds(pid,level_id,active_kinds):
     info['avg']=round(avg,1)
     if avg>=40: return [],info
     remove=1 if avg>=30 else (2 if avg>=20 else 3)
+    # v329 : au-delà de 10 tentatives sur l'étoile sans l'avoir passée, on met
+    # de côté une catégorie de plus (le garde-fou des 2 tests à plus de 40,
+    # déjà vérifié ci-dessus, annule ce bonus comme le reste).
+    if len(by_sess)>10: remove+=1
     if len(recent)<5: remove=min(remove,1)  # fenêtre courte : prudence
     remove=min(remove,len(active_kinds)-4)  # toujours au moins 4 types au défi
     if remove<=0: return [],info

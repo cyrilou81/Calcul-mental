@@ -1,3 +1,3 @@
-# Calcul mental — v328
+# Calcul mental — v329
 
-- Facilitateur : si l'enfant décroche sur son étoile (moins de 40 bonnes réponses en moyenne sur ses 3 défis les plus rapides récents), le prochain défi met de côté ses types d'opérations les plus lents (1 à 3, toujours au moins 4 types au total). Les catégories au repos apparaissent en gris dans le détail de séance.
+- Facilitateur : au-delà de 10 tentatives sur l'étoile sans l'avoir passée, une catégorie de plus est mise de côté (le garde-fou des 2 tests à plus de 40 bonnes réponses annule aussi ce bonus).
