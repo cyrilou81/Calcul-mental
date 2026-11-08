@@ -1,3 +1,3 @@
-# Calcul mental — v321
+# Calcul mental — v322
 
-- Récompenses : la catégorie « Pirates » devient « Drôles de pirates ».
+- Récompenses : prénoms réajustés — Vulcain/Prunelle (dragons), Trésor/Mousaïe échangés et Perle devient Sablon (pirates), Étoile/Maréa et Violette/Sélène échangées (fées).
