@@ -1,3 +1,3 @@
-# Calcul mental — v319
+# Calcul mental — v320
 
-- Récompenses : noms de catégories au pluriel (Robots, Fées, Gentils dragons, Dinosaures, Animaux, Engins de chantier, Princesses, Pirates, Monstres rigolos).
+- Nouvelle variable d'environnement POWER_USERS (vide par défaut) : liste de prénoms de profils (pas des logins) séparés par des virgules ; ces profils voient toutes les cartes de récompenses d'un coup, sans dépenser de pièces.
