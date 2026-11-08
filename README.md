@@ -1,3 +1,3 @@
-# Calcul mental — v308
+# Calcul mental — v309
 
-- « Valeur de position » : l'affichage pour les enfants écrit « dixiè » et « centiè » en toutes lettres (ex. 3u 5dixiè = 3,5, 7centiè = 0,07) au lieu des codes dx et cx ; l'aide pédagogique utilise le même vocabulaire ; les réglages ne changent pas.
+- Écran de test : quand la réponse ne tient plus sur la ligne du calcul, elle passe entièrement sur la ligne en dessous et tout l'écran se décale vers le bas ; une réponse trop longue même pour une ligne entière reste bloquée au bord de l'écran (coupée avec « … »). Auparavant la ligne ne cassait jamais et débordait de l'écran.
