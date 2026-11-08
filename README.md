@@ -1,3 +1,3 @@
-# Calcul mental — v318
+# Calcul mental — v319
 
-- Choix du profil : plus de barre de défilement en bas de la liste ; on descend simplement dans la page pour atteindre les profils suivants.
+- Récompenses : noms de catégories au pluriel (Robots, Fées, Gentils dragons, Dinosaures, Animaux, Engins de chantier, Princesses, Pirates, Monstres rigolos).
