@@ -1,3 +1,3 @@
-# Calcul mental — v320
+# Calcul mental — v321
 
-- Nouvelle variable d'environnement POWER_USERS (vide par défaut) : liste de prénoms de profils (pas des logins) séparés par des virgules ; ces profils voient toutes les cartes de récompenses d'un coup, sans dépenser de pièces.
+- Récompenses : la catégorie « Pirates » devient « Drôles de pirates ».
