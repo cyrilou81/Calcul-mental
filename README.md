@@ -1,3 +1,3 @@
-# Calcul mental — v307
+# Calcul mental — v308
 
-- « Valeur de position » : nouveaux termes « dixiè » (dixièmes, dx) et « centiè » (centièmes, cx) ; le résultat se saisit avec la virgule (ex. 3u 5dx = 3,5) ; calcul en centièmes entiers pour des résultats exacts ; l'aide pédagogique explique 1dx = 0,1 et 1cx = 0,01 ; les configs existantes ne changent pas (dx et cx décochés par défaut).
+- « Valeur de position » : l'affichage pour les enfants écrit « dixiè » et « centiè » en toutes lettres (ex. 3u 5dixiè = 3,5, 7centiè = 0,07) au lieu des codes dx et cx ; l'aide pédagogique utilise le même vocabulaire ; les réglages ne changent pas.

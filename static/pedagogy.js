@@ -53,9 +53,9 @@ function contextualHelp(q){
     return helpBox(`<div class="help-step">${a} <span class="help-arrow">→</span> ${target}</div><div class="help-step">Il manque <span class="help-split">${missing}</span></div><div class="help-step">${a} + ${missing} = ${target}</div>`,`Cherche l’écart entre ${a} et ${target}.`)
   }
   if(k==='place_value'){
-    let f=p.factors||{}, order=(p.order||['dm','m','c','d','u']).filter(x=>f[x]), parts=order.map(x=>`${f[x]}${x}`), values={dm:10000,m:1000,c:100,d:10,u:1,dx:0.1,cx:0.01};
+    let f=p.factors||{}, order=(p.order||['dm','m','c','d','u']).filter(x=>f[x]), parts=order.map(x=>`${f[x]}${x==='dx'?'dixiè':x==='cx'?'centiè':x}`), values={dm:10000,m:1000,c:100,d:10,u:1,dx:0.1,cx:0.01};
     let detail=order.map(x=>`${f[x]} × ${hfmt(values[x])} = ${hfmt(f[x]*values[x])}`).join('<br>');
-    return helpBox(`<div class="help-note"><strong>c</strong> = centaines, <strong>d</strong> = dizaines, <strong>u</strong> = unités, <strong>dm</strong> = dizaines de milliers, <strong>dx</strong> = dixièmes, <strong>cx</strong> = centièmes.<br><strong>1dm = 10 000 &nbsp; 1c = 100 &nbsp; 1d = 10 &nbsp; 1u = 1 &nbsp; 1dx = 0,1 &nbsp; 1cx = 0,01</strong></div><div class="help-step">${parts.join(' ')}</div><div class="help-step">${detail}</div>`,`Lis chaque lettre avant de calculer : dm vaut 10 000, c vaut 100, d vaut 10, u vaut 1, dx vaut 0,1 et cx vaut 0,01.`)
+    return helpBox(`<div class="help-note"><strong>c</strong> = centaines, <strong>d</strong> = dizaines, <strong>u</strong> = unités, <strong>dm</strong> = dizaines de milliers, <strong>dixiè</strong> = dixièmes, <strong>centiè</strong> = centièmes.<br><strong>1dm = 10 000 &nbsp; 1c = 100 &nbsp; 1d = 10 &nbsp; 1u = 1 &nbsp; 1dixiè = 0,1 &nbsp; 1centiè = 0,01</strong></div><div class="help-step">${parts.join(' ')}</div><div class="help-step">${detail}</div>`,`Lis chaque terme avant de calculer : dm vaut 10 000, c vaut 100, d vaut 10, u vaut 1, dixiè vaut 0,1 et centiè vaut 0,01.`)
   }
   if(k==='addition3'){
     let ns=p.numbers||[], x=Number(ns[0]),y=Number(ns[1]),z=Number(ns[2]);return helpBox(`<div class="help-step">${x} + ${y} = ${x+y}</div><div class="help-step">${x+y} + ${z} <span class="help-arrow">→</span> ${x+y+z}</div>`,`Additionne deux nombres, puis ajoute le troisième.`)

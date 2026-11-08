@@ -478,14 +478,15 @@ def gen(kind,cfg):
         scale={'dm':1000000,'m':100000,'c':10000,'d':1000,'u':100,'dx':10,'cx':1}
         factors={p:random.randint(1,9) for p in present}
         # Option « 2 chiffres » : le terme le plus bas des choisis a une chance
-        # sur deux de recevoir un nombre à deux chiffres (ex. 3c 24d, 45cx).
+        # sur deux de recevoir un nombre à deux chiffres (ex. 3c 24d, 45centiè).
         if cfg.get('twoDigits') and random.random()<0.5:
             factors[min(present,key=lambda p:scale[p])]=random.randint(10,99)
         expected_h=sum(factors[p]*scale[p] for p in present)
         expected=expected_h/100
         if expected==int(expected): expected=int(expected)
         display_order=list(factors.keys()); random.shuffle(display_order)
-        display=' '.join(f'{factors[p]}{p}' for p in display_order)+' = __'
+        lbl={'dx':'dixiè','cx':'centiè'}
+        display=' '.join(f'{factors[p]}{lbl.get(p,p)}' for p in display_order)+' = __'
         return {'factors':factors,'order':display_order},display,expected
     if kind=='addition3':
         max_result=max(3,int(cfg.get('maxResult',27)))
