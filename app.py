@@ -515,8 +515,15 @@ def gen(kind,cfg):
         factors={p:random.randint(1,9) for p in present}
         # Option « 2 chiffres » : le terme le plus bas des choisis a une chance
         # sur deux de recevoir un nombre à deux chiffres (ex. 3c 24d, 45centiè).
+        # v330 : les termes ne peuvent pas se chevaucher — le nombre à deux
+        # chiffres n'est posé que s'il tient entièrement sous le terme juste
+        # au-dessus (ex. 8c 42u oui, mais 8d 42u non : 42u déborderait sur les
+        # dizaines déjà prises par le 8d).
         if cfg.get('twoDigits') and random.random()<0.5:
-            factors[min(present,key=lambda p:scale[p])]=random.randint(10,99)
+            lo=min(present,key=lambda p:scale[p])
+            above=[scale[p] for p in present if scale[p]>scale[lo]]
+            if not above or min(above)/scale[lo]>99:
+                factors[lo]=random.randint(10,99)
         expected_h=sum(factors[p]*scale[p] for p in present)
         expected=expected_h/100
         if expected==int(expected): expected=int(expected)
