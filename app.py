@@ -103,7 +103,7 @@ def init_db():
 DEFAULT={
  'duration':300,'count':50,
  'categories':{
-  'double':{'enabled':True,'weight':3,'min':1,'max':9,'doubleMode':'non_tens','tensValues':[10,20,30,40,50,60,70,80,90,100],'display':'both'},
+  'double':{'enabled':True,'weight':3,'min':1,'max':9,'doubleMode':'non_tens','tensValues':[10,20,30,40,50,60,70,80,90,100],'display':'both','withCarry':True},
   'half':{'enabled':False,'weight':3,'min':2,'max':10,'halfMode':'non_tens','tensValues':[10,20,30,40,50,60,70,80,90,100],'roundHundreds':False,'roundThousands':False,'withCarry':False},
   'addition':{'enabled':True,'weight':4,'aMin':1,'aMax':10,'bMin':1,'bMax':10,'maxResult':100,'withCarry':True},
   'subtraction':{'enabled':True,'weight':3,'aMin':1,'aMax':10,'bMin':1,'bMax':10,'nonNegative':True,'withCarry':True},
@@ -304,7 +304,12 @@ def gen(kind,cfg):
         if value_mode in ('tens','both'):
             choices += [int(x) for x in cfg.get('tensValues',[10,20,30,40,50,60,70,80,90,100])]
         choices=list(dict.fromkeys(choices))
-        if not choices: raise ValueError("Aucun double possible avec ces réglages.")
+        # Sans retenue : le double se calcule chiffre par chiffre, chaque
+        # chiffre doublé doit rester sous 10 (31 -> 62 naturel ; 47 -> 94
+        # demande une retenue car 7+7=14). v331 : option « Avec retenue ».
+        if not cfg.get('withCarry',True):
+            choices=[n for n in choices if all(2*int(d)<10 for d in str(abs(int(n))))]
+        if not choices: raise ValueError("Aucun double possible avec ces réglages sans retenue." if not cfg.get('withCarry',True) else "Aucun double possible avec ces réglages.")
         n=random.choice(choices); mode=cfg.get('display','both'); mode=random.choice(['word','sum']) if mode=='both' else mode
         return {'n':n,'mode':mode}, (f'Double de {n} = __' if mode=='word' else f'{n} + {n} = __'), n*2
     if kind=='half':
