@@ -1,1 +1,1 @@
-Stats : une petite étoile dorée marque la séance où l'enfant a gagné une étoile, sur la courbe affichée (réelle, ou lissée si la réelle est masquée).
+Stats : l'étoile dorée marque uniquement les séances où l'enfant a réellement gagné une étoile (corrigé : chaque défi terminé était marqué à tort ; l'historique est reconstruit).

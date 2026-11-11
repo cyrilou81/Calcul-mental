@@ -73,6 +73,28 @@ def init_db():
         c.execute('ALTER TABLE sessions ADD COLUMN challenge_stars_start INTEGER NOT NULL DEFAULT 0')
     if 'duration_seconds' not in session_columns:
         c.execute('ALTER TABLE sessions ADD COLUMN duration_seconds INTEGER NOT NULL DEFAULT 300')
+    # Migration v344 : star_won = une étoile a RÉELLEMENT été gagnée pendant
+    # cette séance. Attention : star_awarded est un drapeur « déjà évaluée »
+    # mis à 1 sur CHAQUE défi terminé (garde anti double traitement), pas une
+    # étoile ; les stats ne doivent jamais s'y fier.
+    if 'star_won' not in session_columns:
+        c.execute('ALTER TABLE sessions ADD COLUMN star_won INTEGER NOT NULL DEFAULT 0')
+        # Reconstruction une seule fois à partir de challenge_stars_start
+        # (v268) : une séance a gagné une étoile si la séance suivante du
+        # même palier démarre avec plus d'étoiles, ou si c'est la dernière
+        # séance d'un palier que le profil a quitté (l'étoile finale fait
+        # changer de palier pendant cette séane).
+        rows=c.execute("SELECT s.id,s.profile_id,s.challenge_level_id,s.challenge_stars_start,p.challenge_level_id AS current_level FROM sessions s JOIN profiles p ON p.id=s.profile_id WHERE s.mode='challenge' AND s.challenge_level_id IS NOT NULL ORDER BY s.profile_id,s.challenge_level_id,s.id").fetchall()
+        won=[];i=0
+        while i<len(rows):
+            j=i
+            while j+1<len(rows) and rows[j+1]['profile_id']==rows[i]['profile_id'] and rows[j+1]['challenge_level_id']==rows[i]['challenge_level_id']:
+                if rows[j+1]['challenge_stars_start']>rows[j]['challenge_stars_start']: won.append(rows[j]['id'])
+                j+=1
+            if rows[j]['challenge_level_id']!=rows[j]['current_level']: won.append(rows[j]['id'])
+            i=j+1
+        if won:
+            c.execute('UPDATE sessions SET star_won=1 WHERE id IN (%s)'%','.join('?'*len(won)),won)
     question_columns={r['name'] for r in c.execute('PRAGMA table_info(questions)')}
     if 'timed_out' not in question_columns:
         c.execute('ALTER TABLE questions ADD COLUMN timed_out INTEGER NOT NULL DEFAULT 0')
@@ -1806,7 +1828,7 @@ def finish(sid):
                         cc=c.execute('SELECT color FROM class_settings WHERE school_class=?',(completed_class,)).fetchone()
                         nc=c.execute('SELECT color FROM class_settings WHERE school_class=?',(next_class,)).fetchone()
                         completed_color=cc['color'] if cc else '#3189dc'; next_color=nc['color'] if nc else '#3189dc'
-        c.execute('UPDATE sessions SET star_awarded=1 WHERE id=?',(sid,))
+        c.execute('UPDATE sessions SET star_awarded=1,star_won=? WHERE id=?',(1 if star_awarded else 0,sid))
     pstate=c.execute('SELECT coins,challenge_level_id,challenge_stars,school_class FROM profiles WHERE id=?',(s['profile_id'],)).fetchone()
     balance=pstate['coins']
     # v275 : première fois que le solde atteint 10 pièces (prix d'une case de
@@ -1968,9 +1990,9 @@ def stats(pid):
             if r: lv.append(dict(r))
         lv.sort(key=lambda x:(class_rank(x['school_class']),x['position']))
         levels_out=[{'id':x['id'],'position':x['position'],'color':x['color'] or '#3189dc','current':x['id']==current_level_id} for x in lv]
-        ss=[dict(x) for x in c.execute('SELECT id,started_at,active_ms,mode,rewarded,star_awarded FROM sessions WHERE profile_id=? AND mode=? AND challenge_level_id=? ORDER BY id DESC',(pid,mode,level_id))] if level_id else []
+        ss=[dict(x) for x in c.execute('SELECT id,started_at,active_ms,mode,rewarded,star_awarded,star_won FROM sessions WHERE profile_id=? AND mode=? AND challenge_level_id=? ORDER BY id DESC',(pid,mode,level_id))] if level_id else []
     else:
-        ss=[dict(x) for x in c.execute('SELECT id,started_at,active_ms,mode,rewarded,star_awarded FROM sessions WHERE profile_id=? AND mode=? ORDER BY id DESC',(pid,mode))]
+        ss=[dict(x) for x in c.execute('SELECT id,started_at,active_ms,mode,rewarded,star_awarded,star_won FROM sessions WHERE profile_id=? AND mode=? ORDER BY id DESC',(pid,mode))]
     # v286 : le front précise combien de séances il affiche. Absent ou 0 =>
     # tout l'historique (export CSV, calcul de fond « Tous »).
     try: limit=max(0,int(request.args.get('limit') or 0))
@@ -1985,7 +2007,7 @@ def stats(pid):
         for kind in dict.fromkeys(q['kind'] for q in qs):
             kqs=[q for q in qs if q['kind']==kind]; kc=sum(1 for q in kqs if q['status']=='CORRECT')
             kt=[q['response_ms'] for q in kqs if q['response_ms'] is not None]; cats.append({'kind':kind,'attempted':len(kqs),'correct':kc,'accuracy':round(100*kc/len(kqs),1) if kqs else 0,'medianMs':int(statistics.median(kt)) if kt else None,'helpUsed':sum(1 for q in kqs if q.get('help_used'))})
-        out.append({'id':s['id'],'date':s['started_at'],'activeMs':s['active_ms'],'attempted':len(qs),'correct':len(correct),'incorrect':len(qs)-len(correct),'accuracy':round(100*len(correct)/len(qs),1) if qs else 0,'medianMs':int(statistics.median(times)) if times else None,'avgMs':int(sum(times)/len(times)) if times else None,'helpUsed':sum(1 for q in qs if q.get('help_used')),'categories':cats,'starAwarded':bool(s.get('star_awarded') or 0),'inProgress':not bool(s.get('rewarded',0))})
+        out.append({'id':s['id'],'date':s['started_at'],'activeMs':s['active_ms'],'attempted':len(qs),'correct':len(correct),'incorrect':len(qs)-len(correct),'accuracy':round(100*len(correct)/len(qs),1) if qs else 0,'medianMs':int(statistics.median(times)) if times else None,'avgMs':int(sum(times)/len(times)) if times else None,'helpUsed':sum(1 for q in qs if q.get('help_used')),'categories':cats,'starAwarded':bool(s.get('star_won') or 0),'inProgress':not bool(s.get('rewarded',0))})
     c.close(); return {'sessions':out,'mode':mode,'levels':levels_out}
 
 @app.delete('/api/session/<int:sid>/stats')
