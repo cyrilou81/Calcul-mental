@@ -520,14 +520,15 @@ def gen(kind,cfg):
         display=f'{a} + __ = {target}'
         return {'a':a,'target':target},display,gap
     if kind=='place_value':
-        places=[p for p in cfg.get('places',['u']) if p in ('dm','m','c','d','u','dx','cx')]
-        if not places: raise ValueError("Choisis au moins un terme parmi dm, m, c, d, u, dixièmes (dx) et centièmes (cx).")
+        places=[p for p in cfg.get('places',['u']) if p in ('cm','dm','m','c','d','u','dx','cx')]
+        if not places: raise ValueError("Choisis au moins un terme parmi cm, dm, m, c, d, u, dixièmes (dx) et centièmes (cx).")
         # v292 : toujours 2 termes tirés parmi ceux cochés (le seul si un seul
         # est coché). L'ancienne « probabilité qu'un terme soit absent » disparaît.
         present=places if len(places)==1 else random.sample(places,2)
-        # v307 : tout est calculé en centièmes entiers (cx=1 … dm=1 000 000)
+        # v307 : tout est calculé en centièmes entiers (cx=1 … cm=10 000 000)
         # pour que dixièmes et centièmes donnent des résultats exacts.
-        scale={'dm':1000000,'m':100000,'c':10000,'d':1000,'u':100,'dx':10,'cx':1}
+        # v335 : cm = centaines de milliers (×100 000), au-dessus de dm.
+        scale={'cm':10000000,'dm':1000000,'m':100000,'c':10000,'d':1000,'u':100,'dx':10,'cx':1}
         factors={p:random.randint(1,9) for p in present}
         # Option « 2 chiffres » : le terme le plus bas des choisis a une chance
         # sur deux de recevoir un nombre à deux chiffres (ex. 3c 24d, 45centiè).
@@ -1068,8 +1069,8 @@ def validate_cfg_data(data):
     if cats.get('complement_tens',{}).get('enabled') and not cats['complement_tens'].get('targets'):
         raise ValueError('Choisis au moins une dizaine cible pour les compléments.')
     if cats.get('place_value',{}).get('enabled'):
-        pv=cats['place_value']; places=[p for p in pv.get('places',[]) if p in ('dm','m','c','d','u','dx','cx')]
-        if not places: raise ValueError('Choisis au moins un terme parmi dm, m, c, d, u, dixièmes (dx) et centièmes (cx).')
+        pv=cats['place_value']; places=[p for p in pv.get('places',[]) if p in ('cm','dm','m','c','d','u','dx','cx')]
+        if not places: raise ValueError('Choisis au moins un terme parmi cm, dm, m, c, d, u, dixièmes (dx) et centièmes (cx).')
         # v292 : l'option « 2 chiffres » remplace l'ancienne probabilité d'absence.
         # Les configs déjà en BDD gardent leurs termes, l'option est décochée.
         pv['places']=places; pv['twoDigits']=bool(pv.get('twoDigits',False)); pv.pop('absenceProbability',None)

@@ -1,1 +1,1 @@
-Nouvelle catégorie « Division à trous » : l'enfant trouve le diviseur manquant (ex. 32 : __ = 8).
+Valeur de position : nouveau terme « c.m. » (centaines de milliers, × 100 000).
