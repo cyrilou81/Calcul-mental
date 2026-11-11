@@ -1968,9 +1968,9 @@ def stats(pid):
             if r: lv.append(dict(r))
         lv.sort(key=lambda x:(class_rank(x['school_class']),x['position']))
         levels_out=[{'id':x['id'],'position':x['position'],'color':x['color'] or '#3189dc','current':x['id']==current_level_id} for x in lv]
-        ss=[dict(x) for x in c.execute('SELECT id,started_at,active_ms,mode,rewarded FROM sessions WHERE profile_id=? AND mode=? AND challenge_level_id=? ORDER BY id DESC',(pid,mode,level_id))] if level_id else []
+        ss=[dict(x) for x in c.execute('SELECT id,started_at,active_ms,mode,rewarded,star_awarded FROM sessions WHERE profile_id=? AND mode=? AND challenge_level_id=? ORDER BY id DESC',(pid,mode,level_id))] if level_id else []
     else:
-        ss=[dict(x) for x in c.execute('SELECT id,started_at,active_ms,mode,rewarded FROM sessions WHERE profile_id=? AND mode=? ORDER BY id DESC',(pid,mode))]
+        ss=[dict(x) for x in c.execute('SELECT id,started_at,active_ms,mode,rewarded,star_awarded FROM sessions WHERE profile_id=? AND mode=? ORDER BY id DESC',(pid,mode))]
     # v286 : le front précise combien de séances il affiche. Absent ou 0 =>
     # tout l'historique (export CSV, calcul de fond « Tous »).
     try: limit=max(0,int(request.args.get('limit') or 0))
@@ -1985,7 +1985,7 @@ def stats(pid):
         for kind in dict.fromkeys(q['kind'] for q in qs):
             kqs=[q for q in qs if q['kind']==kind]; kc=sum(1 for q in kqs if q['status']=='CORRECT')
             kt=[q['response_ms'] for q in kqs if q['response_ms'] is not None]; cats.append({'kind':kind,'attempted':len(kqs),'correct':kc,'accuracy':round(100*kc/len(kqs),1) if kqs else 0,'medianMs':int(statistics.median(kt)) if kt else None,'helpUsed':sum(1 for q in kqs if q.get('help_used'))})
-        out.append({'id':s['id'],'date':s['started_at'],'activeMs':s['active_ms'],'attempted':len(qs),'correct':len(correct),'incorrect':len(qs)-len(correct),'accuracy':round(100*len(correct)/len(qs),1) if qs else 0,'medianMs':int(statistics.median(times)) if times else None,'avgMs':int(sum(times)/len(times)) if times else None,'helpUsed':sum(1 for q in qs if q.get('help_used')),'categories':cats,'inProgress':not bool(s.get('rewarded',0))})
+        out.append({'id':s['id'],'date':s['started_at'],'activeMs':s['active_ms'],'attempted':len(qs),'correct':len(correct),'incorrect':len(qs)-len(correct),'accuracy':round(100*len(correct)/len(qs),1) if qs else 0,'medianMs':int(statistics.median(times)) if times else None,'avgMs':int(sum(times)/len(times)) if times else None,'helpUsed':sum(1 for q in qs if q.get('help_used')),'categories':cats,'starAwarded':bool(s.get('star_awarded') or 0),'inProgress':not bool(s.get('rewarded',0))})
     c.close(); return {'sessions':out,'mode':mode,'levels':levels_out}
 
 @app.delete('/api/session/<int:sid>/stats')

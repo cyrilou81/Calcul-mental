@@ -1,1 +1,1 @@
-Stats : les badges de tendance des catégories affichent « stable » (badge gris) plutôt que rien quand la tendance est plate ; dates discrètes et cases à cocher réelle/lissée inchangées.
+Stats : une petite étoile dorée marque la séance où l'enfant a gagné une étoile, sur la courbe affichée (réelle, ou lissée si la réelle est masquée).
