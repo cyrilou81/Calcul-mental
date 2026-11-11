@@ -114,7 +114,7 @@ def init_db():
     # qu'à nettoyer les restes d'éventuelles anciennes versions.
     c.execute('DELETE FROM questions WHERE session_id IN (SELECT id FROM sessions WHERE profile_id NOT IN (SELECT id FROM profiles))')
     c.execute('DELETE FROM sessions WHERE profile_id NOT IN (SELECT id FROM profiles)')
-    c.execute('DELETE FROM configs WHERE profile_id NOT IN (SELECT id FROM profiles))')
+    c.execute('DELETE FROM configs WHERE profile_id NOT IN (SELECT id FROM profiles)')
     c.execute('DELETE FROM reward_progress WHERE profile_id NOT IN (SELECT id FROM profiles)')
 
     # v346 : rattrape à CHAQUE démarrage les étoiles gagnées sur la toute
