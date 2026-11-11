@@ -1,1 +1,1 @@
-Stats : vraie courbe + courbe lissée en surimpression (médiane de 3 séances glissantes) sur les 4 graphes, badge de tendance sur les 4 graphes (temps, réussite, questions, aide) et badge compact de tendance (réussite + temps) sur chaque catégorie de la page Stats.
+Stats : les valeurs aberrantes (z-score modifié sur la MAD, seuil 3,5) sont ignorées par le badge de tendance et la courbe lissée du temps médian ; les vraies valeurs restent affichées.
