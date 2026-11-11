@@ -1,1 +1,1 @@
-Stats : graphes en temps médian par question (au lieu de la moyenne), axe Y allant de la valeur la plus basse à la plus haute, et badge de tendance (« −2,3 s / question depuis le début »).
+Stats : vraie courbe + courbe lissée en surimpression (médiane de 3 séances glissantes) sur les 4 graphes, badge de tendance sur les 4 graphes (temps, réussite, questions, aide) et badge compact de tendance (réussite + temps) sur chaque catégorie de la page Stats.
