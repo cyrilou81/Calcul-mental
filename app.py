@@ -121,6 +121,8 @@ def init_db():
     # dernière séance d'un palier courant (aveugle du backfill v344,
     # voir repair_star_won ci-dessous).
     repair_star_won(c)
+    # v349 : purge des dizaines intermédiaires (v272) des Doubles enregistrés.
+    repair_double_tens(c)
 
     class_defaults={'CP':'#ef5350','CE1':'#f5b82e','CE2':'#2fbd68','CM1':'#3189dc','CM2':'#8b4de3'}
     for school,color in class_defaults.items():
@@ -160,6 +162,32 @@ def repair_star_won(c):
         i=j+1
     if won:
         c.execute('UPDATE sessions SET star_won=1 WHERE id IN (%s)'%','.join('?'*len(won)),sorted(set(won)))
+
+def repair_double_tens(c):
+    """v349 : retire des Doubles enregistrés les dizaines intermédiaires.
+
+    La v272 admettait 15, 25, 35… comme « dizaines » des Doubles ; ce fut une
+    erreur de réglage et elles ne sont plus proposées (config-form.js) ni
+    admises (validate_cfg_data). Ce nettoyage idempotent relit à chaque
+    démarrage les configs des profils et les données des paliers, filtre
+    categories.double.tensValues sur les dizaines rondes 10..100 et, si la
+    liste devient vide (un réglage n'utilisait QUE des intermédiaires), la
+    place par les dizaines rondes par défaut pour garder le palier jouable.
+    """
+    ok=[10,20,30,40,50,60,70,80,90,100]
+    for table,key in (('configs','profile_id'),('challenge_levels','id')):
+        for row in c.execute('SELECT %s AS k,data FROM %s'%(key,table)).fetchall():
+            try: data=json.loads(row['data'])
+            except (ValueError,TypeError): continue
+            d=(data.get('categories') or {}).get('double')
+            if not isinstance(d,dict): continue
+            tv=d.get('tensValues')
+            if not isinstance(tv,list): continue
+            new=[int(x) for x in tv if str(x).lstrip('-').isdigit() and int(x) in ok]
+            if not new: new=list(ok)
+            if new==tv: continue
+            d['tensValues']=new
+            c.execute('UPDATE %s SET data=? WHERE %s=?'%(table,key),(json.dumps(data),row['k']))
 
 DEFAULT={
  'duration':300,'count':50,
@@ -1091,7 +1119,7 @@ def validate_cfg_data(data):
         d['doubleMode']=mode
         d['min']=int(d.get('min',1)); d['max']=int(d.get('max',9))
         if d['min']>d['max']: raise ValueError('La plage des doubles est invalide.')
-        d['tensValues']=[int(x) for x in d.get('tensValues',[10,20,30,40,50,60,70,80,90,100]) if int(x) in (10,15,20,25,30,35,40,45,50,55,60,65,70,75,80,85,90,95,100)]
+        d['tensValues']=[int(x) for x in d.get('tensValues',[10,20,30,40,50,60,70,80,90,100]) if int(x) in (10,20,30,40,50,60,70,80,90,100)]
         if mode in ('non_tens','both') and not any(n%10!=0 for n in range(d['min'],d['max']+1)):
             raise ValueError('Aucune valeur hors dizaine possible dans la plage des doubles.')
         if mode in ('tens','both') and not d['tensValues']:
