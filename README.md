@@ -1,1 +1,1 @@
-Les Doubles en mode « Dizaines » n'acceptent plus les valeurs intermédiaires en 5 (15, 25, 35…) : les cases disparaissent du configurateur, la validation les refuse, et un nettoyage automatique au démarrage retire de tous les réglages enregistrés (profils et paliers) celles qui s'y étaient glissées.
+Stats : l'étoile des séances gagnées devient statique (graphes et liste des séances, côté parents) ; l'étoile animée (pulsation, halo, étincelles) reste réservée au graphe « Mon score » de Mes progrès, côté enfant.
