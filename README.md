@@ -1,1 +1,1 @@
-Stats : l'étoile dorée marque uniquement les séances où l'enfant a réellement gagné une étoile (corrigé : chaque défi terminé était marqué à tort ; l'historique est reconstruit).
+Une petite étoile dorée marque les parties où l'enfant a réellement gagné une étoile : dans la liste des séances (à côté des bonnes réponses) et sur le graphe « Mon score » de Mes progrès.
