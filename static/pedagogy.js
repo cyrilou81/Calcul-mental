@@ -75,6 +75,10 @@ function contextualHelp(q){
   if(k==='multiplication_gap'){
     return helpBox(`<div class="help-step">${hfmt(a)} × ? = ${hfmt(a*b)}</div><div class="help-step">${hfmt(a*b)} : ${hfmt(a)} = ?</div><div class="help-step">${hfmt(a*b)} : ${hfmt(a)} <span class="help-arrow">→</span> ${hfmt(b)}</div>`,`Cherche dans la table de ${hfmt(a)} le nombre qui donne ${hfmt(a*b)}.`)
   }
+  if(k==='division_gap'){
+    let qn=dividend/d;
+    return helpBox(`<div class="help-step">${hfmt(dividend)} : ? = ${hfmt(qn)}</div><div class="help-step">? × ${hfmt(qn)} = ${hfmt(dividend)}</div><div class="help-step">${hfmt(d)} × ${hfmt(qn)} <span class="help-arrow">→</span> ${hfmt(dividend)}</div>`,`Retourne la division : cherche dans la table de ${hfmt(qn)} le nombre qui donne ${hfmt(dividend)}.`)
+  }
   if(k==='multiplication'||k==='multiplication_tens'){
     let x=a,y=b; if(x>y){let t=x;x=y;y=t} // x = petit facteur / stratégie
     if([10,100,1000,10000].includes(x)||[10,100,1000,10000].includes(y)){let m=[10,100,1000,10000].includes(x)?x:y,base=m===x?y:x,steps=Math.round(Math.log10(m)),zeros='0'.repeat(steps);return helpBox(`<div class="help-step">${hfmt(base)} × ${m}</div><div class="decimal-track">${hfmt(base)} <span class="help-arrow">→</span> ${hfmt(base*m)}</div><div class="help-note">Ajoute ${steps} zéro${steps>1?'s':''} à droite.</div>`,`Pour multiplier un entier par ${m}, ajoute ${steps} zéro${steps>1?'s':''} à droite.`)};
@@ -162,6 +166,7 @@ const EXAMPLE_POOLS={
   'multiplication:default':[Q('multiplication',{a:7,b:6},'7 × 6 = __'),Q('multiplication',{a:8,b:7},'8 × 7 = __'),Q('multiplication',{a:6,b:6},'6 × 6 = __')],
   'division:default':[Q('division',{dividend:42,divisor:6},'42 : 6 = __'),Q('division',{dividend:56,divisor:7},'56 : 7 = __'),Q('division',{dividend:72,divisor:8},'72 : 8 = __')],
   'division_tens:default':[Q('division_tens',{dividend:80,divisor:10},'80 : 10 = __'),Q('division_tens',{dividend:600,divisor:100},'600 : 100 = __'),Q('division_tens',{dividend:7000,divisor:1000},'7000 : 1000 = __')],
+  'division_gap:default':[Q('division_gap',{dividend:32,divisor:4},'32 : __ = 8'),Q('division_gap',{dividend:42,divisor:6},'42 : __ = 7'),Q('division_gap',{dividend:45,divisor:9},'45 : __ = 5')],
   'decimal_complement:default':[Q('decimal_complement',{a:0.6,target:1},'0,6 + __ = 1'),Q('decimal_complement',{a:4.8,target:10},'4,8 + __ = 10'),Q('decimal_complement',{a:2.5,target:10},'2,5 + __ = 10')],
   'tens:default':[Q('tens',{a:34,b:20},'34 + 20 = __'),Q('tens',{a:52,b:30},'52 + 30 = __'),Q('tens',{a:26,b:40},'26 + 40 = __')],
   'tens_sub:default':[Q('tens_sub',{a:54,b:20},'54 − 20 = __'),Q('tens_sub',{a:87,b:30},'87 − 30 = __'),Q('tens_sub',{a:69,b:40},'69 − 40 = __')],
@@ -201,6 +206,7 @@ const catalog=[
  {id:'multiplication_gap',name:'Multiplication à trous',cases:[['Table inverse','multiplication_gap:default']]},
  {id:'division',name:'Divisions',cases:[['Multiplication inverse','division:default']]},
  {id:'division_tens',name:'Division de dizaines',cases:[['÷ 10 / 100 / 1000 / 10000','division_tens:default']]},
+ {id:'division_gap',name:'Division à trous',cases:[['Division inverse','division_gap:default']]},
  {id:'tens',name:'Additions de dizaines',cases:[['Dizaines / unités','tens:default']]},
  {id:'tens_sub',name:'Soustractions de dizaines',cases:[['Dizaines / unités','tens_sub:default']]},
  {id:'decimal_multiplication',name:'Multiplications décimales',cases:[['× 10','decimal_multiplication:x10'],['× 100','decimal_multiplication:x100'],['× 1000','decimal_multiplication:x1000']]},

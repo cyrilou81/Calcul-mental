@@ -112,6 +112,7 @@ DEFAULT={
   'multiplication_tens':{'enabled':False,'weight':3,'tables':[10],'factorMin':1,'factorMax':99},
   'multiplication_gap':{'enabled':False,'weight':3,'aFactors':[2,3,4,5],'bFactors':[2,3,4,5]},
   'division_tens':{'enabled':False,'weight':3,'divisors':[10],'dividendMin':10,'dividendMax':1000,'resultMin':1,'resultMax':100},
+  'division_gap':{'enabled':False,'weight':3,'divisors':[2,3,4,5],'quotients':[2,3,4,5]},
   'division':{'enabled':True,'weight':2,'tables':[2,3,4],'quotientMin':1,'quotientMax':10},
   'complement_tens':{'enabled':False,'weight':3,'targets':[10,20,30,40,50,60,70,80,90,100,1000],'gapMin':5,'gapMax':20},
   'place_value':{'enabled':False,'weight':3,'places':['u'],'twoDigits':False},
@@ -463,6 +464,16 @@ def gen(kind,cfg):
         if not possible: raise ValueError('Aucune division de dizaines possible avec ces réglages.')
         d,q=random.choice(possible)
         return {'dividend':d*q,'divisor':d},f'{d*q} : {d} = __',q
+    if kind=='division_gap':
+        # v334 : division à trous — c'est le DIVISEUR qu'il faut trouver :
+        # « 32 : __ = 8 », la réponse attendue est 4 (et non le quotient).
+        # On tire (diviseur, quotient) dans les listes cochées, le dividende
+        # est leur produit : la division est donc toujours exacte.
+        dvs=[int(x) for x in cfg.get('divisors',[2,3,4,5]) if 1<=int(x)<=11]
+        qts=[int(x) for x in cfg.get('quotients',[2,3,4,5]) if 1<=int(x)<=11]
+        if not dvs or not qts: raise ValueError('Choisis au moins un diviseur et un résultat pour les divisions à trous.')
+        d=random.choice(dvs); q=random.choice(qts)
+        return {'dividend':d*q,'divisor':d},f'{d*q} : __ = {q}',d
     if kind=='division':
         d=random.choice(cfg['tables']); q=random.randint(cfg['quotientMin'],cfg['quotientMax']); return {'dividend':d*q,'divisor':d},f'{d*q} : {d} = __',q
     if kind=='decimal_multiplication':
@@ -970,6 +981,12 @@ def validate_cfg_data(data):
         dt['resultMin']=max(1,int(dt.get('resultMin',1))); dt['resultMax']=max(dt['resultMin'],int(dt.get('resultMax',100)))
         if not any(dt['dividendMin']<=d*q<=dt['dividendMax'] for d in dt['divisors'] for q in range(max(dt['resultMin'],-(-dt['dividendMin']//d)),min(dt['resultMax'],dt['dividendMax']//d)+1)):
             raise ValueError('Aucune division de dizaines possible avec ces plages.')
+    if cats.get('division_gap',{}).get('enabled'):
+        dg=cats['division_gap']
+        dg['divisors']=[int(x) for x in dg.get('divisors',[]) if 1<=int(x)<=11]
+        dg['quotients']=[int(x) for x in dg.get('quotients',[]) if 1<=int(x)<=11]
+        if not dg['divisors'] or not dg['quotients']:
+            raise ValueError('Choisis au moins un diviseur et un résultat pour les divisions à trous.')
     if cats.get('division',{}).get('enabled') and not cats['division'].get('tables'):
         raise ValueError('Choisis au moins une table de division.')
     if cats.get('decimal_multiplication',{}).get('enabled') and not cats['decimal_multiplication'].get('multipliers'):
@@ -1117,7 +1134,7 @@ def operation_key(kind, payload):
     if kind in ('decimal','decimal_sub'):
         return (kind, payload.get('a'), payload.get('b'), payload.get('op'))
     if kind == 'decimal_complement': return (kind, payload.get('a'), payload.get('target'))
-    if kind in ('division','decimal_division','division_tens'):
+    if kind in ('division','decimal_division','division_tens','division_gap'):
         return (kind, payload.get('dividend'), payload.get('divisor'))
     if kind == 'round_tens_add': return (kind,payload.get('a'),payload.get('b'))
     if kind == 'complement_tens': return (kind,payload.get('a'),payload.get('target'))

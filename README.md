@@ -1,1 +1,1 @@
-Éditeur de calcul : les catégories (sélectionnées comme disponibles) sont maintenant triées par ordre alphabétique.
+Nouvelle catégorie « Division à trous » : l'enfant trouve le diviseur manquant (ex. 32 : __ = 8).
