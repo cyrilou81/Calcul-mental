@@ -1,1 +1,1 @@
-Valeur de position : nouveau champ « Écart max » — l'écart maximum (en échelons) entre les 2 termes tirés (défaut 3 ; ex. écart 2 : 2m 2d possible mais pas 2m 2u).
+Stats : le rafraîchissement automatique ne tourne plus que quand une séance EN COURS est affichée — la liste déroulante « Période » ne se fait plus remplacer pendant qu'on l'utilise.
