@@ -115,7 +115,7 @@ DEFAULT={
   'division_gap':{'enabled':False,'weight':3,'divisors':[2,3,4,5],'quotients':[2,3,4,5]},
   'division':{'enabled':True,'weight':2,'tables':[2,3,4],'quotientMin':1,'quotientMax':10},
   'complement_tens':{'enabled':False,'weight':3,'targets':[10,20,30,40,50,60,70,80,90,100,1000],'gapMin':5,'gapMax':20},
-  'place_value':{'enabled':False,'weight':3,'places':['u'],'twoDigits':False},
+  'place_value':{'enabled':False,'weight':3,'places':['u'],'twoDigits':False,'gapMax':3},
   'addition3':{'enabled':False,'weight':3,'maxResult':27},
   'multiple_of':{'enabled':False,'weight':3,'min':1,'max':10,'factors':[3,4]},
   'fraction':{'enabled':False,'weight':3,'min':1,'max':10,'divisors':[3,4],'withCarry':False},
@@ -524,7 +524,17 @@ def gen(kind,cfg):
         if not places: raise ValueError("Choisis au moins un terme parmi cm, dm, m, c, d, u, dixièmes (dx) et centièmes (cx).")
         # v292 : toujours 2 termes tirés parmi ceux cochés (le seul si un seul
         # est coché). L'ancienne « probabilité qu'un terme soit absent » disparaît.
-        present=places if len(places)==1 else random.sample(places,2)
+        # v336 : « écart max » — les 2 termes tirés ne peuvent pas être plus
+        # éloignés que ce nombre d'échelons sur l'échelle des positions
+        # (ex. écart 2 : 2m 2d oui — 2 échelons — mais 2m 2u non — 3 échelons).
+        exps={'cm':5,'dm':4,'m':3,'c':2,'d':1,'u':0,'dx':-1,'cx':-2}
+        gap_max=max(1,int(cfg.get('gapMax',3)))
+        if len(places)==1:
+            present=places
+        else:
+            pairs=[(a,b) for i,a in enumerate(places) for b in places[i+1:] if abs(exps[a]-exps[b])<=gap_max]
+            if not pairs: raise ValueError("Aucun couple de termes ne respecte l'écart max de la valeur de position.")
+            present=list(random.choice(pairs))
         # v307 : tout est calculé en centièmes entiers (cx=1 … cm=10 000 000)
         # pour que dixièmes et centièmes donnent des résultats exacts.
         # v335 : cm = centaines de milliers (×100 000), au-dessus de dm.
@@ -1074,6 +1084,11 @@ def validate_cfg_data(data):
         # v292 : l'option « 2 chiffres » remplace l'ancienne probabilité d'absence.
         # Les configs déjà en BDD gardent leurs termes, l'option est décochée.
         pv['places']=places; pv['twoDigits']=bool(pv.get('twoDigits',False)); pv.pop('absenceProbability',None)
+        # v336 : écart max entre les 2 termes tirés (nombre d'échelons, défaut 3).
+        pv['gapMax']=max(1,int(pv.get('gapMax',3)))
+        exps={'cm':5,'dm':4,'m':3,'c':2,'d':1,'u':0,'dx':-1,'cx':-2}
+        if len(places)>=2 and not any(abs(exps[a]-exps[b])<=pv['gapMax'] for i,a in enumerate(places) for b in places[i+1:]):
+            raise ValueError("Aucun couple de termes de la valeur de position ne respecte l'écart max.")
     if cats.get('multiple_of',{}).get('enabled'):
         factors=[int(x) for x in cats['multiple_of'].get('factors',[]) if int(x) in (3,4)]
         if not factors: raise ValueError('Choisis au moins Triple ou Quadruple.')
