@@ -1,1 +1,1 @@
-Une petite étoile dorée marque les parties où l'enfant a réellement gagné une étoile : dans la liste des séances (à côté des bonnes réponses) et sur le graphe « Mon score » de Mes progrès.
+Correctif étoile : une étoile gagnée sur la toute dernière séance d'un palier courant (invisible pour le backfill v344, qui attend la séance suivante) est rattrapée à chaque démarrage par repair_star_won et s'affiche partout. Les étoiles scintillent aussi de façon « mignonne » : pulsation + halo doré + étincelles (coupées si l'appareil demande un mouvement réduit).

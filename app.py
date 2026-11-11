@@ -114,13 +114,52 @@ def init_db():
     # qu'à nettoyer les restes d'éventuelles anciennes versions.
     c.execute('DELETE FROM questions WHERE session_id IN (SELECT id FROM sessions WHERE profile_id NOT IN (SELECT id FROM profiles))')
     c.execute('DELETE FROM sessions WHERE profile_id NOT IN (SELECT id FROM profiles)')
-    c.execute('DELETE FROM configs WHERE profile_id NOT IN (SELECT id FROM profiles)')
+    c.execute('DELETE FROM configs WHERE profile_id NOT IN (SELECT id FROM profiles))')
     c.execute('DELETE FROM reward_progress WHERE profile_id NOT IN (SELECT id FROM profiles)')
+
+    # v346 : rattrape à CHAQUE démarrage les étoiles gagnées sur la toute
+    # dernière séance d'un palier courant (aveugle du backfill v344,
+    # voir repair_star_won ci-dessous).
+    repair_star_won(c)
 
     class_defaults={'CP':'#ef5350','CE1':'#f5b82e','CE2':'#2fbd68','CM1':'#3189dc','CM2':'#8b4de3'}
     for school,color in class_defaults.items():
         c.execute('INSERT OR IGNORE INTO class_settings(school_class,color) VALUES(?,?)',(school,color))
     c.commit(); c.close()
+
+def repair_star_won(c):
+    """v346 : réparation idempotente de star_won, relue à CHAQUE démarrage.
+
+    Le backfill v344 ne tourne qu'une fois (garde « colonne absente ») et ne
+    peut pas voir une étoile gagnée sur la TOUTE DERNIÈRE séance du palier
+    courant : le saut de challenge_stars_start n'apparaît qu'au démarrage de
+    la séance SUIVANTE, et le palier n'a pas été quitté. Cas réel : Nardjes
+    (profil 3) a gagné son étoile n°2 sur sa dernière séance du 11/11 (48 bons
+    ≥ seuil 46) mais star_won est resté à 0 → étoile ni dans « Mes progrès » ni
+    dans les stats, alors que le profil porte bien 2 étoiles.
+
+    Règles — ajout 0→1 uniquement, jamais de retrait, donc sans danger pour
+    les étoiles déjà validées en direct par finish() :
+      1. saut : la séance j a gagné une étoile si la séance suivante du même
+         palier démarre avec plus d'étoiles (relire à chaque démarrage
+         rattrape aussi les sauts apparus APRÈS la migration unique v344) ;
+      2. dernière : la dernière séance TERMINÉE du palier COURANT a gagné une
+         étoile si le profil y possède aujourd'hui plus d'étoiles qu'au
+         démarrage de cette séance.
+    """
+    rows=c.execute("SELECT s.id,s.profile_id,s.challenge_level_id,s.challenge_stars_start,s.rewarded,s.star_won,p.challenge_level_id AS current_level,p.challenge_stars AS current_stars FROM sessions s JOIN profiles p ON p.id=s.profile_id WHERE s.mode='challenge' AND s.challenge_level_id IS NOT NULL ORDER BY s.profile_id,s.challenge_level_id,s.id").fetchall()
+    won=[];i=0
+    while i<len(rows):
+        j=i
+        while j+1<len(rows) and rows[j+1]['profile_id']==rows[i]['profile_id'] and rows[j+1]['challenge_level_id']==rows[i]['challenge_level_id']:
+            if rows[j+1]['challenge_stars_start']>rows[j]['challenge_stars_start'] and not rows[j]['star_won']: won.append(rows[j]['id'])
+            j+=1
+        last=rows[j]
+        if last['rewarded'] and last['challenge_level_id']==last['current_level'] and (last['current_stars'] or 0)>(last['challenge_stars_start'] or 0) and not last['star_won']:
+            won.append(last['id'])
+        i=j+1
+    if won:
+        c.execute('UPDATE sessions SET star_won=1 WHERE id IN (%s)'%','.join('?'*len(won)),sorted(set(won)))
 
 DEFAULT={
  'duration':300,'count':50,
