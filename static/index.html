@@ -1166,7 +1166,9 @@ function trendBadge(rawVals,unit=' s / question depuis le début',thresh=50,good
   let d=den?Math.round(num/den*(n-1)):0;
   let stable=Math.abs(d)<thresh;
   let cls=(goodUp?d>0:d<0)?'good':'bad',sign=d<0?'−':'+',val=(Math.abs(d)/div).toFixed(dec).replace('.',',');
-  if(short)return stable?'':`<span class="trend-badge ${cls}">${sign}${val} ${short}</span>`;
+  // v342 : en mode compact aussi, une tendance plate affiche « stable »
+  // (badge gris) plutôt que rien : les 2 badges d'une ligne restent lisibles.
+  if(short)return stable?'<span class="trend-badge neutral">stable</span>':`<span class="trend-badge ${cls}">${sign}${val} ${short}</span>`;
   if(stable)return '<span class="trend-badge neutral">stable</span>';
   return `<span class="trend-badge ${cls}">${sign}${val}${unit}</span>`;
 }

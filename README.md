@@ -1,1 +1,1 @@
-Stats : dates discrètes (début, milieu, fin) sous les graphes et cases à cocher pour afficher ou masquer la courbe réelle et la courbe lissée.
+Stats : les badges de tendance des catégories affichent « stable » (badge gris) plutôt que rien quand la tendance est plate ; dates discrètes et cases à cocher réelle/lissée inchangées.
