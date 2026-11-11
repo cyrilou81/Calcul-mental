@@ -1,1 +1,1 @@
-Stats : le rafraîchissement automatique ne tourne plus que quand une séance EN COURS est affichée — la liste déroulante « Période » ne se fait plus remplacer pendant qu'on l'utilise.
+Stats : graphes en temps médian par question (au lieu de la moyenne), axe Y allant de la valeur la plus basse à la plus haute, et badge de tendance (« −2,3 s / question depuis le début »).
