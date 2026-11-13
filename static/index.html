@@ -1695,6 +1695,27 @@ document.addEventListener('touchend',e=>{
 .challenge-level-card .challenge-level-stars{height:auto!important;gap:0!important;padding:1px 3px 2px!important}
 .challenge-level-card .oly-row{gap:0}
 </style>
+<style id="v352-level-cards">
+/* v352 — retours de Cyril sur les cartes de niveau : les étoiles en 2 étages
+   ne doivent plus manger le médaillon. Chaque carte réserve une zone basse
+   dédiée (padding-bottom) où les 2 rangées, compactes et imbriquées, se
+   calent tout en bas ; cartes resserrées (plus étroites et plus courtes),
+   médaillon un peu plus petit. Imbrication en px (pas en em) car le conteneur
+   des étoiles force font-size:0 (v265). */
+.challenge-level-card{flex:0 0 94px;min-height:88px;padding:7px 5px 24px}
+.challenge-level-card .challenge-medal{width:42px!important;height:42px!important;font-size:18px!important;margin:0 auto 3px!important}
+.challenge-level-card .challenge-level-name{font-size:13px!important;line-height:1.1!important;margin:0 0 6px!important}
+.challenge-level-card .level-star{width:14px!important;height:15px!important;font-size:14px!important;line-height:15px!important;flex:0 0 14px!important}
+.challenge-level-card .oly-row.oly-b{margin-top:-6px}
+.challenge-level-card .challenge-level-stars{padding:0 3px 1px!important}
+@media(max-width:650px){
+  .challenge-level-card{flex-basis:86px;min-width:86px;min-height:78px;padding:6px 4px 21px}
+  .challenge-level-card .challenge-medal{width:36px!important;height:36px!important;font-size:15px!important}
+  .challenge-level-card .challenge-level-name{font-size:12px!important;margin:0 0 5px!important}
+  .challenge-level-card .level-star{width:12px!important;height:13px!important;font-size:12px!important;line-height:13px!important;flex:0 0 12px!important}
+  .challenge-level-card .oly-row.oly-b{margin-top:-5px}
+}
+</style>
 <style id="v284-star-advice">/* v284 — carte conseil pour gagner la prochaine étoile, dans « Mes progrès », sous le graphe */
 .star-advice{display:flex;flex-direction:column;gap:14px;align-items:center;margin:0 auto 24px;max-width:980px;padding:16px 18px;border:2px solid #8fd9a8;border-radius:18px;background:#eaf8ee;box-shadow:0 6px 16px rgba(53,155,104,.12)}
 .star-advice-text{font-size:17px;font-weight:650;color:#1f6640;width:100%;min-width:230px;text-align:center}
