@@ -1,1 +1,1 @@
-Cartes de niveau : retour au calibre d'origine (cartes et médaillons comme avant) ; étoiles olympiques avec la rangée du haut à l'ancienne place de la rangée unique, la 2e rangée juste dessous, dépassant légèrement sous la carte.
+Cartes de niveau : étoiles olympiques remontées d'un poil (ancrage 4px plus haut).
