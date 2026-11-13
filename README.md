@@ -1,1 +1,1 @@
-Cartes de niveau : étoiles olympiques remontées d'un poil (ancrage 4px plus haut).
+Cartes de niveau : étoiles olympiques remontées encore d'un poil (4px de plus).
