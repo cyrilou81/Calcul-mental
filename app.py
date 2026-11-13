@@ -72,6 +72,14 @@ def init_db():
         user_agent TEXT, ip TEXT, created_at TEXT DEFAULT CURRENT_TIMESTAMP,
         is_read INTEGER NOT NULL DEFAULT 0
     );
+    -- v362 : vue Activité (admin) — connexions de comptes (profile_id NULL)
+    -- et (re)prises d'usage des profils. Table indépendante, supprimable
+    -- sans effet sur le jeu (comme support_messages).
+    CREATE TABLE IF NOT EXISTS activity_logins(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        account_id INTEGER, username TEXT, profile_id INTEGER, profile_name TEXT,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
     -- sans ces index, chaque requête par séance relisait toute la table des questions
     CREATE INDEX IF NOT EXISTS ix_questions_session ON questions(session_id,status);
     CREATE INDEX IF NOT EXISTS ix_sessions_level ON sessions(profile_id,mode,challenge_level_id);
@@ -117,6 +125,10 @@ def init_db():
     if 'coin_milestone' not in profile_columns:
         c.execute('ALTER TABLE profiles ADD COLUMN coin_milestone INTEGER NOT NULL DEFAULT 0')
         c.execute('UPDATE profiles SET coin_milestone=2 WHERE coins>=10')
+    # v362 : vue Activité — dernière activité vue du profil (epoch en secondes),
+    # utilisée pour l'indicateur « en ligne » et le rythme des événements.
+    if 'last_seen' not in profile_columns:
+        c.execute('ALTER TABLE profiles ADD COLUMN last_seen TEXT')
 
     # v303 : purge des données orphelines — séances/questions/configs/
     # récompenses rattachées à un profil qui n'existe plus. La suppression
@@ -920,7 +932,9 @@ def auth_register():
         c.commit()
     except sqlite3.IntegrityError:
         c.close(); return {'error':'Cet identifiant existe déjà.'},409
-    c.close(); session.clear(); session['account_id']=aid; session.permanent=True; return {'ok':True,'username':username}
+    c.close(); session.clear(); session['account_id']=aid; session.permanent=True
+    log_account_login(aid,username)  # v362 : vue Activité
+    return {'ok':True,'username':username}
 
 @app.post('/auth/login-form')
 def auth_login_form():
@@ -930,6 +944,7 @@ def auth_login_form():
     if not acc or not check_password_hash(acc['password_hash'],password):
         return redirect('/?login=error')
     session.clear(); session['account_id']=acc['id']; session.permanent=True
+    log_account_login(acc['id'],acc['username'])  # v362 : vue Activité
     return redirect('/?login=ok')
 
 @app.post('/api/auth/login')
@@ -937,7 +952,9 @@ def auth_login():
     data=request.json or {}; username=(data.get('username') or '').strip(); password=str(data.get('password') or '')
     c=db(); a=c.execute('SELECT id,username,password_hash FROM accounts WHERE username=? COLLATE NOCASE',(username,)).fetchone(); c.close()
     if not a or not check_password_hash(a['password_hash'],password): return {'error':'Identifiant ou mot de passe incorrect.'},401
-    session.clear(); session['account_id']=a['id']; session.permanent=True; return {'ok':True,'username':a['username']}
+    session.clear(); session['account_id']=a['id']; session.permanent=True
+    log_account_login(a['id'],a['username'])  # v362 : vue Activité
+    return {'ok':True,'username':a['username']}
 @app.post('/api/auth/logout')
 def auth_logout(): session.clear(); return {'ok':True}
 
@@ -1384,6 +1401,87 @@ def admin_support_delete(mid):
     c=db(); found=c.execute('SELECT id FROM support_messages WHERE id=?',(mid,)).fetchone()
     if not found: c.close(); return {'error':'Message introuvable'},404
     c.execute('DELETE FROM support_messages WHERE id=?',(mid,)); c.commit(); c.close(); return {'ok':True}
+
+# ---- v362 : vue Activité (admin) ---------------------------------------------
+ONLINE_WINDOW=300         # « en ligne » si dernière activité < 5 minutes
+PROFILE_ACTIVITY_GAP=900  # nouvelle « connexion profil » après 15 min de pause
+PROFILE_TOUCH_EVERY=60    # last_seen rafraîchi au plus toutes les 60 s
+
+def touch_profile(pid):
+    """v362 : trace l'activité d'un profil — indicateur « en ligne »
+    (profiles.last_seen) et événement de connexion dans activity_logins
+    quand l'usage démarre ou reprend après une pause >= 15 min."""
+    try:
+        c=db()
+        row=c.execute('SELECT last_seen,name,account_id FROM profiles WHERE id=?',(pid,)).fetchone()
+        if not row: c.close(); return
+        now=int(time.time()); prev=0
+        try: prev=int(float(row['last_seen'] or 0))
+        except (TypeError,ValueError): prev=0
+        if prev and now-prev < PROFILE_TOUCH_EVERY: c.close(); return
+        c.execute('UPDATE profiles SET last_seen=? WHERE id=?',(now,pid))
+        if not prev or now-prev >= PROFILE_ACTIVITY_GAP:
+            aid=row['account_id']; username=None
+            if aid is not None:
+                u=c.execute('SELECT username FROM accounts WHERE id=?',(aid,)).fetchone()
+                username=u['username'] if u else None
+            c.execute('INSERT INTO activity_logins(account_id,username,profile_id,profile_name) VALUES(?,?,?,?)',(aid,username,pid,row['name']))
+        c.commit(); c.close()
+    except Exception:
+        pass  # la traçabilité ne doit jamais casser le jeu
+
+def log_account_login(account_id, username):
+    """v362 : trace une connexion de compte (login ou création de compte)."""
+    try:
+        c=db(); c.execute('INSERT INTO activity_logins(account_id,username) VALUES(?,?)',(account_id,username)); c.commit(); c.close()
+    except Exception:
+        pass
+
+@app.before_request
+def track_activity():
+    # v362 : repère le profil concerné par la requête (pid direct dans l'URL,
+    # ou sid → profil via la séance) et trace son activité. Les requêtes sans
+    # profil (pages, admin, login) ne déclenchent rien ici.
+    try:
+        va=request.view_args or {}
+        pid=va.get('pid')
+        if pid is None and va.get('sid') is not None:
+            c=db(); r=c.execute('SELECT profile_id FROM sessions WHERE id=?',(va.get('sid'),)).fetchone(); c.close()
+            pid=r['profile_id'] if r else None
+        if pid is not None: touch_profile(pid)
+    except Exception:
+        pass
+
+@app.get('/api/admin/activity')
+def admin_activity():
+    # v362 : données de la vue Activité — profils en ligne, historique des
+    # connexions, derniers tests avec score, images récupérées par catégorie.
+    if (e:=require_admin()): return e
+    c=db(); now=int(time.time()); online=[]
+    for r in c.execute('SELECT p.name,p.last_seen,a.username FROM profiles p LEFT JOIN accounts a ON a.id=p.account_id WHERE p.last_seen IS NOT NULL ORDER BY p.last_seen DESC'):
+        try: ago=now-int(float(r['last_seen'] or 0))
+        except (TypeError,ValueError): continue
+        if ago<=ONLINE_WINDOW:
+            online.append({'name':r['name'],'username':r['username'],'ago':ago})
+    logins=[dict(r) for r in c.execute('SELECT id,username,profile_id,profile_name,created_at FROM activity_logins ORDER BY id DESC LIMIT 300')]
+    sessions=[{'id':r['id'],'started_at':r['started_at'],'mode':r['mode'],'star_won':r['star_won'],
+               'profile_name':r['profile_name'],'username':r['username'],'score':r['score'],'total':r['total']}
+              for r in c.execute("""SELECT s.id,s.started_at,s.mode,s.star_won,p.name profile_name,a.username,
+                SUM(CASE WHEN q.status='CORRECT' THEN 1 ELSE 0 END) score,COUNT(q.id) total
+                FROM sessions s JOIN profiles p ON p.id=s.profile_id
+                LEFT JOIN accounts a ON a.id=p.account_id
+                LEFT JOIN questions q ON q.session_id=s.id
+                WHERE s.rewarded=1 GROUP BY s.id ORDER BY s.id DESC LIMIT 200""")]
+    cards={}
+    for r in c.execute('SELECT completed FROM reward_progress'):
+        try: ids=json.loads(r['completed'] or '[]')
+        except Exception: ids=[]
+        for cid in ids:
+            k=str(cid).rsplit('-',1)[0]
+            cards[k]=cards.get(k,0)+1
+    c.close()
+    return {'online':online,'logins':logins,'sessions':sessions,'cards':cards}
+
 
 
 
