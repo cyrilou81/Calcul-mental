@@ -198,6 +198,9 @@ def repair_double_tens(c):
             d['tensValues']=new
             c.execute('UPDATE %s SET data=? WHERE %s=?'%(table,key),(json.dumps(data),row['k']))
 
+# v357 : défaut Entraînement demandé par Cyril — seules Additions, Soustractions
+# et Doubles sont actives (les Multiplications, Divisions et Dizaines ne le
+# sont plus). Les configs déjà enregistrées ne sont pas touchées.
 DEFAULT={
  'duration':300,'count':50,
  'categories':{
@@ -206,18 +209,18 @@ DEFAULT={
   'addition':{'enabled':True,'weight':4,'aMin':1,'aMax':10,'bMin':1,'bMax':10,'maxResult':100,'withCarry':True},
   'subtraction':{'enabled':True,'weight':3,'aMin':1,'aMax':10,'bMin':1,'bMax':10,'nonNegative':True,'withCarry':True},
   'decimal':{'enabled':False,'weight':3,'min':0,'max':20,'decimals':1,'withCarry':True},
-  'multiplication':{'enabled':True,'weight':3,'tables':[2,3],'factorMin':1,'factorMax':9,'maxResult':100,'withCarry':False},
+  'multiplication':{'enabled':False,'weight':3,'tables':[2,3],'factorMin':1,'factorMax':9,'maxResult':100,'withCarry':False},
   'multiplication_tens':{'enabled':False,'weight':3,'tables':[10],'factorMin':1,'factorMax':99},
   'multiplication_gap':{'enabled':False,'weight':3,'aFactors':[2,3,4,5],'bFactors':[2,3,4,5]},
   'division_tens':{'enabled':False,'weight':3,'divisors':[10],'dividendMin':10,'dividendMax':1000,'resultMin':1,'resultMax':100},
   'division_gap':{'enabled':False,'weight':3,'divisors':[2,3,4,5],'quotients':[2,3,4,5]},
-  'division':{'enabled':True,'weight':2,'tables':[2,3,4],'quotientMin':1,'quotientMax':10},
+  'division':{'enabled':False,'weight':2,'tables':[2,3,4],'quotientMin':1,'quotientMax':10},
   'complement_tens':{'enabled':False,'weight':3,'targets':[10,20,30,40,50,60,70,80,90,100,1000],'gapMin':5,'gapMax':20},
   'place_value':{'enabled':False,'weight':3,'places':['u'],'twoDigits':False,'gapMax':3},
   'addition3':{'enabled':False,'weight':3,'maxResult':27},
   'multiple_of':{'enabled':False,'weight':3,'min':1,'max':10,'factors':[3,4]},
   'fraction':{'enabled':False,'weight':3,'min':1,'max':10,'divisors':[3,4],'withCarry':False},
-  'tens':{'enabled':True,'weight':3,'startMin':10,'startMax':99,'multiples':[10],'maxResult':100,'withCarry':True},
+  'tens':{'enabled':False,'weight':3,'startMin':10,'startMax':99,'multiples':[10],'maxResult':100,'withCarry':True},
   'round_tens_add':{'enabled':False,'weight':3,'aMin':10,'aMax':90,'secondMode':'non_tens','bMin':1,'bMax':9,'bTensValues':[10,20,30,40,50,60,70,80,90,100],'maxResult':100,'withCarry':True},
   'tens_sub':{'enabled':False,'weight':3,'startMin':20,'startMax':100,'multiples':[10],'nonNegative':True,'withCarry':True},
   'decimal_sub':{'enabled':False,'weight':3,'min':0,'max':20,'decimals':1,'withBorrow':True},
