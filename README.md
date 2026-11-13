@@ -1,1 +1,1 @@
-Entraînement — configuration par défaut : seules les Additions, Soustractions et Doubles sont actives (Multiplications, Divisions et Dizaines désactivées). Les réglages déjà enregistrés ne changent pas.
+Support — bouton 💬 Support (écrans connexion, profils, accueil) : message libre + case « Voulez-vous une réponse ? » qui affiche un champ e-mail/téléphone ; messages enregistrés en base avec compte, profil et navigateur, consultés dans /admin (marquer lu, supprimer, compteur non lus) ; anti-spam 1 message/30 s par IP.

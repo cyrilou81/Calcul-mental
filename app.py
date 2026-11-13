@@ -63,6 +63,15 @@ def init_db():
     );
     CREATE TABLE IF NOT EXISTS class_settings(school_class TEXT PRIMARY KEY, color TEXT NOT NULL);
     CREATE TABLE IF NOT EXISTS migrations(name TEXT PRIMARY KEY);
+    -- v358 : messages du bouton Support, lus dans la page /admin.
+    -- account_id/username peuvent être NULL (message depuis l'écran de connexion).
+    CREATE TABLE IF NOT EXISTS support_messages(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        account_id INTEGER, username TEXT, profile_name TEXT,
+        message TEXT NOT NULL, reply_wanted INTEGER NOT NULL DEFAULT 0, contact TEXT,
+        user_agent TEXT, ip TEXT, created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        is_read INTEGER NOT NULL DEFAULT 0
+    );
     -- sans ces index, chaque requête par séance relisait toute la table des questions
     CREATE INDEX IF NOT EXISTS ix_questions_session ON questions(session_id,status);
     CREATE INDEX IF NOT EXISTS ix_sessions_level ON sessions(profile_id,mode,challenge_level_id);
@@ -931,6 +940,40 @@ def auth_login():
     session.clear(); session['account_id']=a['id']; session.permanent=True; return {'ok':True,'username':a['username']}
 @app.post('/api/auth/logout')
 def auth_logout(): session.clear(); return {'ok':True}
+
+@app.post('/api/support')
+def support_message():
+    # v358 : bouton 💬 Support — message libre + contact e-mail/téléphone
+    # optionnel si l'utilisateur veut une réponse. Endpoint PUBLIC (utilisable
+    # depuis l'écran de connexion) : le contexte disponible (compte, profil,
+    # navigateur, IP anti-spam) est enregistré avec le message et lu dans /admin.
+    d=request.json or {}
+    message=str(d.get('message') or '').strip()
+    if not message: return {'error':'Écris ton message avant d’envoyer.'},400
+    if len(message)>2000: return {'error':'Message trop long (2000 caractères maximum).'},400
+    reply_wanted=1 if d.get('reply_wanted') else 0
+    contact=str(d.get('contact') or '').strip()
+    if reply_wanted and not contact:
+        return {'error':'Indique un e-mail ou un téléphone pour recevoir une réponse.'},400
+    if len(contact)>200: return {'error':'Contact trop long (200 caractères maximum).'},400
+    profile_name=str(d.get('profile_name') or '').strip()[:60] or None
+    # Derrière le proxy Render, remote_addr est le proxy : on préfère X-Forwarded-For.
+    fwd=(request.headers.get('X-Forwarded-For') or '').split(',')[0].strip()
+    ip=(fwd or request.remote_addr or '')[:45]
+    c=db()
+    # anti-spam léger : 1 message maximum toutes les 30 secondes par IP.
+    if c.execute('SELECT id FROM support_messages WHERE ip=? AND created_at > datetime("now","-30 seconds") LIMIT 1',(ip,)).fetchone():
+        c.close(); return {'error':'Patiente quelques secondes avant d’envoyer un autre message.'},429
+    account_id=current_account_id() if authenticated() else None
+    username=None
+    if account_id is not None:
+        row=c.execute('SELECT username FROM accounts WHERE id=?',(account_id,)).fetchone()
+        username=row['username'] if row else None
+    c.execute('INSERT INTO support_messages(account_id,username,profile_name,message,reply_wanted,contact,user_agent,ip) VALUES(?,?,?,?,?,?,?,?)',
+        (account_id,username,profile_name,message,reply_wanted,contact or None,(request.headers.get('User-Agent') or '')[:300],ip))
+    c.commit(); c.close()
+    return {'ok':True}
+
 def admin_unlocked():
     admin_password=os.environ.get('ADMIN_PASSWORD')
     return authenticated() and (not admin_password or session.get('admin_unlocked') is True)
@@ -1316,6 +1359,32 @@ def admin_class_color_save(school):
     if not re.fullmatch(r'#[0-9a-fA-F]{6}',color): return {'error':'Couleur invalide'},400
     c=db(); c.execute('INSERT INTO class_settings(school_class,color) VALUES(?,?) ON CONFLICT(school_class) DO UPDATE SET color=excluded.color',(school,color)); c.commit(); c.close()
     return {'ok':True,'schoolClass':school,'color':color}
+
+
+@app.get('/api/admin/support')
+def admin_support_list():
+    # v358 : messages du bouton Support, plus récents d'abord.
+    if (e:=require_admin()): return e
+    c=db()
+    rows=[dict(r) for r in c.execute('SELECT id,username,profile_name,message,reply_wanted,contact,user_agent,created_at,is_read FROM support_messages ORDER BY id DESC LIMIT 500')]
+    c.close(); return jsonify(rows)
+
+@app.put('/api/admin/support/<int:mid>/read')
+def admin_support_read(mid):
+    if (e:=require_admin()): return e
+    if not isinstance((request.json or {}).get('is_read'), bool): return {'error':'is_read requis (true ou false).'},400
+    c=db(); found=c.execute('SELECT id FROM support_messages WHERE id=?',(mid,)).fetchone()
+    if not found: c.close(); return {'error':'Message introuvable'},404
+    c.execute('UPDATE support_messages SET is_read=? WHERE id=?',(1 if (request.json or {}).get('is_read') else 0,mid))
+    c.commit(); c.close(); return {'ok':True}
+
+@app.delete('/api/admin/support/<int:mid>')
+def admin_support_delete(mid):
+    if (e:=require_admin()): return e
+    c=db(); found=c.execute('SELECT id FROM support_messages WHERE id=?',(mid,)).fetchone()
+    if not found: c.close(); return {'error':'Message introuvable'},404
+    c.execute('DELETE FROM support_messages WHERE id=?',(mid,)); c.commit(); c.close(); return {'ok':True}
+
 
 
 @app.get('/api/admin/levels/export')
