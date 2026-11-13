@@ -949,12 +949,12 @@ def support_message():
     # navigateur, IP anti-spam) est enregistré avec le message et lu dans /admin.
     d=request.json or {}
     message=str(d.get('message') or '').strip()
-    if not message: return {'error':'Écris ton message avant d’envoyer.'},400
+    if not message: return {'error':'Écrivez votre message avant d’envoyer.'},400
     if len(message)>2000: return {'error':'Message trop long (2000 caractères maximum).'},400
     reply_wanted=1 if d.get('reply_wanted') else 0
     contact=str(d.get('contact') or '').strip()
     if reply_wanted and not contact:
-        return {'error':'Indique un e-mail ou un téléphone pour recevoir une réponse.'},400
+        return {'error':'Indiquez un e-mail ou un téléphone pour recevoir une réponse.'},400
     if len(contact)>200: return {'error':'Contact trop long (200 caractères maximum).'},400
     profile_name=str(d.get('profile_name') or '').strip()[:60] or None
     # Derrière le proxy Render, remote_addr est le proxy : on préfère X-Forwarded-For.
@@ -963,7 +963,7 @@ def support_message():
     c=db()
     # anti-spam léger : 1 message maximum toutes les 30 secondes par IP.
     if c.execute('SELECT id FROM support_messages WHERE ip=? AND created_at > datetime("now","-30 seconds") LIMIT 1',(ip,)).fetchone():
-        c.close(); return {'error':'Patiente quelques secondes avant d’envoyer un autre message.'},429
+        c.close(); return {'error':'Patientez quelques secondes avant d’envoyer un autre message.'},429
     account_id=current_account_id() if authenticated() else None
     username=None
     if account_id is not None:
