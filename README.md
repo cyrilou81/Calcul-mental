@@ -1,1 +1,1 @@
-Stats : l'étoile des séances gagnées devient statique (graphes et liste des séances, côté parents) ; l'étoile animée (pulsation, halo, étincelles) reste réservée au graphe « Mon score » de Mes progrès, côté enfant.
+Défis : 5 étoiles par palier (40, puis 45, 46, 47, 48) au lieu de 4 ; les enfants ayant déjà des étoiles en cours reçoivent l'étoile du 40 en cadeau (une seule fois, sans pièces) pour garder exactement le même effort qu'avant ; affichage des étoiles en 2 étages façon anneaux olympiques (3 en haut, 2 en bas).

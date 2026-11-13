@@ -62,6 +62,7 @@ def init_db():
         data TEXT NOT NULL, active INTEGER NOT NULL DEFAULT 1, UNIQUE(school_class, position)
     );
     CREATE TABLE IF NOT EXISTS class_settings(school_class TEXT PRIMARY KEY, color TEXT NOT NULL);
+    CREATE TABLE IF NOT EXISTS migrations(name TEXT PRIMARY KEY);
     -- sans ces index, chaque requête par séance relisait toute la table des questions
     CREATE INDEX IF NOT EXISTS ix_questions_session ON questions(session_id,status);
     CREATE INDEX IF NOT EXISTS ix_sessions_level ON sessions(profile_id,mode,challenge_level_id);
@@ -123,6 +124,14 @@ def init_db():
     repair_star_won(c)
     # v349 : purge des dizaines intermédiaires (v272) des Doubles enregistrés.
     repair_double_tens(c)
+
+    # v351 : passage à 5 étoiles par palier (40 puis 45, 46, 47, 48). Les profils
+    # qui ont déjà des étoiles en cours gardent l'effort promis par l'ancien
+    # référentiel à 4 étoiles : chaque étoile déjà gagnée l'a été à 45+ (donc
+    # 40+), l'étoile du 40 leur est offerte — une seule fois, sans pièces.
+    if not c.execute("SELECT 1 FROM migrations WHERE name='v351_star40_gift'").fetchone():
+        c.execute("INSERT INTO migrations(name) VALUES('v351_star40_gift')")
+        c.execute('UPDATE profiles SET challenge_stars=challenge_stars+1 WHERE challenge_stars>=1')
 
     class_defaults={'CP':'#ef5350','CE1':'#f5b82e','CE2':'#2fbd68','CM1':'#3189dc','CM2':'#8b4de3'}
     for school,color in class_defaults.items():
@@ -970,17 +979,20 @@ def initial_challenge_school(real_school):
 
 def required_stars_for(challenge_school, real_school):
     # Tout palier inférieur à la classe réelle sert de validation rapide : 1 étoile.
-    return 1 if class_rank(challenge_school) < class_rank(real_school) else 4
+    # v351 : le palier normal se valide à 5 étoiles (étoile d'entrée à 40).
+    return 1 if class_rank(challenge_school) < class_rank(real_school) else 5
 
 def challenge_score_threshold(challenge_school, real_school, current_stars):
     """Score requis pour gagner la prochaine étoile du niveau.
 
-    Niveau normal : 45, 46, 47 puis 48 pour les étoiles 1 à 4.
+    Niveau normal (v351) : 40 puis 45, 46, 47, 48 pour les étoiles 1 à 5 —
+    la 1re étoile, plus accessible, motive les enfants dès 40 bonnes réponses.
     Classe de défi inférieure à la classe réelle : validation rapide inchangée à 45.
     """
     if class_rank(challenge_school) < class_rank(real_school):
         return 45
-    return 45 + max(0, int(current_stars or 0))
+    s = max(0, int(current_stars or 0))
+    return 40 if s <= 0 else 44 + s
 
 
 def color_name_fr(hex_color):

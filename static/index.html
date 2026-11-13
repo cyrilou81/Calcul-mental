@@ -940,12 +940,12 @@ $('#createProfileBtn').onclick=async()=>{try{await api('/api/profiles',{method:'
 function updateSessionSummary(){if(!cfg)return;let mins=Math.max(1,Math.round((cfg.duration||300)/60));$('#sessionSummary').textContent=`${cfg.count||50} questions · ${mins} minute${mins>1?'s':''}`}
 function updateCoinBlink(){let b=$('#rewardBtn');if(b)b.classList.toggle('blink-attention',!!(challengeState&&challengeState.coinMilestone))}
 function renderChallenge(){if(!challengeState)return;updateCoinBlink();
-let progress=$('#challengeProgress'),levels=challengeState.levels||[],needed=Math.max(1,challengeState.requiredStars||4);
+let progress=$('#challengeProgress'),levels=challengeState.levels||[],needed=Math.max(1,challengeState.requiredStars||5);
 progress.innerHTML=levels.map((x,i)=>{
   let pos=i+1,isDone=pos<challengeState.level,isCurrent=pos===challengeState.level;
   let stars=isDone?needed:(isCurrent?challengeState.stars:0);
   let cls=isDone?'done':(isCurrent?'current':'locked');
-  let symbol=(isDone||isCurrent)?Array.from({length:needed},(_,i)=>`<span class="level-star ${i<stars?'earned':'empty'}" aria-hidden="true">★</span>`).join(''):'<span class="level-lock" aria-label="Verrouillé"><span class="level-lock-shackle"></span><span class="level-lock-body"><span class="level-lock-keyhole"></span></span></span>';
+  let symbol=(isDone||isCurrent)?olympicStarsHtml(stars,needed,(_,won)=>`<span class="level-star ${won?'earned':'empty'}" aria-hidden="true">★</span>`):'<span class="level-lock" aria-label="Verrouillé"><span class="level-lock-shackle"></span><span class="level-lock-body"><span class="level-lock-keyhole"></span></span></span>';
   return `<div class="challenge-level-card ${cls}" data-current="${isCurrent?'1':'0'}"><div class="challenge-medal" style="--medal:${escapeHtml(challengeState.classColor||'#3189dc')}" aria-label="Niveau ${pos}">${pos}</div><div class="challenge-level-stars">${symbol}</div></div>`
 }).join('');
 requestAnimationFrame(()=>{let cur=progress.querySelector('[data-current="1"]');if(cur)cur.scrollIntoView({behavior:'smooth',block:'nearest',inline:'center'})});
@@ -1070,12 +1070,12 @@ function localFinish(mode,qs){
  let dailyBonus=(mode==='challenge'&&challengeState&&!challengeState.doneToday)?10:0;
  let starBonus=0,levelBonus=0,starAwarded=false,levelUnlocked=false,unlockedLevelName=null;
  if(mode==='challenge'&&challengeState){
-  let needed=Math.max(1,challengeState.requiredStars||4),stars=Math.max(0,challengeState.stars||0),threshold=challengeState.threshold||45;
+  let needed=Math.max(1,challengeState.requiredStars||5),stars=Math.max(0,challengeState.stars||0),threshold=challengeState.threshold||45;
   if(earned>=threshold&&stars<needed){starBonus=10;starAwarded=true;if(stars+1>=needed){levelBonus=20;levelUnlocked=true;let nl=(challengeState.levels||[]).find(l=>l.position===((challengeState.level||1)+1));unlockedLevelName=nl?nl.name:null}}
  }
  let balance=(profile?profile.coins||0:0)+earned+dailyBonus+starBonus+levelBonus;
  let estStars=(challengeState&&challengeState.stars)||0;
- if(mode==='challenge'&&challengeState&&starAwarded)estStars=Math.min(Math.max(1,challengeState.requiredStars||4),estStars+1);
+ if(mode==='challenge'&&challengeState&&starAwarded)estStars=Math.min(Math.max(1,challengeState.requiredStars||5),estStars+1);
  return {ok:true,offline:true,coinsEarned:earned,dailyBonus:dailyBonus,starBonus:starBonus,levelBonus:levelBonus,balance:balance,starAwarded:starAwarded,levelUnlocked:levelUnlocked,unlockedLevelName:unlockedLevelName,unlockedColor:(challengeState&&challengeState.classColor)||'#3189dc',classCompleted:false,completedClass:null,nextClass:null,completedColor:null,nextColor:null,completedColorName:null,nextColorName:null,newRecord:false,recordScore:earned,previousRecord:0,recordLevel:(challengeState&&challengeState.level)||1,recordColor:(challengeState&&challengeState.classColor)||'#3189dc',challenge:{level:(challengeState&&challengeState.level)||1,stars:estStars},coinMilestone:false}}
 // Rejoue tout ce qui s'est passé hors ligne, puis envoie le résultat final.
 let syncingPending=false;
@@ -1243,8 +1243,17 @@ function progressChartHtml(sessions,threshold=45){
  let targetY=y(threshold), targetLabelX=W-R-64;
  return `<div class="progress-chart-wrap"><div class="progress-chart-title">Mon score</div><svg class="progress-chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Progression des bonnes réponses vers l'objectif ${threshold}"><rect x="${L}" y="${T}" width="${W-L-R}" height="${Math.max(0,targetY-T)}" fill="#dff5e5" opacity=".30"/>${grid}<path d="${area}" fill="#8de49f" opacity=".16"/><path d="${path}" fill="none" stroke="#1f9d55" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/><rect x="${targetLabelX-66}" y="${targetY-31}" width="132" height="25" rx="12.5" fill="#e7f8e9" stroke="#a9ddb7"/><text x="${targetLabelX}" y="${targetY-14}" text-anchor="middle" font-size="12.5" font-weight="950" fill="#237c43">🎯 Objectif ${threshold}</text>${dots}</svg></div>`;
 }
+// v351 : étoiles en 2 étages façon anneaux olympiques (3 en haut, 2 en bas).
+// Les deux rangées étant centrées, celle du bas se cale naturellement sur les
+// intervalles, comme les anneaux olympiques. Les étoiles gagnées se remplissent
+// de gauche à droite, haut puis bas ; needed <= 3 reste sur une seule rangée.
+function olympicStarsHtml(stars,needed,renderStar){
+ let n=Math.max(1,needed||5),sc=Math.max(0,stars||0),top=n<=3?n:Math.ceil(n/2);
+ let row=(a,b)=>`<span class="oly-row${a>0?' oly-b':''}">${Array.from({length:b-a},(_,j)=>renderStar(a+j,a+j<sc)).join('')}</span>`;
+ return `<span class="oly-stars">${(n<=3?[row(0,n)]:[row(0,top),row(top,n)]).join('')}</span>`;
+}
 function challengeProgressHtml(ch){
- let needed=Math.max(1,ch?.requiredStars||4),stars=Math.max(0,ch?.stars||0),symbols='⭐'.repeat(stars)+'☆'.repeat(Math.max(0,needed-stars));
+ let needed=Math.max(1,ch?.requiredStars||5),stars=Math.max(0,ch?.stars||0),symbols=olympicStarsHtml(stars,needed,(_,won)=>won?'⭐':'☆');
  return `<div class="progress-challenge-card"><div class="challenge-medal" style="--medal:${escapeHtml(ch?.classColor||'#3189dc')}" aria-label="Niveau ${ch?.level||1}">${ch?.level||1}</div><div class="progress-challenge-copy"><div class="progress-kicker">Défi en cours</div><div class="progress-level">Niveau ${ch?.level||1}</div><div class="progress-stars">${symbols}</div></div></div>`;
 }
 function starAdviceHtml(advice){
@@ -1671,6 +1680,20 @@ document.addEventListener('touchend',e=>{
 .blink-attention{animation:v275Blink 1.05s ease-in-out infinite}
 @keyframes v275Blink{0%,100%{background:#269ee8;color:#fff;box-shadow:0 0 0 0 rgba(255,217,61,0)}50%{background:#ffb51b;color:#17384d;box-shadow:0 0 0 7px rgba(255,217,61,.45)}}
 .progress-tab.blink-attention{animation:v275Blink 1.05s ease-in-out infinite}
+</style>
+<style id="v351-oly-stars">
+/* v351 — étoiles en 2 étages façon anneaux olympiques : 3 en haut, 2 en bas.
+   Les deux rangées étant centrées, celle du bas se décale naturellement d'un
+   demi-emplacement et vient se nicher dans les intervalles du haut. */
+.oly-stars{display:inline-flex;flex-direction:column;align-items:center;line-height:1}
+.oly-row{display:inline-flex;gap:2px}
+.oly-row.oly-b{margin-top:-.14em}
+.progress-stars .oly-row{gap:4px}
+/* Cartes de niveau (v265) : les étoiles compactes passent aussi en 2 étages —
+   la rangée de 5 devient 3+2, plus étroite ; la hauteur fixe du conteneur
+   suit (elle était dimensionnée pour une seule rangée). */
+.challenge-level-card .challenge-level-stars{height:auto!important;gap:0!important;padding:1px 3px 2px!important}
+.challenge-level-card .oly-row{gap:0}
 </style>
 <style id="v284-star-advice">/* v284 — carte conseil pour gagner la prochaine étoile, dans « Mes progrès », sous le graphe */
 .star-advice{display:flex;flex-direction:column;gap:14px;align-items:center;margin:0 auto 24px;max-width:980px;padding:16px 18px;border:2px solid #8fd9a8;border-radius:18px;background:#eaf8ee;box-shadow:0 6px 16px rgba(53,155,104,.12)}
