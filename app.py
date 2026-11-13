@@ -1479,8 +1479,15 @@ def admin_activity():
         for cid in ids:
             k=str(cid).rsplit('-',1)[0]
             cards[k]=cards.get(k,0)+1
+    profiles=[dict(r) for r in c.execute("""SELECT p.name,a.username,p.school_class,cl.name level,
+        COUNT(s.id) tests,COALESCE(SUM(s.star_won),0) stars
+        FROM profiles p LEFT JOIN accounts a ON a.id=p.account_id
+        LEFT JOIN sessions s ON s.profile_id=p.id AND s.rewarded=1
+        LEFT JOIN challenge_levels cl ON cl.id=p.challenge_level_id
+        GROUP BY p.id
+        ORDER BY CASE p.school_class WHEN 'CP' THEN 1 WHEN 'CE1' THEN 2 WHEN 'CE2' THEN 3 WHEN 'CM1' THEN 4 ELSE 5 END,p.name""")]
     c.close()
-    return {'online':online,'logins':logins,'sessions':sessions,'cards':cards}
+    return {'online':online,'logins':logins,'sessions':sessions,'cards':cards,'profiles':profiles}
 
 
 
