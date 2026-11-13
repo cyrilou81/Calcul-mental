@@ -1696,20 +1696,21 @@ document.addEventListener('touchend',e=>{
 /* v353 — retour de Cyril : cartes et médaillons exactement comme avant les
    5 étoiles (v350). Seule la disposition olympique reste : la rangée du HAUT
    occupe l'ancienne place de la rangée unique (bande de 22px du bas, v265) —
-   le conteneur, ancré bottom:-6px, remet la 1re rangée au pixel près à sa
+   le conteneur, ancré bottom:-2px, remet la 1re rangée au pixel près à sa
    position d'origine — et la rangée du bas passe SOUS la carte, dans la
    marge (padding-bottom:14px) de la rangée de cartes. Imbrication en px (le
    conteneur force font-size:0 en v265, un em vaudrait zéro). Classe .oly
    ajoutée en JS uniquement quand des étoiles sont affichées : les cartes
    verrouillées (cadenas) gardent le comportement v265 d'origine.
    v354 : ancrage remonté de 4px à la demande de Cyril (« un poil plus haut »).
-   v355 : encore 4px de plus, à sa demande (« encore un poil plus haut »). */
+   v355 : encore 4px de plus, à sa demande (« encore un poil plus haut »).
+   v356 : encore 4px de plus (« encore un poil plus haut »). */
 .challenge-level-card{overflow:visible}
-.challenge-level-card .challenge-level-stars.oly{height:auto!important;bottom:-6px}
+.challenge-level-card .challenge-level-stars.oly{height:auto!important;bottom:-2px}
 .challenge-level-card .oly-row{gap:1px}
 .challenge-level-card .oly-row.oly-b{margin-top:-5px}
 @media(max-width:650px){
-  .challenge-level-card .challenge-level-stars.oly{bottom:-3px}
+  .challenge-level-card .challenge-level-stars.oly{bottom:1px}
 }
 </style>
 <style id="v284-star-advice">/* v284 — carte conseil pour gagner la prochaine étoile, dans « Mes progrès », sous le graphe */
