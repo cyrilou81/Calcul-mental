@@ -946,7 +946,7 @@ progress.innerHTML=levels.map((x,i)=>{
   let stars=isDone?needed:(isCurrent?challengeState.stars:0);
   let cls=isDone?'done':(isCurrent?'current':'locked');
   let symbol=(isDone||isCurrent)?olympicStarsHtml(stars,needed,(_,won)=>`<span class="level-star ${won?'earned':'empty'}" aria-hidden="true">★</span>`):'<span class="level-lock" aria-label="Verrouillé"><span class="level-lock-shackle"></span><span class="level-lock-body"><span class="level-lock-keyhole"></span></span></span>';
-  return `<div class="challenge-level-card ${cls}" data-current="${isCurrent?'1':'0'}"><div class="challenge-medal" style="--medal:${escapeHtml(challengeState.classColor||'#3189dc')}" aria-label="Niveau ${pos}">${pos}</div><div class="challenge-level-stars">${symbol}</div></div>`
+  return `<div class="challenge-level-card ${cls}" data-current="${isCurrent?'1':'0'}"><div class="challenge-medal" style="--medal:${escapeHtml(challengeState.classColor||'#3189dc')}" aria-label="Niveau ${pos}">${pos}</div><div class="challenge-level-stars${(isDone||isCurrent)?' oly':''}">${symbol}</div></div>`
 }).join('');
 requestAnimationFrame(()=>{let cur=progress.querySelector('[data-current="1"]');if(cur)cur.scrollIntoView({behavior:'smooth',block:'nearest',inline:'center'})});
 let b=$('#dailyChallengeBadge');b.classList.toggle('done',!!challengeState.doneToday);b.classList.toggle('todo',!challengeState.doneToday);b.querySelector('span:last-child').textContent=challengeState.doneToday?'Défi du jour effectué ✓':'Défi du jour à faire';}
@@ -1689,31 +1689,25 @@ document.addEventListener('touchend',e=>{
 .oly-row{display:inline-flex;gap:2px}
 .oly-row.oly-b{margin-top:-.14em}
 .progress-stars .oly-row{gap:4px}
-/* Cartes de niveau (v265) : les étoiles compactes passent aussi en 2 étages —
-   la rangée de 5 devient 3+2, plus étroite ; la hauteur fixe du conteneur
-   suit (elle était dimensionnée pour une seule rangée). */
-.challenge-level-card .challenge-level-stars{height:auto!important;gap:0!important;padding:1px 3px 2px!important}
-.challenge-level-card .oly-row{gap:0}
+/* Cartes de niveau : voir le bloc v353-level-stars (la rangée du haut doit
+   rester à l'ancienne place et la rangée du bas passer SOUS la carte). */
 </style>
-<style id="v352-level-cards">
-/* v352 — retours de Cyril sur les cartes de niveau : les étoiles en 2 étages
-   ne doivent plus manger le médaillon. Chaque carte réserve une zone basse
-   dédiée (padding-bottom) où les 2 rangées, compactes et imbriquées, se
-   calent tout en bas ; cartes resserrées (plus étroites et plus courtes),
-   médaillon un peu plus petit. Imbrication en px (pas en em) car le conteneur
-   des étoiles force font-size:0 (v265). */
-.challenge-level-card{flex:0 0 94px;min-height:88px;padding:7px 5px 24px}
-.challenge-level-card .challenge-medal{width:42px!important;height:42px!important;font-size:18px!important;margin:0 auto 3px!important}
-.challenge-level-card .challenge-level-name{font-size:13px!important;line-height:1.1!important;margin:0 0 6px!important}
-.challenge-level-card .level-star{width:14px!important;height:15px!important;font-size:14px!important;line-height:15px!important;flex:0 0 14px!important}
-.challenge-level-card .oly-row.oly-b{margin-top:-6px}
-.challenge-level-card .challenge-level-stars{padding:0 3px 1px!important}
+<style id="v353-level-stars">
+/* v353 — retour de Cyril : cartes et médaillons exactement comme avant les
+   5 étoiles (v350). Seule la disposition olympique reste : la rangée du HAUT
+   occupe l'ancienne place de la rangée unique (bande de 22px du bas, v265) —
+   le conteneur, ancré bottom:-14px, remet la 1re rangée au pixel près à sa
+   position d'origine — et la rangée du bas passe SOUS la carte, dans la
+   marge (padding-bottom:14px) de la rangée de cartes. Imbrication en px (le
+   conteneur force font-size:0 en v265, un em vaudrait zéro). Classe .oly
+   ajoutée en JS uniquement quand des étoiles sont affichées : les cartes
+   verrouillées (cadenas) gardent le comportement v265 d'origine. */
+.challenge-level-card{overflow:visible}
+.challenge-level-card .challenge-level-stars.oly{height:auto!important;bottom:-14px}
+.challenge-level-card .oly-row{gap:1px}
+.challenge-level-card .oly-row.oly-b{margin-top:-5px}
 @media(max-width:650px){
-  .challenge-level-card{flex-basis:86px;min-width:86px;min-height:78px;padding:6px 4px 21px}
-  .challenge-level-card .challenge-medal{width:36px!important;height:36px!important;font-size:15px!important}
-  .challenge-level-card .challenge-level-name{font-size:12px!important;margin:0 0 5px!important}
-  .challenge-level-card .level-star{width:12px!important;height:13px!important;font-size:12px!important;line-height:13px!important;flex:0 0 12px!important}
-  .challenge-level-card .oly-row.oly-b{margin-top:-5px}
+  .challenge-level-card .challenge-level-stars.oly{bottom:-11px}
 }
 </style>
 <style id="v284-star-advice">/* v284 — carte conseil pour gagner la prochaine étoile, dans « Mes progrès », sous le graphe */

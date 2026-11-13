@@ -1,1 +1,1 @@
-Cartes de niveau : les étoiles olympiques descendent dans une zone basse dédiée (ne recouvrent plus le médaillon), cartes resserrées (plus étroites et plus courtes) et médaillon légèrement réduit.
+Cartes de niveau : retour au calibre d'origine (cartes et médaillons comme avant) ; étoiles olympiques avec la rangée du haut à l'ancienne place de la rangée unique, la 2e rangée juste dessous, dépassant légèrement sous la carte.
