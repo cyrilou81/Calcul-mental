@@ -839,7 +839,11 @@ def facilitator_disabled_kinds(pid,level_id,active_kinds):
     info={'tests':0,'avg':None}
     if len(active_kinds)<5: return [],info  # plancher : 4 types minimum au défi
     c=db()
-    rows=c.execute("SELECT s.id sid,q.kind kind,q.status status,q.response_ms ms FROM sessions s JOIN questions q ON q.session_id=s.id WHERE s.profile_id=? AND s.mode='challenge' AND s.challenge_level_id=? AND s.rewarded=1 ORDER BY s.id DESC",(pid,level_id)).fetchall()
+    # v366 : fenêtre = défis DÉMARRÉS sur l'étoile en cours (challenge_stars_start
+    # = challenge_stars du profil). Reset réel au changement d'étoile : avant
+    # v366 on lisait tout le palier, donc les échecs de l'ancienne étoile
+    # laissaient des catégories grisées même après un changement d'étoile.
+    rows=c.execute("SELECT s.id sid,q.kind kind,q.status status,q.response_ms ms FROM sessions s JOIN questions q ON q.session_id=s.id WHERE s.profile_id=? AND s.mode='challenge' AND s.challenge_level_id=? AND s.rewarded=1 AND s.challenge_stars_start=(SELECT challenge_stars FROM profiles WHERE id=?) ORDER BY s.id DESC",(pid,level_id,pid)).fetchall()
     c.close()
     if not rows: return [],info
     by_sess={}
@@ -849,8 +853,8 @@ def facilitator_disabled_kinds(pid,level_id,active_kinds):
     if len(recent)<3: return [],info
     # Mémoire de l'étoile : médiane par type sur TOUS les défis de l'étoile.
     # Les types mis de côté gardent ainsi leurs temps quand la fenêtre récente
-    # ne les contient plus. Reset automatique au changement d'étoile puisqu'on
-    # ne lit que les défis du palier courant.
+    # ne les contient plus. Reset automatique au changement d'étoile : depuis
+    # v366, rows ne contient que les défis de l'étoile en cours.
     star={}
     for r in rows:
         if r['status']!='UNANSWERED' and r['ms'] is not None: star.setdefault(r['kind'],[]).append(r['ms'])
