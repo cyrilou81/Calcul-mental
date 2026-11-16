@@ -239,7 +239,7 @@ DEFAULT={
   'complement_tens':{'enabled':False,'weight':3,'targets':[10,20,30,40,50,60,70,80,90,100,1000],'gapMin':5,'gapMax':20},
   'place_value':{'enabled':False,'weight':3,'places':['u'],'twoDigits':False,'gapMax':3},
   'addition3':{'enabled':False,'weight':3,'maxResult':27},
-  'multiple_of':{'enabled':False,'weight':3,'min':1,'max':10,'factors':[3,4]},
+  'multiple_of':{'enabled':False,'weight':3,'min':1,'max':10,'factors':[3,4],'withCarry':True},
   'fraction':{'enabled':False,'weight':3,'min':1,'max':10,'divisors':[3,4],'withCarry':False},
   'tens':{'enabled':False,'weight':3,'startMin':10,'startMax':99,'multiples':[10],'maxResult':100,'withCarry':True},
   'round_tens_add':{'enabled':False,'weight':3,'aMin':10,'aMax':90,'secondMode':'non_tens','bMin':1,'bMax':9,'bTensValues':[10,20,30,40,50,60,70,80,90,100],'maxResult':100,'withCarry':True},
@@ -695,7 +695,19 @@ def gen(kind,cfg):
     if kind=='multiple_of':
         factors=[int(x) for x in cfg.get('factors',[3,4]) if int(x) in (3,4)]
         if not factors: raise ValueError("Choisis au moins Triple ou Quadruple.")
-        n=random.randint(int(cfg.get('min',1)),int(cfg.get('max',10))); factor=random.choice(factors)
+        # v368 : « Avec retenue » (cochée par défaut, comme les additions) —
+        # décochée, on ne propose que des N sans retenue dans la multiplication
+        # posée par le facteur : chaque chiffre sauf le plus à gauche reste < 10
+        # une fois multiplié (triple de 7 = 21 est SANS retenue, comme 8×9 ;
+        # triple de 47 en a une : 3×7 = 21 reporté sur les dizaines).
+        with_carry=bool(cfg.get('withCarry',True))
+        def multiple_without_carry(n,f):
+            return all(int(d)*f<10 for d in str(abs(int(n)))[1:])
+        lo=int(cfg.get('min',1)); hi=int(cfg.get('max',10))
+        if lo>hi: lo,hi=hi,lo
+        candidates=[(n,f) for f in factors for n in range(lo,hi+1) if with_carry or multiple_without_carry(n,f)]
+        if not candidates: raise ValueError('Aucun multiple possible avec ces réglages sans retenue.')
+        n,factor=random.choice(candidates)
         word='Triple' if factor==3 else 'Quadruple'
         return {'n':n,'factor':factor},f'{word} de {n} = __',n*factor
     if kind=='fraction':
@@ -1261,6 +1273,7 @@ def validate_cfg_data(data):
         factors=[int(x) for x in cats['multiple_of'].get('factors',[]) if int(x) in (3,4)]
         if not factors: raise ValueError('Choisis au moins Triple ou Quadruple.')
         cats['multiple_of']['factors']=factors
+        cats['multiple_of']['withCarry']=bool(cats['multiple_of'].get('withCarry',True))
     if cats.get('fraction',{}).get('enabled'):
         frac=cats['fraction']
         divisors=[int(x) for x in frac.get('divisors',[]) if int(x) in (3,4)]
