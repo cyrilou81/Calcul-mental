@@ -130,6 +130,12 @@ def init_db():
     if 'last_seen' not in profile_columns:
         c.execute('ALTER TABLE profiles ADD COLUMN last_seen TEXT')
 
+    # v369 : facilitateur activable/désactivable par profil (bas de la vue
+    # Statistiques). Actif par défaut, donc les réglages existants ne
+    # changent pas ; désactivé, toutes les catégories sont proposées au défi.
+    if 'facilitator_enabled' not in profile_columns:
+        c.execute('ALTER TABLE profiles ADD COLUMN facilitator_enabled INTEGER NOT NULL DEFAULT 1')
+
     # v303 : purge des données orphelines — séances/questions/configs/
     # récompenses rattachées à un profil qui n'existe plus. La suppression
     # d'un profil efface déjà tout (delete_profile), ce balayage ne sert
@@ -851,6 +857,10 @@ def facilitator_disabled_kinds(pid,level_id,active_kinds):
     info={'tests':0,'avg':None}
     if len(active_kinds)<5: return [],info  # plancher : 4 types minimum au défi
     c=db()
+    # v369 : interrupteur par profil (bas de la vue Statistiques) —
+    # désactivé, le facilitateur ne met de côté aucune catégorie.
+    prow=c.execute('SELECT facilitator_enabled FROM profiles WHERE id=?',(pid,)).fetchone()
+    if prow is not None and not prow['facilitator_enabled']: c.close(); return [],info
     # v366 : fenêtre = défis DÉMARRÉS sur l'étoile en cours (challenge_stars_start
     # = challenge_stars du profil). Reset réel au changement d'étoile : avant
     # v366 on lisait tout le palier, donc les échecs de l'ancienne étoile
@@ -2220,7 +2230,7 @@ def facilitator(pid):
     # sur l'étoile courante (affichés en gris dans le détail de séance).
     if (e:=require_auth()): return e
     if not owns_profile(pid): return {'error':'Profil introuvable'},404
-    c=db(); p=c.execute('SELECT challenge_level_id FROM profiles WHERE id=?',(pid,)).fetchone()
+    c=db(); p=c.execute('SELECT challenge_level_id,facilitator_enabled FROM profiles WHERE id=?',(pid,)).fetchone()
     level_id=p['challenge_level_id'] if p else None
     kinds=[]
     if level_id:
@@ -2229,9 +2239,20 @@ def facilitator(pid):
             cfg=merged_cfg(json.loads(lv['data']))
             kinds=[k for k,v in cfg['categories'].items() if v.get('enabled') and int(v.get('weight',0) or 0)>0]
     c.close()
-    if not level_id or not kinds: return {'disabled':[],'tests':0,'avg':None}
+    if not level_id or not kinds: return {'disabled':[],'tests':0,'avg':None,'enabled':bool(p and p['facilitator_enabled'])}
     disabled,info=facilitator_disabled_kinds(pid,level_id,set(kinds))
-    return {'disabled':disabled,'tests':info['tests'],'avg':info['avg']}
+    return {'disabled':disabled,'tests':info['tests'],'avg':info['avg'],'enabled':bool(p and p['facilitator_enabled'])}
+
+@app.post('/api/profiles/<int:pid>/facilitator')
+def toggle_facilitator(pid):
+    """v369 : interrupteur du facilitateur (bas de la vue Statistiques du profil).
+    Actif par défaut ; désactivé, toutes les catégories sont proposées au défi."""
+    if (e:=require_auth()): return e
+    if not owns_profile(pid): return {'error':'Profil introuvable'},404
+    data=request.json or {}
+    enabled=1 if data.get('enabled') else 0
+    c=db(); c.execute('UPDATE profiles SET facilitator_enabled=? WHERE id=?',(enabled,pid)); c.commit(); c.close()
+    return {'ok':True,'enabled':bool(enabled)}
 
 @app.get('/api/stats/<int:pid>')
 def stats(pid):
