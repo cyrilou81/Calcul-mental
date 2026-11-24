@@ -1,1 +1,1 @@
-Facilitateur — interrupteur par profil tout en bas de la vue Statistiques : actif par défaut ; désactivé, toutes les catégories sont proposées à chaque défi et plus aucun type n'est mis de côté ; réactivable à tout moment, mémorisé par profil (les réglages existants ne changent pas).
+Badges de tendance (−X pts, −X,X s) : calculés sur les valeurs lissées (médiane glissante de 3 séances, comme la courbe orange des graphes) au lieu des valeurs réelles — une séance isolée atypique ne fait plus de badge énorme ; comportement inchangé en dessous de 3 valeurs.

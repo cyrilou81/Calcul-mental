@@ -1159,7 +1159,16 @@ function trendBadge(rawVals,unit=' s / question depuis le début',thresh=50,good
   // v339 : paramétrable par métrique (unité affichée, seuil de stabilité,
   // sens de la progression, diviseur/décimales) et mode compact (short)
   // pour les badges de la liste des catégories (stable -> rien).
-  let vals=rawVals.filter(v=>v!=null&&Number.isFinite(v));
+  // v370 : la régression se fait sur les valeurs LISSÉES (médiane de 3
+  // séances glissantes, fenêtre centrée — exactement la courbe orange des
+  // graphes) : une séance isolée extrême faisait un badge énorme (« −16 pts »,
+  // « −2 s ») qui contredisait la courbe lissée affichée. Les positions sont
+  // conservées : fenêtre sans valeur (madClean, catégorie non jouée) →
+  // repli sur le point, vide → exclu. Moins de 3 points : pas de lissage
+  // possible, comportement inchangé.
+  let clean=rawVals.map(v=>v!=null&&Number.isFinite(v)?v:null);
+  let sm=clean.length>=3?clean.map((_,i)=>{let w=clean.slice(Math.max(0,i-1),i+2).filter(v=>v!=null);return w.length?medianVal(w):clean[i]}):clean;
+  let vals=sm.filter(v=>v!=null);
   let n=vals.length;
   if(n<2)return '';
   let xm=(n-1)/2,ym=vals.reduce((t,v)=>t+v,0)/n,num=0,den=0;
